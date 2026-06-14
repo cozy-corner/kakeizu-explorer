@@ -1,0 +1,9 @@
+.next/
+out/
+build/
+node_modules/
+bun.lock
+next-env.d.ts
+
+# Don't format hand-written design docs (avoid unnecessary prose churn).
+docs/
