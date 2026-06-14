@@ -1,0 +1,23 @@
+# Local-dev Neo4j. Production uses AuraDB with secret credentials, so the
+# credentials here can be fixed local-only values. The app reads them from
+# .env.development.
+#
+# Fixed project name so every git worktree's `docker compose up -d` targets the
+# same single instance/container/volume (shared DB, no port/name conflicts).
+name: kakeizu
+services:
+  neo4j:
+    image: neo4j:5
+    container_name: kakeizu-neo4j
+    ports:
+      - "7474:7474" # HTTP (Neo4j Browser)
+      - "7687:7687" # Bolt (neo4j-driver connection)
+    environment:
+      NEO4J_AUTH: neo4j/devpassword
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+
+volumes:
+  neo4j-data:
+  neo4j-logs:
