@@ -20,11 +20,11 @@ export async function GET() {
       await session.close();
     }
   } catch (err) {
+    // Log details server-side, but return a generic message so internal info
+    // (connection URI, auth errors, stack) is not leaked to clients.
+    console.error("Health check failed:", err);
     return NextResponse.json(
-      {
-        status: "error",
-        message: err instanceof Error ? err.message : String(err),
-      },
+      { status: "error", message: "Service unavailable" },
       { status: 503 },
     );
   }
