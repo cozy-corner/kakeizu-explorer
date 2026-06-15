@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { neighborsToGraph, personsToGraph } from "./graph";
+import { neighborsToGraph, pathToGraph, personsToGraph } from "./graph";
 
 test("maps person rows into graph nodes, preserving qid and label", () => {
   const graph = personsToGraph([
@@ -92,4 +92,40 @@ test("neighbors: dedupes repeated nodes and edges", () => {
 
 test("neighbors: returns an empty graph when the person is not found", () => {
   expect(neighborsToGraph([])).toEqual({ nodes: [], edges: [] });
+});
+
+test("path: builds an ordered node chain and edges from hop rows", () => {
+  // One row per relationship, in path order: 信長 -[SPOUSE_OF]- 帰蝶 -[PARENT_OF]- 家康.
+  const graph = pathToGraph([
+    {
+      sourceQid: "Q171411",
+      sourceLabel: "織田信長",
+      targetQid: "Q231562",
+      targetLabel: "濃姫",
+      type: "SPOUSE_OF",
+    },
+    {
+      sourceQid: "Q231562",
+      sourceLabel: "濃姫",
+      targetQid: "Q171977",
+      targetLabel: "徳川家康",
+      type: "PARENT_OF",
+    },
+  ]);
+
+  expect(graph).toEqual({
+    nodes: [
+      { qid: "Q171411", label: "織田信長" },
+      { qid: "Q231562", label: "濃姫" },
+      { qid: "Q171977", label: "徳川家康" },
+    ],
+    edges: [
+      { source: "Q171411", target: "Q231562", type: "SPOUSE_OF" },
+      { source: "Q231562", target: "Q171977", type: "PARENT_OF" },
+    ],
+  });
+});
+
+test("path: returns an empty graph when there is no path", () => {
+  expect(pathToGraph([])).toEqual({ nodes: [], edges: [] });
 });
