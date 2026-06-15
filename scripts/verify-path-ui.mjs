@@ -95,12 +95,19 @@ try {
     if (!path.labels.includes(want)) fail(`path graph missing ${want}`);
   }
 
-  // Right pane: the destination's article.
-  await page.waitForSelector("text=Wikipedia で全文を読む");
-  const article = await page.locator("section").last().innerText();
-  if (!article.includes("徳川"))
-    fail("article pane missing 徳川 (destination) content");
-  console.log("article OK:", article.slice(0, 40).replace(/\n/g, " "));
+  // Right pane: the destination's ja.wikipedia article, embedded as an iframe.
+  const articleFrame = page.locator("section").last().locator("iframe");
+  await articleFrame.waitFor();
+  const src = (await articleFrame.getAttribute("src")) ?? "";
+  if (!src.startsWith("https://ja.wikipedia.org/wiki/"))
+    fail(`article iframe src unexpected: ${src}`);
+  else if (!decodeURIComponent(src).includes(TO.label))
+    fail(`article iframe not pointing at ${TO.label}: ${src}`);
+  await page
+    .frameLocator("section iframe")
+    .locator("#firstHeading")
+    .waitFor({ timeout: 15000 });
+  console.log("article iframe OK:", src);
 
   await page.screenshot({ path: SHOT, fullPage: false });
   console.log("screenshot:", SHOT);
