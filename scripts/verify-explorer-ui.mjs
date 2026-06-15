@@ -1,9 +1,9 @@
-// Manual E2E smoke for PR4 (not part of the test suite — run by hand against a
-// running dev server). Drives a real browser to confirm the cytoscape ego graph
-// renders, node-click re-centering works, and the Wikipedia pane loads.
+// Manual E2E smoke (not in the test suite — run by hand against a running dev
+// server). Confirms the cytoscape ego graph renders, node-click re-centering
+// works, and the Wikipedia pane loads.
 //
-// Run: BASE=http://localhost:3001 node scripts/verify-pr4.mjs
-// Requires playwright available on the module path and a Chrome/Chromium channel.
+// Run: BASE=http://localhost:3001 node scripts/verify-explorer-ui.mjs
+// Requires playwright on the module path and a Chrome/Chromium channel.
 
 import { chromium } from "playwright";
 
@@ -97,7 +97,7 @@ try {
   if (after.focusLabel === before.focusLabel)
     fail("focus did not change after node click");
 
-  if (!process.exitCode) console.log("\nPASS: all PR4 UI checks");
+  if (!process.exitCode) console.log("\nPASS: all UI checks");
 } catch (err) {
   fail(err.message);
 } finally {

@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { runQuery, serviceUnavailable } from "@/lib/api";
 import { neighborsToGraph, type NeighborRow } from "@/lib/graph";
 
-// Reads params/query and hits the DB at request time, so opt out of static
-// optimization (build-time execution).
+// Reads request data, so it can't be statically prerendered.
 export const dynamic = "force-dynamic";
 
 const DEFAULT_HOPS = 2;
@@ -24,9 +23,9 @@ export async function GET(
   const hops = parseHops(new URL(request.url).searchParams.get("hops"));
 
   try {
-    // Collect the ego subgraph nodes, then return one row per node `a` with its
-    // outgoing in-subgraph edge (null when none) so an isolated focus person
-    // still comes back. Directed `->` returns each stored edge once.
+    // One row per subgraph node (edge columns null when it has none) so an
+    // isolated focus person still returns a row; directed `->` yields each
+    // stored edge once.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
        OPTIONAL MATCH (c)-[:PARENT_OF|SPOUSE_OF|SIBLING_OF*1..${hops}]-(m:Person)

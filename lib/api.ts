@@ -2,9 +2,8 @@ import { type Record as Neo4jRecord } from "neo4j-driver";
 import { NextResponse } from "next/server";
 import { getDriver } from "@/lib/neo4j";
 
-// Run a Cypher query against the shared driver and always close the session.
-// getDriver() can throw (missing env); that surfaces here so callers can funnel
-// it through serviceUnavailable() instead of leaking a 500.
+// getDriver() throws on missing env; left here so it reaches the caller's catch
+// (→ 503) rather than escaping as a 500.
 export async function runQuery<T>(
   cypher: string,
   params: Record<string, unknown>,

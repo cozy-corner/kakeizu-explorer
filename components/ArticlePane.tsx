@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-// Only the fields we render from the ja.wikipedia REST summary. `type` is
-// "standard" for a real article; disambiguation/redirect stubs use other values.
+// type is "standard" for a real article; disambiguation/redirect stubs differ.
 type Summary = {
   type: string;
   title: string;
@@ -15,10 +14,9 @@ type Summary = {
 
 type State = "loading" | "ok" | "missing" | "error";
 
-// Uses the Wikidata label as the article title (real wikipediaTitle lands in
-// PR6); a mismatch 404s (or resolves to a disambiguation stub) into the
-// "missing" state. Mounted with key={focus.qid} so a focus change remounts and
-// resets state to "loading".
+// title is the person's Wikidata label, which can differ from the real article
+// title; a mismatch (404 or a disambiguation stub) falls through to "missing".
+// TODO: use the wikipediaTitle property as the title once ETL populates it.
 export function ArticlePane({ title }: { title: string }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [state, setState] = useState<State>("loading");
@@ -33,8 +31,7 @@ export function ArticlePane({ title }: { title: string }) {
         if (res.status === 404) return setState("missing");
         if (!res.ok) return setState("error");
         const data = (await res.json()) as Summary;
-        // A disambiguation page (or other non-article stub) comes back 200 with
-        // boilerplate text; treat it as "no article" rather than the person's bio.
+        // Disambiguation/stub pages return 200 with boilerplate, not a bio.
         if (data.type !== "standard") return setState("missing");
         setSummary(data);
         setState("ok");

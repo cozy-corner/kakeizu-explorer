@@ -12,10 +12,8 @@ export function personsToGraph(rows: PersonRow[]): Graph {
   };
 }
 
-// One row per subgraph node `a`, with its outgoing in-subgraph edge to `b`
-// (null columns when `a` has none — e.g. an isolated focus person). The
-// neighbors query returns every node at least once in the `a` columns, so the
-// focus person survives even with zero relationships.
+// Every node appears at least once in the `a` columns, so building nodes from
+// `a` alone is complete; `b`/type are null when `a` has no in-subgraph edge.
 export type NeighborRow = {
   aQid: string;
   aLabel: string;
