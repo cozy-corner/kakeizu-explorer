@@ -78,7 +78,7 @@ try {
   console.log("screenshot:", SHOT);
 
   // Re-center: click a neighbour node → focus should switch to it.
-  if (!before.other) fail("no neighbour node to click");
+  if (!before.other) throw new Error("no neighbour node to click");
   console.log("clicking neighbour:", before.other.label);
   await page.mouse.click(before.other.x, before.other.y);
   await page.waitForFunction(
