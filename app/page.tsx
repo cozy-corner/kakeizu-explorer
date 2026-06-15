@@ -11,6 +11,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focus, setFocus] = useState<FocusPerson | null>(null);
+  // When set, the left pane shows the shortest path from `focus` to this person.
+  const [pathTarget, setPathTarget] = useState<FocusPerson | null>(null);
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
 
@@ -42,8 +44,15 @@ export default function Home() {
 
   // Stable identity so GraphPane's cytoscape effect doesn't rebuild on every
   // parent render (it lists onSelect as a dependency).
+  // Re-centering (incl. tapping a node in a path) leaves path mode.
   const selectPerson = useCallback((person: FocusPerson) => {
     setFocus(person);
+    setPathTarget(null);
+    setResults(null);
+  }, []);
+
+  const choosePathTarget = useCallback((person: FocusPerson) => {
+    setPathTarget(person);
     setResults(null);
   }, []);
 
@@ -82,14 +91,23 @@ export default function Home() {
             </li>
           )}
           {results.nodes.map((node) => (
-            <li key={node.qid}>
+            <li key={node.qid} className="flex items-center">
               <button
                 onClick={() => selectPerson(node)}
-                className="w-full px-4 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="flex-1 px-4 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800"
               >
                 {node.label}{" "}
                 <span className="text-sm text-zinc-400">{node.qid}</span>
               </button>
+              {focus && node.qid !== focus.qid && (
+                <button
+                  onClick={() => choosePathTarget(node)}
+                  title={`${focus.label} からの経路を表示`}
+                  className="mr-2 shrink-0 rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  ⇄ 経路
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -98,15 +116,36 @@ export default function Home() {
       <main className="flex min-h-0 flex-1">
         {focus ? (
           <>
-            <section className="w-1/2 border-r border-zinc-200 dark:border-zinc-800">
-              <GraphPane
-                key={focus.qid}
-                focus={focus}
-                onSelect={selectPerson}
-              />
+            <section className="flex w-1/2 flex-col border-r border-zinc-200 dark:border-zinc-800">
+              {pathTarget && (
+                <div className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+                  <span className="truncate">
+                    経路: <strong>{focus.label}</strong> →{" "}
+                    <strong>{pathTarget.label}</strong>
+                  </span>
+                  <button
+                    onClick={() => setPathTarget(null)}
+                    className="ml-auto shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    エゴ表示に戻る
+                  </button>
+                </div>
+              )}
+              <div className="relative min-h-0 flex-1">
+                <GraphPane
+                  key={`${focus.qid}:${pathTarget?.qid ?? ""}`}
+                  focus={focus}
+                  pathTo={pathTarget}
+                  onSelect={selectPerson}
+                />
+              </div>
             </section>
             <section className="w-1/2 overflow-auto">
-              <ArticlePane key={focus.qid} title={focus.label} />
+              {/* In path mode the right pane reads the destination's article. */}
+              <ArticlePane
+                key={(pathTarget ?? focus).qid}
+                title={(pathTarget ?? focus).label}
+              />
             </section>
           </>
         ) : (

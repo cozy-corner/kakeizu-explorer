@@ -53,13 +53,17 @@ const STYLE: cytoscape.StylesheetJson = [
   { selector: 'edge[type = "SIBLING_OF"]', style: { "line-color": "#0891b2" } },
 ];
 
-// Mounted with key={focus.qid}: a focus change remounts this, so state resets
-// to its initial (loading) value without a synchronous setState in an effect.
+// Mounted with a key derived from focus + pathTo: changing either remounts this,
+// so state resets to its initial (loading) value without a synchronous setState
+// in an effect. With `pathTo` set, it renders the shortest path between the two
+// people instead of the ego graph, highlighting both endpoints.
 export function GraphPane({
   focus,
+  pathTo,
   onSelect,
 }: {
   focus: FocusPerson;
+  pathTo?: FocusPerson | null;
   onSelect: (person: FocusPerson) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,30 +72,40 @@ export function GraphPane({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(
-      `/api/person/${encodeURIComponent(focus.qid)}/neighbors?hops=${HOPS}`,
-      { signal: controller.signal },
-    )
+    const url = pathTo
+      ? `/api/path?from=${encodeURIComponent(focus.qid)}&to=${encodeURIComponent(pathTo.qid)}`
+      : `/api/person/${encodeURIComponent(focus.qid)}/neighbors?hops=${HOPS}`;
+    const failMsg = pathTo
+      ? "経路の取得に失敗しました"
+      : "グラフの取得に失敗しました";
+    fetch(url, { signal: controller.signal })
       .then(async (res) => {
-        if (!res.ok)
-          throw new Error(`グラフの取得に失敗しました (${res.status})`);
+        if (!res.ok) throw new Error(`${failMsg} (${res.status})`);
         return (await res.json()) as Graph;
       })
-      .then(setGraph)
+      .then((g) => {
+        // Clear a prior failure: re-selecting the same path target re-fires this
+        // without a remount (the key is qid-based), so a stale error overlay must
+        // not outlive a successful retry.
+        setGraph(g);
+        setError(null);
+      })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(
-          err instanceof Error ? err.message : "グラフの取得に失敗しました",
-        );
+        setError(err instanceof Error ? err.message : failMsg);
       });
     return () => controller.abort();
-  }, [focus.qid]);
+  }, [focus.qid, pathTo]);
 
   useEffect(() => {
     if (!containerRef.current || !graph) return;
     const elements: ElementDefinition[] = [
       ...graph.nodes.map((n) => ({
-        data: { id: n.qid, label: n.label, focus: n.qid === focus.qid ? 1 : 0 },
+        data: {
+          id: n.qid,
+          label: n.label,
+          focus: n.qid === focus.qid || n.qid === pathTo?.qid ? 1 : 0,
+        },
       })),
       ...graph.edges.map((e) => ({
         data: {
@@ -113,20 +127,28 @@ export function GraphPane({
       onSelect({ qid: d.id, label: d.label });
     });
     return () => cy.destroy();
-  }, [graph, focus.qid, onSelect]);
+  }, [graph, focus.qid, pathTo, onSelect]);
 
   const loading = !graph && !error;
+  // A path request that finds nothing returns an empty graph (vs. a missing-person
+  // 404, which throws above); distinguish it so the user sees a clear message.
+  const noPath = !!pathTo && !!graph && graph.nodes.length === 0;
 
   return (
     <div className="relative h-full w-full bg-zinc-50 dark:bg-zinc-900">
       {loading && (
         <p className="absolute top-3 left-3 z-10 text-sm text-zinc-500">
-          グラフを読み込み中…
+          {pathTo ? "経路を探索中…" : "グラフを読み込み中…"}
         </p>
       )}
       {error && (
         <p className="absolute top-3 left-3 z-10 text-sm text-red-600">
           {error}
+        </p>
+      )}
+      {noPath && (
+        <p className="absolute top-3 left-3 z-10 text-sm text-zinc-500">
+          経路が見つかりません
         </p>
       )}
       <div ref={containerRef} className="h-full w-full" />
