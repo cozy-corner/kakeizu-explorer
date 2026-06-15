@@ -68,11 +68,20 @@ try {
   if (before.focusLabel !== "織田信長")
     fail(`focus node label was ${before.focusLabel}`);
 
-  // Right pane: ja.wikipedia summary for the focus person.
-  await page.waitForSelector("text=Wikipedia で全文を読む");
-  const articleText = await page.locator("section").last().innerText();
-  if (!articleText.includes("織田")) fail("article pane missing 織田 content");
-  console.log("article OK:", articleText.slice(0, 40).replace(/\n/g, " "));
+  // Right pane: the focus person's ja.wikipedia article, embedded as an iframe.
+  const articleFrame = page.locator("section").last().locator("iframe");
+  await articleFrame.waitFor();
+  const src = (await articleFrame.getAttribute("src")) ?? "";
+  if (!src.startsWith("https://ja.wikipedia.org/wiki/"))
+    fail(`article iframe src unexpected: ${src}`);
+  else if (!decodeURIComponent(src).includes("織田信長"))
+    fail(`article iframe not pointing at 織田信長: ${src}`);
+  // Confirm the article actually rendered inside the cross-origin frame.
+  await page
+    .frameLocator("section iframe")
+    .locator("#firstHeading")
+    .waitFor({ timeout: 15000 });
+  console.log("article iframe OK:", src);
 
   await page.screenshot({ path: SHOT, fullPage: false });
   console.log("screenshot:", SHOT);

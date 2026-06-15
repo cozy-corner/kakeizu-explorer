@@ -141,11 +141,9 @@ export default function Home() {
               </div>
             </section>
             <section className="w-1/2 overflow-auto">
-              {/* In path mode the right pane reads the destination's article. */}
-              <ArticlePane
-                key={(pathTarget ?? focus).qid}
-                title={(pathTarget ?? focus).label}
-              />
+              {/* In path mode the right pane reads the destination's article.
+                  Stateless iframe: changing title navigates it in place — no key/remount. */}
+              <ArticlePane title={(pathTarget ?? focus).label} />
             </section>
           </>
         ) : (
