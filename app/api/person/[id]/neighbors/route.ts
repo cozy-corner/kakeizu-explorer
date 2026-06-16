@@ -28,21 +28,23 @@ export async function GET(
     // stored edge once.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
-       OPTIONAL MATCH (c)-[:PARENT_OF|SPOUSE_OF|SIBLING_OF*1..${hops}]-(m:Person)
+       OPTIONAL MATCH (c)-[:PARENT_OF*1..${hops}]-(m:Person)
        WITH c, collect(DISTINCT m) AS ms
        WITH [c] + [x IN ms WHERE x <> c] AS nodes
        UNWIND nodes AS a
-       OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF|SIBLING_OF]->(b:Person)
+       OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF]->(b:Person)
        WHERE b IN nodes
-       RETURN a.qid AS aQid, a.label AS aLabel,
-              type(r) AS type, b.qid AS bQid, b.label AS bLabel`,
+       RETURN a.qid AS aQid, a.label AS aLabel, a.sex AS aSex,
+              type(r) AS type, b.qid AS bQid, b.label AS bLabel, b.sex AS bSex`,
       { id },
       (r) => ({
         aQid: r.get("aQid"),
         aLabel: r.get("aLabel"),
+        aSex: r.get("aSex"),
         type: r.get("type"),
         bQid: r.get("bQid"),
         bLabel: r.get("bLabel"),
+        bSex: r.get("bSex"),
       }),
     );
 

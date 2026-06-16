@@ -24,6 +24,15 @@ export const USER_AGENT =
 
 export type Binding = Record<string, { value: string } | undefined>;
 
+// Wikidata entity URI (http://www.wikidata.org/entity/Q123) → bare Q-id; binding
+// values come back as full URIs.
+export const qid = (uri: string) =>
+  uri.replace("http://www.wikidata.org/entity/", "");
+
+// SPARQL VALUES list body from bare Q-ids: `wd:Q1 wd:Q2 …`.
+export const sparqlValues = (qids: string[]) =>
+  qids.map((q) => `wd:${q}`).join(" ");
+
 const MAX_ATTEMPTS = 5;
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 30_000;
