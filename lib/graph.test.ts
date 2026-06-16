@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  layoutOnlyEdges,
   neighborsToGraph,
   patrilinealEdges,
   pathToGraph,
@@ -276,4 +277,51 @@ test("patrilineal: drops sibling edges entirely", () => {
   };
 
   expect(patrilinealEdges(graph)).toEqual([]);
+});
+
+test("layout-only: surfaces the dropped mother→child edge so the couple co-ranks", () => {
+  const graph = {
+    nodes: [
+      { qid: "F", label: "父", sex: "male" },
+      { qid: "M", label: "母", sex: "female" },
+      { qid: "C", label: "子", sex: "male" },
+    ],
+    edges: [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+      { source: "F", target: "M", type: "SPOUSE_OF" },
+    ],
+  };
+
+  // The mother's descent line is dropped from drawing but re-emitted as a
+  // hidden layout edge, so dagre seats her in the father's generation column.
+  expect(layoutOnlyEdges(graph)).toEqual([
+    { source: "M", target: "C", type: "LAYOUT" },
+  ]);
+});
+
+test("layout-only: no extra edges when every parent is already a drawn line", () => {
+  // No father → both parents stay drawn; two fathers → both stay drawn. Nothing
+  // is dropped, so there is no hidden edge to add.
+  const motherOnly = {
+    nodes: [
+      { qid: "M", label: "母", sex: "female" },
+      { qid: "C", label: "子" },
+    ],
+    edges: [{ source: "M", target: "C", type: "PARENT_OF" }],
+  };
+  const twoFathers = {
+    nodes: [
+      { qid: "F1", label: "父1", sex: "male" },
+      { qid: "F2", label: "父2", sex: "male" },
+      { qid: "C", label: "子", sex: "female" },
+    ],
+    edges: [
+      { source: "F1", target: "C", type: "PARENT_OF" },
+      { source: "F2", target: "C", type: "PARENT_OF" },
+    ],
+  };
+
+  expect(layoutOnlyEdges(motherOnly)).toEqual([]);
+  expect(layoutOnlyEdges(twoFathers)).toEqual([]);
 });

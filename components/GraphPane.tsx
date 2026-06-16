@@ -8,7 +8,7 @@ import cytoscape, {
 import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
-import { patrilinealEdges, type Graph } from "@/lib/graph";
+import { layoutOnlyEdges, patrilinealEdges, type Graph } from "@/lib/graph";
 
 cytoscape.use(dagre);
 
@@ -67,6 +67,13 @@ const STYLE: cytoscape.StylesheetJson = [
   {
     selector: 'edge[type = "SPOUSE_OF"]',
     style: { "line-color": "#db2777", "curve-style": "straight" },
+  },
+  {
+    // Mother→child edges fed to dagre only to co-rank couples (see layoutOnlyEdges).
+    // `visibility: hidden` keeps them in the layout pass while not drawing them;
+    // `display: none` would exclude them from layout and defeat the purpose.
+    selector: 'edge[type = "LAYOUT"]',
+    style: { visibility: "hidden" },
   },
 ];
 
@@ -145,6 +152,10 @@ export function GraphPane({
     // Ego view: collapse to a patrilineal tree (one parent line per child). Path
     // view keeps every edge so the chain between the two people reads end to end.
     const edges = pathTo ? graph.edges : patrilinealEdges(graph);
+    // Hidden edges that only steer dagre's ranking, so a married-in spouse sits in
+    // their partner's generation column instead of drifting into their own family's.
+    // Reuse the patrilineal reduction already in `edges` rather than recomputing it.
+    const layoutEdges = pathTo ? [] : layoutOnlyEdges(graph, edges);
     const elements: ElementDefinition[] = [
       ...graph.nodes.map((n) => ({
         data: {
@@ -153,7 +164,7 @@ export function GraphPane({
           focus: n.qid === focus.qid || n.qid === pathTo?.qid ? 1 : 0,
         },
       })),
-      ...edges.map((e) => ({
+      ...[...edges, ...layoutEdges].map((e) => ({
         data: {
           id: `${e.source}|${e.type}|${e.target}`,
           source: e.source,
@@ -181,12 +192,14 @@ export function GraphPane({
     if (pathTo) {
       cy.layout(dagreLR()).run(); // small graph: default fit is fine
     } else {
-      // Lay out the tree on PARENT_OF only, then re-seat married-in spouses. A
-      // prolific line is genuinely tall; fitting it to the pane shrinks names to
-      // nothing, so open at a readable zoom on the focus instead. rankSep leaves
-      // room for a name between columns; nodeSep keeps stacked labels apart.
+      // Lay out the tree on the descent edges (drawn father→child plus the hidden
+      // mother→child layout edges that co-rank couples), then re-seat any spouse
+      // still left edgeless. A prolific line is genuinely tall; fitting it to the
+      // pane shrinks names to nothing, so open at a readable zoom on the focus
+      // instead. rankSep leaves room for a name between columns; nodeSep keeps
+      // stacked labels apart.
       cy.nodes()
-        .union(cy.edges('[type = "PARENT_OF"]'))
+        .union(cy.edges('[type = "PARENT_OF"], [type = "LAYOUT"]'))
         .layout(dagreLR({ nodeSep: 30, rankSep: 220, fit: false }))
         .run();
       placeMarriedInSpouses(cy);
