@@ -154,7 +154,8 @@ export function GraphPane({
     const edges = pathTo ? graph.edges : patrilinealEdges(graph);
     // Hidden edges that only steer dagre's ranking, so a married-in spouse sits in
     // their partner's generation column instead of drifting into their own family's.
-    const layoutEdges = pathTo ? [] : layoutOnlyEdges(graph);
+    // Reuse the patrilineal reduction already in `edges` rather than recomputing it.
+    const layoutEdges = pathTo ? [] : layoutOnlyEdges(graph, edges);
     const elements: ElementDefinition[] = [
       ...graph.nodes.map((n) => ({
         data: {

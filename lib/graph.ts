@@ -62,10 +62,14 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
 // into the father's generation column instead of floating off in her own family's
 // column, and children land one column to the right of BOTH parents. Derived as
 // "every PARENT_OF edge minus the ones patrilinealEdges keeps", so it tracks the
-// reduction rules automatically.
-export function layoutOnlyEdges(graph: Graph): GraphEdge[] {
+// reduction rules automatically. Callers that already computed the drawn edges
+// pass them in to avoid reducing the same graph twice.
+export function layoutOnlyEdges(
+  graph: Graph,
+  drawnEdges: GraphEdge[] = patrilinealEdges(graph),
+): GraphEdge[] {
   const drawn = new Set(
-    patrilinealEdges(graph)
+    drawnEdges
       .filter((e) => e.type === "PARENT_OF")
       .map((e) => `${e.source}|${e.target}`),
   );
