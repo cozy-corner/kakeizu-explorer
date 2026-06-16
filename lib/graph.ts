@@ -56,6 +56,26 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
   return [...structural, ...spouse];
 }
 
+// The parent→child edges that the patrilineal view drops from DRAWING (a mother's
+// descent line) but the LAYOUT still needs. Feeding these to dagre (hidden, type
+// "LAYOUT") co-ranks a couple that shares a visible child: the mother is pulled
+// into the father's generation column instead of floating off in her own family's
+// column, and children land one column to the right of BOTH parents. Derived as
+// "every PARENT_OF edge minus the ones patrilinealEdges keeps", so it tracks the
+// reduction rules automatically.
+export function layoutOnlyEdges(graph: Graph): GraphEdge[] {
+  const drawn = new Set(
+    patrilinealEdges(graph)
+      .filter((e) => e.type === "PARENT_OF")
+      .map((e) => `${e.source}|${e.target}`),
+  );
+  return graph.edges
+    .filter(
+      (e) => e.type === "PARENT_OF" && !drawn.has(`${e.source}|${e.target}`),
+    )
+    .map((e) => ({ source: e.source, target: e.target, type: "LAYOUT" }));
+}
+
 // edges is always empty: search returns people, not relationships.
 export function personsToGraph(rows: PersonRow[]): Graph {
   return {
