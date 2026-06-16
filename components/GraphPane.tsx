@@ -1,15 +1,24 @@
 "use client";
 
-import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
+import cytoscape, {
+  type Core,
+  type ElementDefinition,
+  type NodeSingular,
+} from "cytoscape";
+import dagre from "cytoscape-dagre";
+import type * as cytoscapeDagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
-import type { Graph } from "@/lib/graph";
+import { patrilinealEdges, type Graph } from "@/lib/graph";
+
+cytoscape.use(dagre);
 
 export type FocusPerson = { qid: string; label: string };
 
 const HOPS = 2;
 
-// Colour edges by relationship so parent/spouse/sibling links read at a glance.
-// PARENT_OF keeps its direction (arrow); spouse/sibling are undirected.
+// Genealogy-chart styling: PARENT_OF is drawn as a rightward right-angle (taxi)
+// line with an arrow — the tree spine flows left→right; SPOUSE_OF is a straight
+// link joining a couple. Sibling edges are never emitted (siblings share a parent).
 const STYLE: cytoscape.StylesheetJson = [
   {
     selector: "node",
@@ -20,8 +29,11 @@ const STYLE: cytoscape.StylesheetJson = [
       color: "#0f172a",
       "text-outline-width": 2,
       "text-outline-color": "#f8fafc",
-      "text-valign": "bottom",
-      "text-margin-y": 2,
+      // Left-to-right tree with horizontal labels: put the name to the right of
+      // each node so vertically-stacked siblings' labels don't collide.
+      "text-valign": "center",
+      "text-halign": "right",
+      "text-margin-x": 4,
       width: 16,
       height: 16,
     },
@@ -47,11 +59,42 @@ const STYLE: cytoscape.StylesheetJson = [
       "line-color": "#475569",
       "target-arrow-shape": "triangle",
       "target-arrow-color": "#475569",
+      "curve-style": "taxi",
+      "taxi-direction": "rightward",
+      "taxi-turn": "50%",
     },
   },
-  { selector: 'edge[type = "SPOUSE_OF"]', style: { "line-color": "#db2777" } },
-  { selector: 'edge[type = "SIBLING_OF"]', style: { "line-color": "#0891b2" } },
+  {
+    selector: 'edge[type = "SPOUSE_OF"]',
+    style: { "line-color": "#db2777", "curve-style": "straight" },
+  },
 ];
+
+// A married-in spouse (e.g. a wife) has no PARENT_OF edge of her own, so dagre
+// strands her at the top rank. Re-seat each such node in the partner's generation
+// column (LR layout), stacked just above them; multiple spouses fan upward so they
+// don't pile on one point.
+function placeMarriedInSpouses(cy: Core): void {
+  const placed = new Map<string, number>(); // partner id → spouses already seated
+  cy.nodes().forEach((n) => {
+    if (n.connectedEdges('[type = "PARENT_OF"]').nonempty()) return;
+    const partners = n
+      .connectedEdges('[type = "SPOUSE_OF"]')
+      .connectedNodes()
+      .filter(
+        (p) =>
+          p.id() !== n.id() &&
+          p.connectedEdges('[type = "PARENT_OF"]').nonempty(),
+      );
+    if (partners.empty()) return;
+    // filter() widens to a mixed collection; first() is a node here by construction.
+    const partner = partners.first() as NodeSingular;
+    const k = placed.get(partner.id()) ?? 0;
+    placed.set(partner.id(), k + 1);
+    const pos = partner.position();
+    n.position({ x: pos.x, y: pos.y - 40 * (k + 1) });
+  });
+}
 
 // Mounted with a key derived from focus + pathTo: changing either remounts this,
 // so state resets to its initial (loading) value without a synchronous setState
@@ -99,6 +142,9 @@ export function GraphPane({
 
   useEffect(() => {
     if (!containerRef.current || !graph) return;
+    // Ego view: collapse to a patrilineal tree (one parent line per child). Path
+    // view keeps every edge so the chain between the two people reads end to end.
+    const edges = pathTo ? graph.edges : patrilinealEdges(graph);
     const elements: ElementDefinition[] = [
       ...graph.nodes.map((n) => ({
         data: {
@@ -107,7 +153,7 @@ export function GraphPane({
           focus: n.qid === focus.qid || n.qid === pathTo?.qid ? 1 : 0,
         },
       })),
-      ...graph.edges.map((e) => ({
+      ...edges.map((e) => ({
         data: {
           id: `${e.source}|${e.type}|${e.target}`,
           source: e.source,
@@ -120,8 +166,33 @@ export function GraphPane({
       container: containerRef.current,
       elements,
       style: STYLE,
-      layout: { name: "cose", animate: false },
     });
+    // Flow left→right so each generation is a column and siblings stack
+    // vertically — horizontal labels then sit to the right without colliding.
+    // Typed via the dagre extension's options so a mistyped key is caught.
+    const dagreLR = (
+      extra: Partial<cytoscapeDagre.DagreLayoutOptions> = {},
+    ): cytoscapeDagre.DagreLayoutOptions => ({
+      name: "dagre",
+      rankDir: "LR",
+      animate: false,
+      ...extra,
+    });
+    if (pathTo) {
+      cy.layout(dagreLR()).run(); // small graph: default fit is fine
+    } else {
+      // Lay out the tree on PARENT_OF only, then re-seat married-in spouses. A
+      // prolific line is genuinely tall; fitting it to the pane shrinks names to
+      // nothing, so open at a readable zoom on the focus instead. rankSep leaves
+      // room for a name between columns; nodeSep keeps stacked labels apart.
+      cy.nodes()
+        .union(cy.edges('[type = "PARENT_OF"]'))
+        .layout(dagreLR({ nodeSep: 30, rankSep: 220, fit: false }))
+        .run();
+      placeMarriedInSpouses(cy);
+      cy.zoom(0.8);
+      cy.center(cy.getElementById(focus.qid));
+    }
     cy.on("tap", "node", (evt) => {
       const d = evt.target.data();
       onSelect({ qid: d.id, label: d.label });

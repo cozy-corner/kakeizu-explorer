@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { neighborsToGraph, pathToGraph, personsToGraph } from "./graph";
+import {
+  neighborsToGraph,
+  patrilinealEdges,
+  pathToGraph,
+  personsToGraph,
+} from "./graph";
 
 test("maps person rows into graph nodes, preserving qid and label", () => {
   const graph = personsToGraph([
@@ -28,9 +33,11 @@ test("neighbors: builds nodes and edges, mapping the relationship type", () => {
     {
       aQid: "Q171411",
       aLabel: "織田信長",
+      aSex: null,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
+      bSex: null,
     },
   ]);
 
@@ -49,9 +56,11 @@ test("neighbors: an isolated focus person yields one node and no edges", () => {
     {
       aQid: "Q171411",
       aLabel: "織田信長",
+      aSex: null,
       type: null,
       bQid: null,
       bLabel: null,
+      bSex: null,
     },
   ]);
 
@@ -66,19 +75,31 @@ test("neighbors: dedupes repeated nodes and edges", () => {
     {
       aQid: "Q171411",
       aLabel: "織田信長",
+      aSex: null,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
+      bSex: null,
     },
     // Same node reached again via a different walk, plus the same edge repeated.
     {
       aQid: "Q171411",
       aLabel: "織田信長",
+      aSex: null,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
+      bSex: null,
     },
-    { aQid: "Q1234", aLabel: "織田信忠", type: null, bQid: null, bLabel: null },
+    {
+      aQid: "Q1234",
+      aLabel: "織田信忠",
+      aSex: null,
+      type: null,
+      bQid: null,
+      bLabel: null,
+      bSex: null,
+    },
   ]);
 
   expect(graph.nodes).toEqual([
@@ -128,4 +149,131 @@ test("path: builds an ordered node chain and edges from hop rows", () => {
 
 test("path: returns an empty graph when there is no path", () => {
   expect(pathToGraph([])).toEqual({ nodes: [], edges: [] });
+});
+
+test("neighbors: carries each node's sex through", () => {
+  const graph = neighborsToGraph([
+    {
+      aQid: "Q171411",
+      aLabel: "織田信長",
+      aSex: "male",
+      type: "PARENT_OF",
+      bQid: "Q1234",
+      bLabel: "徳姫",
+      bSex: "female",
+    },
+  ]);
+
+  expect(graph.nodes).toEqual([
+    { qid: "Q171411", label: "織田信長", sex: "male" },
+    { qid: "Q1234", label: "徳姫", sex: "female" },
+  ]);
+});
+
+test("patrilineal: a child with both parents descends from the father only", () => {
+  const graph = {
+    nodes: [
+      { qid: "F", label: "父", sex: "male" },
+      { qid: "M", label: "母", sex: "female" },
+      { qid: "C", label: "子", sex: "male" },
+    ],
+    edges: [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+      { source: "F", target: "M", type: "SPOUSE_OF" },
+    ],
+  };
+
+  expect(patrilinealEdges(graph)).toEqual([
+    { source: "F", target: "C", type: "PARENT_OF" },
+    { source: "F", target: "M", type: "SPOUSE_OF" },
+  ]);
+});
+
+test("patrilineal: falls back to any parent when no father is known", () => {
+  const graph = {
+    nodes: [
+      { qid: "M", label: "母", sex: "female" },
+      { qid: "C", label: "子" }, // child of a mother only
+    ],
+    edges: [{ source: "M", target: "C", type: "PARENT_OF" }],
+  };
+
+  expect(patrilinealEdges(graph)).toEqual([
+    { source: "M", target: "C", type: "PARENT_OF" },
+  ]);
+});
+
+test("patrilineal: a child with two recorded fathers keeps both father edges", () => {
+  const graph = {
+    nodes: [
+      { qid: "F1", label: "父1", sex: "male" },
+      { qid: "F2", label: "父2", sex: "male" },
+      { qid: "C", label: "子", sex: "female" },
+    ],
+    edges: [
+      { source: "F1", target: "C", type: "PARENT_OF" },
+      { source: "F2", target: "C", type: "PARENT_OF" },
+    ],
+  };
+
+  // Disputed/uncertain parentage: keep both rather than arbitrarily picking one.
+  expect(patrilinealEdges(graph)).toEqual([
+    { source: "F1", target: "C", type: "PARENT_OF" },
+    { source: "F2", target: "C", type: "PARENT_OF" },
+  ]);
+});
+
+test("patrilineal: an unknown-sex parent is kept as a descent line, not hidden", () => {
+  const graph = {
+    nodes: [
+      { qid: "F", label: "父", sex: undefined }, // P21 not fetched
+      { qid: "M", label: "母", sex: "female" },
+      { qid: "C", label: "子", sex: "male" },
+    ],
+    edges: [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+      { source: "F", target: "M", type: "SPOUSE_OF" },
+    ],
+  };
+
+  // Only the confirmed mother is dropped; the unknown-sex parent stays the line.
+  expect(patrilinealEdges(graph)).toEqual([
+    { source: "F", target: "C", type: "PARENT_OF" },
+    { source: "F", target: "M", type: "SPOUSE_OF" },
+  ]);
+});
+
+test("patrilineal: a spouse-less mother is linked to the father via her shared child", () => {
+  const graph = {
+    nodes: [
+      { qid: "F", label: "父", sex: "male" },
+      { qid: "M", label: "母", sex: "female" }, // no SPOUSE_OF recorded
+      { qid: "C", label: "子", sex: "male" },
+    ],
+    edges: [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+    ],
+  };
+
+  // Mother→child is dropped; a co-parent SPOUSE_OF is synthesized so she sits
+  // beside the father instead of floating.
+  expect(patrilinealEdges(graph)).toEqual([
+    { source: "F", target: "C", type: "PARENT_OF" },
+    { source: "F", target: "M", type: "SPOUSE_OF" },
+  ]);
+});
+
+test("patrilineal: drops sibling edges entirely", () => {
+  const graph = {
+    nodes: [
+      { qid: "A", label: "兄", sex: "male" },
+      { qid: "B", label: "弟", sex: "male" },
+    ],
+    edges: [{ source: "A", target: "B", type: "SIBLING_OF" }],
+  };
+
+  expect(patrilinealEdges(graph)).toEqual([]);
 });
