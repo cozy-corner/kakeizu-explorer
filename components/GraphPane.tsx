@@ -16,6 +16,10 @@ export type FocusPerson = { qid: string; label: string };
 
 const HOPS = 2;
 
+const NODE_SIZE = 16;
+const NODE_SEP = 30;
+const ROW = NODE_SEP + NODE_SIZE;
+
 // Genealogy-chart styling: PARENT_OF is drawn as a rightward right-angle (taxi)
 // line with an arrow — the tree spine flows left→right; SPOUSE_OF is a straight
 // link joining a couple. Sibling edges are never emitted (siblings share a parent).
@@ -34,8 +38,8 @@ const STYLE: cytoscape.StylesheetJson = [
       "text-valign": "center",
       "text-halign": "right",
       "text-margin-x": 4,
-      width: 16,
-      height: 16,
+      width: NODE_SIZE,
+      height: NODE_SIZE,
     },
   },
   {
@@ -77,29 +81,98 @@ const STYLE: cytoscape.StylesheetJson = [
   },
 ];
 
-// A married-in spouse (e.g. a wife) has no PARENT_OF edge of her own, so dagre
-// strands her at the top rank. Re-seat each such node in the partner's generation
-// column (LR layout), stacked just above them; multiple spouses fan upward so they
-// don't pile on one point.
-function placeMarriedInSpouses(cy: Core): void {
-  const placed = new Map<string, number>(); // partner id → spouses already seated
-  cy.nodes().forEach((n) => {
-    if (n.connectedEdges('[type = "PARENT_OF"]').nonempty()) return;
-    const partners = n
+const SPOUSE_GUTTER = 70; // < rankSep (220): stays in the node-free inter-column gutter
+
+// No PARENT_OF edge = married-in: the patrilineal view drops a mother's descent
+// edges, so even a wife with children has none. These belong to no parent's block,
+// so they're the only nodes packColumns may move.
+const isMarriedIn = (n: NodeSingular): boolean =>
+  n.connectedEdges('[type = "PARENT_OF"]').empty();
+
+// Keep dagre's vertical positions for blood descendants — gaps and all, since the
+// gaps are what separate one parent's children from the next — so parent blocks stay
+// readable. Only married-in spouses move: tuck each beside the partner it married,
+// preferring the focus when someone married more than one in-tree relative.
+function packColumns(cy: Core, focusQid: string): void {
+  const hostOf = (n: NodeSingular): NodeSingular | null => {
+    const anchors = n
       .connectedEdges('[type = "SPOUSE_OF"]')
       .connectedNodes()
-      .filter(
-        (p) =>
-          p.id() !== n.id() &&
-          p.connectedEdges('[type = "PARENT_OF"]').nonempty(),
-      );
-    if (partners.empty()) return;
-    // filter() widens to a mixed collection; first() is a node here by construction.
-    const partner = partners.first() as NodeSingular;
-    const k = placed.get(partner.id()) ?? 0;
-    placed.set(partner.id(), k + 1);
-    const pos = partner.position();
-    n.position({ x: pos.x, y: pos.y - 40 * (k + 1) });
+      .filter((p) => p.id() !== n.id() && !isMarriedIn(p));
+    if (anchors.empty()) return null;
+    const focused = anchors.filter((p) => p.id() === focusQid);
+    return (
+      focused.nonempty() ? focused.first() : anchors.first()
+    ) as NodeSingular;
+  };
+
+  const attached = new Map<string, NodeSingular[]>();
+  cy.nodes().forEach((n) => {
+    if (!isMarriedIn(n)) return;
+    const host = hostOf(n);
+    if (!host) return;
+    const list =
+      attached.get(host.id()) ?? attached.set(host.id(), []).get(host.id())!;
+    list.push(n);
+    n.position(host.position()); // provisional; overwritten by the spacing walk below
+  });
+  const attachedIds = new Set([...attached.values()].flat().map((s) => s.id()));
+
+  const cols = new Map<number, NodeSingular[]>();
+  cy.nodes().forEach((n) => {
+    const x = Math.round(n.position("x"));
+    (cols.get(x) ?? cols.set(x, []).get(x)!).push(n);
+  });
+
+  cols.forEach((colNodes) => {
+    const seeds = colNodes
+      .filter((n) => !attachedIds.has(n.id()))
+      .sort((a, b) => a.position("y") - b.position("y"));
+    const order: NodeSingular[] = [];
+    for (const s of seeds) order.push(s, ...(attached.get(s.id()) ?? []));
+    // dagre spaces anchors ≥ ROW apart, so keeping each anchor's own y reproduces a
+    // spouse-free column exactly; only a tucked-in spouse pushes the rows below down.
+    const x = order[0].position("x");
+    let prevY = -Infinity;
+    for (const n of order) {
+      const y = attachedIds.has(n.id())
+        ? prevY + ROW
+        : Math.max(prevY + ROW, n.position("y"));
+      n.position({ x, y });
+      prevY = y;
+    }
+  });
+}
+
+// Marriage lines stay straight, except one that runs over an UNRELATED person: a
+// cross-family/cousin marriage pins both partners to their own blocks, so its line
+// spans the column. Route just those into the empty inter-column gutter. Passing
+// among the person's own co-spouses is fine, so co-spouses don't count as in the
+// way. segment-distances is perpendicular to source→target — normalize its sign so
+// the bow always goes left, clear of the right-hand labels.
+function routeSpouseEdges(cy: Core): void {
+  const nodes = cy.nodes().toArray();
+  cy.edges('[type = "SPOUSE_OF"]').forEach((e) => {
+    const s = e.source();
+    const t = e.target();
+    const sp = s.position();
+    const tp = t.position();
+    const [yLo, yHi] = sp.y < tp.y ? [sp.y, tp.y] : [tp.y, sp.y];
+    const x = (sp.x + tp.x) / 2;
+    const coSpouses = s
+      .connectedEdges('[type = "SPOUSE_OF"]')
+      .connectedNodes()
+      .union(t.connectedEdges('[type = "SPOUSE_OF"]').connectedNodes());
+    const blocked = nodes.some((n) => {
+      if (n.same(s) || n.same(t) || coSpouses.anySame(n)) return false;
+      const p = n.position();
+      return p.y > yLo + 8 && p.y < yHi - 8 && Math.abs(p.x - x) < 24;
+    });
+    if (!blocked) return;
+    const d = (tp.y > sp.y ? 1 : -1) * SPOUSE_GUTTER;
+    e.style("curve-style", "segments");
+    e.style("segment-weights", "0.08 0.92");
+    e.style("segment-distances", `${d} ${d}`);
   });
 }
 
@@ -192,17 +265,17 @@ export function GraphPane({
     if (pathTo) {
       cy.layout(dagreLR()).run(); // small graph: default fit is fine
     } else {
-      // Lay out the tree on the descent edges (drawn father→child plus the hidden
-      // mother→child layout edges that co-rank couples), then re-seat any spouse
-      // still left edgeless. A prolific line is genuinely tall; fitting it to the
-      // pane shrinks names to nothing, so open at a readable zoom on the focus
-      // instead. rankSep leaves room for a name between columns; nodeSep keeps
+      // Lay out on the descent edges (drawn father→child plus the hidden mother→child
+      // layout edges that co-rank couples). A prolific line is genuinely tall; fitting
+      // it to the pane shrinks names to nothing, so open at a readable zoom on the
+      // focus instead. rankSep leaves room for a name between columns; nodeSep keeps
       // stacked labels apart.
       cy.nodes()
         .union(cy.edges('[type = "PARENT_OF"], [type = "LAYOUT"]'))
-        .layout(dagreLR({ nodeSep: 30, rankSep: 220, fit: false }))
+        .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: 220, fit: false }))
         .run();
-      placeMarriedInSpouses(cy);
+      packColumns(cy, focus.qid);
+      routeSpouseEdges(cy);
       cy.zoom(0.8);
       cy.center(cy.getElementById(focus.qid));
     }
