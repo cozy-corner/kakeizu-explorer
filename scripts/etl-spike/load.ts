@@ -15,11 +15,14 @@ async function readJson<T>(name: string): Promise<T> {
 }
 
 // Optional input (adoptions are fetched by a separate pass): absent ⇒ empty.
+// Only a missing file is benign — a parse error or I/O fault must surface, or a
+// corrupted adopted_of.json would silently drop every adoption edge.
 async function readJsonOpt<T>(name: string, fallback: T): Promise<T> {
   try {
     return await readJson<T>(name);
-  } catch {
-    return fallback;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return fallback;
+    throw err;
   }
 }
 
