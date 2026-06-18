@@ -15,6 +15,7 @@ docker compose up -d                                   # Neo4j
 SPIKE_RELAX=1 bun run scripts/etl-spike/fetch.ts       # 種＋1ホップ(片端が日本人の辺)
 bun run scripts/etl-spike/traverse.ts                  # 非日本人フロンティアを1段外へ展開
 bun run scripts/etl-spike/filter-foreign.ts            # 外国人ノードを剪定
+bun run scripts/etl-spike/fetch-adoptions.ts           # 養子(P1038+P1039)を adopted_of.json に
 bun run scripts/etl-spike/load.ts                      # JSON → Neo4j(:Person を毎回リセット)
 bun run scripts/etl-spike/verify.ts                    # WCC 連結性 + 既知ペアの shortestPath
 bun run scripts/etl-spike/check-wiki.ts                # ja.wikipedia 記事の被覆率
