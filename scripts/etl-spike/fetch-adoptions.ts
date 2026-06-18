@@ -1,27 +1,26 @@
-// Disposable ETL spike: fetch ADOPTION relations from Wikidata and add them as
-// ADOPTIVE_PARENT_OF edges, separate from the biological PARENT_OF spine.
+// Disposable ETL spike: fetch ADOPTION relations from Wikidata and write them to
+// adopted_of.json for load.ts, separate from the biological PARENT_OF spine.
 //
-// Why a dedicated pass (not part of fetch.ts): adoption lives in P1038 (relative)
+// Why a dedicated stage (not part of fetch.ts): adoption lives in P1038 (relative)
 // qualified by P1039 (kinship to subject) — NOT in P22/P25/P40 — and needs the
 // reified statement form (p:/ps:/pq:) that fetch.ts's truthy `wdt:` queries can't
-// reach. We restrict to pairs where BOTH endpoints already exist in the loaded
-// graph (like spouse/sibling), so this never expands the node set.
+// reach. We restrict to pairs where BOTH endpoints already exist in the graph
+// (like spouse/sibling), so this never expands the node set. That node set is the
+// FINAL one — after traverse.ts adds frontier nodes and filter-foreign.ts prunes
+// foreign ones — so this reads the post-prune nodes.json, NOT fetch.ts's raw
+// output. It runs as a normal pipeline stage (→ JSON) and load.ts is the single
+// loader; no direct Neo4j writes here.
 //
 // Direction: P1039's value is the OBJECT's kinship TO the subject. "養父/養母" ⇒
 // the object is the subject's adoptive parent (edge object→subject); the adopted-
 // child kinds ⇒ the object is the subject's adoptive child (edge subject→object).
 // 猶子 (nominal adoption) is included by request.
 //
-// The graph is already loaded in Neo4j and its source JSON is gitignored, so this
-// reads the node set straight from Neo4j and MERGEs the edges in directly (and
-// also writes adopted_of.json so a full load.ts rebuild stays correct).
-//
-// Run (after the graph is loaded): bun run scripts/etl-spike/fetch-adoptions.ts
+// Run (after filter-foreign.ts, before load.ts):
+//   bun run scripts/etl-spike/fetch-adoptions.ts
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Session } from "neo4j-driver";
-import { getDriver } from "../../lib/neo4j";
 import { qid, sparql, sparqlValues } from "./wdqs";
 
 const DATA_DIR = join(import.meta.dirname, "data");
@@ -46,73 +45,49 @@ const chunk = <T>(a: T[], n: number): T[][] => {
   return out;
 };
 
-async function allQids(session: Session): Promise<string[]> {
-  const res = await session.run("MATCH (p:Person) RETURN p.qid AS qid");
-  return res.records.map((r) => r.get("qid") as string);
+async function readJson<T>(name: string): Promise<T> {
+  return JSON.parse(await readFile(join(DATA_DIR, name), "utf8")) as T;
 }
 
 async function main() {
-  const driver = getDriver();
-  const session = driver.session();
-  try {
-    const qids = await allQids(session);
-    const known = new Set(qids);
-    console.log(`Known nodes: ${qids.length}`);
+  const nodes = await readJson<{ qid: string; label: string }[]>("nodes.json");
+  const qids = nodes.map((n) => n.qid);
+  const known = new Set(qids);
+  console.log(`Known nodes: ${qids.length}`);
 
-    const kinshipValues = sparqlValues(KINSHIP);
-    const edges = new Set<string>(); // `from->to`, deduped (adoptiveParent→child)
-    const batches = chunk(qids, BATCH);
-    for (let i = 0; i < batches.length; i++) {
-      const rows = await sparql(`
-        SELECT ?s ?o ?k WHERE {
-          VALUES ?s { ${sparqlValues(batches[i])} }
-          VALUES ?k { ${kinshipValues} }
-          ?s p:P1038 ?st. ?st ps:P1038 ?o. ?st pq:P1039 ?k.
-        }`);
-      for (const r of rows) {
-        const s = qid(r.s!.value);
-        const o = qid(r.o!.value);
-        const k = qid(r.k!.value);
-        if (s === o || !known.has(o)) continue;
-        // Orient to adoptiveParent→child regardless of which side recorded it.
-        const [from, to] = PARENT_ROLE.has(k) ? [o, s] : [s, o];
-        edges.add(`${from}->${to}`);
-      }
-      if ((i + 1) % 20 === 0)
-        console.log(
-          `  batch ${i + 1}/${batches.length}, edges so far ${edges.size}`,
-        );
+  const kinshipValues = sparqlValues(KINSHIP);
+  const edges = new Set<string>(); // `from->to`, deduped (adoptiveParent→child)
+  const batches = chunk(qids, BATCH);
+  for (let i = 0; i < batches.length; i++) {
+    const rows = await sparql(`
+      SELECT ?s ?o ?k WHERE {
+        VALUES ?s { ${sparqlValues(batches[i])} }
+        VALUES ?k { ${kinshipValues} }
+        ?s p:P1038 ?st. ?st ps:P1038 ?o. ?st pq:P1039 ?k.
+      }`);
+    for (const r of rows) {
+      const s = qid(r.s!.value);
+      const o = qid(r.o!.value);
+      const k = qid(r.k!.value);
+      if (s === o || !known.has(o)) continue;
+      // Orient to adoptiveParent→child regardless of which side recorded it.
+      const [from, to] = PARENT_ROLE.has(k) ? [o, s] : [s, o];
+      edges.add(`${from}->${to}`);
     }
-
-    const adoptedOf = [...edges].map((e) => {
-      const [from, to] = e.split("->");
-      return { from, to };
-    });
-    await mkdir(DATA_DIR, { recursive: true });
-    await writeFile(
-      join(DATA_DIR, "adopted_of.json"),
-      JSON.stringify(adoptedOf),
-    );
-    console.log(`Found ${adoptedOf.length} ADOPTIVE_PARENT_OF edges`);
-
-    // The base graph is already loaded, so MERGE these in directly instead of a
-    // full wipe-reload (which would need the gitignored source JSON).
-    for (const rows of chunk(adoptedOf, 5000)) {
-      await session.run(
-        "UNWIND $rows AS r MATCH (a:Person {qid: r.from}), (b:Person {qid: r.to}) MERGE (a)-[:ADOPTIVE_PARENT_OF]->(b)",
-        { rows },
+    if ((i + 1) % 20 === 0)
+      console.log(
+        `  batch ${i + 1}/${batches.length}, edges so far ${edges.size}`,
       );
-    }
-    const res = await session.run(
-      "MATCH ()-[r:ADOPTIVE_PARENT_OF]->() RETURN count(r) AS n",
-    );
-    console.log(
-      `Neo4j ADOPTIVE_PARENT_OF: ${res.records[0].get("n").toNumber()}`,
-    );
-  } finally {
-    await session.close();
-    await driver.close();
   }
+
+  const adoptedOf = [...edges].map((e) => {
+    const [from, to] = e.split("->");
+    return { from, to };
+  });
+  await writeFile(join(DATA_DIR, "adopted_of.json"), JSON.stringify(adoptedOf));
+  console.log(
+    `Wrote ${adoptedOf.length} ADOPTIVE_PARENT_OF edges to adopted_of.json`,
+  );
 }
 
 await main();
