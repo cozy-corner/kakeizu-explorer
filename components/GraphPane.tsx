@@ -58,19 +58,42 @@ const STYLE: cytoscape.StylesheetJson = [
     style: { width: 1.5, "curve-style": "bezier", "line-color": "#cbd5e1" },
   },
   {
-    selector: 'edge[type = "PARENT_OF"]',
+    // Both parent→child relations flow as a rightward right-angle (taxi) line with an
+    // arrowhead; only the colour (and the adoptive double-line) differ — see the
+    // type-specific blocks below. Single-sourced so blood and adoption can't route apart.
+    selector: 'edge[type = "PARENT_OF"], edge[type = "ADOPTIVE_PARENT_OF"]',
     style: {
-      "line-color": "#475569",
       "target-arrow-shape": "triangle",
-      "target-arrow-color": "#475569",
       "curve-style": "taxi",
       "taxi-direction": "rightward",
       "taxi-turn": "50%",
     },
   },
   {
+    selector: 'edge[type = "PARENT_OF"]',
+    style: { "line-color": "#475569", "target-arrow-color": "#475569" },
+  },
+  {
     selector: 'edge[type = "SPOUSE_OF"]',
     style: { "line-color": "#db2777", "curve-style": "straight" },
+  },
+  {
+    // Adoption is a parent→child relation (same taxi routing as blood, above), but
+    // drawn as a double line in a distinct green to mark it as non-blood. cytoscape
+    // has no `line-style: double` for edges, so the doubling is faked with line-outline:
+    // a background-coloured core line inside a thin green outline reads as two parallel
+    // green strokes.
+    selector: 'edge[type = "ADOPTIVE_PARENT_OF"]',
+    style: {
+      // width = the dark (background-coloured) gap; the green outline draws the two
+      // parallel strokes on either side. A thin stroke + moderate gap reads as two
+      // crisp parallel lines rather than one thick band.
+      width: 4,
+      "line-color": "#18181b",
+      "line-outline-width": 1,
+      "line-outline-color": "#22c55e",
+      "target-arrow-color": "#22c55e",
+    },
   },
   {
     // Mother→child edges fed to dagre only to co-rank couples (see layoutOnlyEdges).
@@ -83,11 +106,14 @@ const STYLE: cytoscape.StylesheetJson = [
 
 const SPOUSE_GUTTER = 70; // < rankSep (220): stays in the node-free inter-column gutter
 
-// No PARENT_OF edge = married-in: the patrilineal view drops a mother's descent
-// edges, so even a wife with children has none. These belong to no parent's block,
-// so they're the only nodes packColumns may move.
+// No parent edge (blood or adoptive) = married-in: the patrilineal view drops a
+// mother's descent edges, so even a wife with children has none. These belong to no
+// parent's block, so they're the only nodes packColumns may move. An adopted child
+// IS placed by its adoptive parent, so it must not count as married-in.
 const isMarriedIn = (n: NodeSingular): boolean =>
-  n.connectedEdges('[type = "PARENT_OF"]').empty();
+  n
+    .connectedEdges('[type = "PARENT_OF"], [type = "ADOPTIVE_PARENT_OF"]')
+    .empty();
 
 // Keep dagre's vertical positions for blood descendants — gaps and all, since the
 // gaps are what separate one parent's children from the next — so parent blocks stay
@@ -141,6 +167,39 @@ function packColumns(cy: Core, focusQid: string): void {
       n.position({ x, y });
       prevY = y;
     }
+  });
+}
+
+// An adoptive parent of the focus enters the dagre ranking via its
+// ADOPTIVE_PARENT_OF edge, so it lands in the blood-parent column on the focus's
+// own row — right on top of the real father, so the green and grey lines overlap.
+// Drop each below the focus's sibling cluster: still left of the focus (parent
+// side, arrow still points right), but clear of the blood-parent line. Skip anyone
+// who is ALSO a blood parent of the focus — their grey line owns that column, and
+// moving them would tear the blood tree. (A node that merely parents some other
+// in-view person, e.g. 家茂→家達 by 家督 succession, is still moved.)
+function placeAdoptiveParents(cy: Core, focusQid: string): void {
+  const focus = cy.getElementById(focusQid);
+  if (focus.empty()) return;
+  const bloodParents = focus.incomers('edge[type = "PARENT_OF"]').sources();
+  const parents = focus
+    .connectedEdges('[type = "ADOPTIVE_PARENT_OF"]')
+    .filter((e) => e.target().id() === focusQid)
+    .sources()
+    .filter((p: NodeSingular) => !bloodParents.anySame(p));
+  if (parents.empty()) return;
+  // The sibling cluster is everyone dagre put in the focus's column.
+  const focusX = Math.round(focus.position("x"));
+  const clusterBottom = Math.max(
+    ...cy
+      .nodes()
+      .filter((n: NodeSingular) => Math.round(n.position("x")) === focusX)
+      .map((n: NodeSingular) => n.position("y")),
+  );
+  let y = clusterBottom + ROW;
+  parents.forEach((p: NodeSingular) => {
+    p.position("y", y);
+    y += ROW;
   });
 }
 
@@ -271,10 +330,15 @@ export function GraphPane({
       // focus instead. rankSep leaves room for a name between columns; nodeSep keeps
       // stacked labels apart.
       cy.nodes()
-        .union(cy.edges('[type = "PARENT_OF"], [type = "LAYOUT"]'))
+        .union(
+          cy.edges(
+            '[type = "PARENT_OF"], [type = "LAYOUT"], [type = "ADOPTIVE_PARENT_OF"]',
+          ),
+        )
         .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: 220, fit: false }))
         .run();
       packColumns(cy, focus.qid);
+      placeAdoptiveParents(cy, focus.qid);
       routeSpouseEdges(cy);
       cy.zoom(0.8);
       cy.center(cy.getElementById(focus.qid));

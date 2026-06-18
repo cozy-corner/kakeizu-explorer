@@ -25,15 +25,24 @@ export async function GET(
   try {
     // One row per subgraph node (edge columns null when it has none) so an
     // isolated focus person still returns a row; directed `->` yields each
-    // stored edge once.
+    // stored edge once. Blood descent traverses `hops`, but adoption is gathered
+    // only 1 hop from the focus — otherwise it would bridge in the adoptive
+    // parents'/children's whole families (家茂's wife, the 田安/高須 lines, …).
+    // Adoption edges are also DRAWN only when incident to the focus: between
+    // descendants (e.g. the 御三卿 succession 斉敦→斉朝→斉温→斉荘…) they chain in
+    // the layout and inflate the apparent generation depth past `hops`.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
        OPTIONAL MATCH (c)-[:PARENT_OF*1..${hops}]-(m:Person)
-       WITH c, collect(DISTINCT m) AS ms
-       WITH [c] + [x IN ms WHERE x <> c] AS nodes
+       WITH c, collect(DISTINCT m) AS bio
+       OPTIONAL MATCH (c)-[:ADOPTIVE_PARENT_OF]-(ad:Person)
+       WITH c, bio, collect(DISTINCT ad) AS adlist
+       WITH [c] + [x IN bio WHERE x <> c]
+            + [x IN adlist WHERE x <> c AND NOT x IN bio] AS nodes
        UNWIND nodes AS a
-       OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF]->(b:Person)
+       OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]->(b:Person)
        WHERE b IN nodes
+         AND (type(r) <> 'ADOPTIVE_PARENT_OF' OR a.qid = $id OR b.qid = $id)
        RETURN a.qid AS aQid, a.label AS aLabel, a.sex AS aSex,
               type(r) AS type, b.qid AS bQid, b.label AS bLabel, b.sex AS bSex`,
       { id },

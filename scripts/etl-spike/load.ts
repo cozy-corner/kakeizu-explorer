@@ -14,6 +14,15 @@ async function readJson<T>(name: string): Promise<T> {
   return JSON.parse(await readFile(join(DATA_DIR, name), "utf8")) as T;
 }
 
+// Optional input (adoptions are fetched by a separate pass): absent ⇒ empty.
+async function readJsonOpt<T>(name: string, fallback: T): Promise<T> {
+  try {
+    return await readJson<T>(name);
+  } catch {
+    return fallback;
+  }
+}
+
 // UNWIND a list of rows through a Cypher statement in chunks to bound memory.
 async function batched(
   session: Session,
@@ -38,6 +47,10 @@ async function main() {
   const spouseOf = await readJson<{ a: string; b: string }[]>("spouse_of.json");
   const siblingOf =
     await readJson<{ a: string; b: string }[]>("sibling_of.json");
+  const adoptedOf = await readJsonOpt<{ from: string; to: string }[]>(
+    "adopted_of.json",
+    [],
+  );
 
   const driver = getDriver();
   const session = driver.session();
@@ -73,6 +86,12 @@ async function main() {
       siblingOf,
       "UNWIND $rows AS r MATCH (a:Person {qid: r.a}), (b:Person {qid: r.b}) MERGE (a)-[:SIBLING_OF]->(b)",
     );
+    console.log(`Loading ${adoptedOf.length} ADOPTIVE_PARENT_OF…`);
+    await batched(
+      session,
+      adoptedOf,
+      "UNWIND $rows AS r MATCH (a:Person {qid: r.from}), (b:Person {qid: r.to}) MERGE (a)-[:ADOPTIVE_PARENT_OF]->(b)",
+    );
 
     const persons = await count(session, "MATCH (p:Person) RETURN count(p)");
     const parents = await count(
@@ -87,11 +106,16 @@ async function main() {
       session,
       "MATCH ()-[r:SIBLING_OF]->() RETURN count(r)",
     );
+    const adoptions = await count(
+      session,
+      "MATCH ()-[r:ADOPTIVE_PARENT_OF]->() RETURN count(r)",
+    );
     console.log("Loaded into Neo4j:");
-    console.log(`  Person:     ${persons}`);
-    console.log(`  PARENT_OF:  ${parents}`);
-    console.log(`  SPOUSE_OF:  ${spouses}`);
-    console.log(`  SIBLING_OF: ${siblings}`);
+    console.log(`  Person:             ${persons}`);
+    console.log(`  PARENT_OF:          ${parents}`);
+    console.log(`  SPOUSE_OF:          ${spouses}`);
+    console.log(`  SIBLING_OF:         ${siblings}`);
+    console.log(`  ADOPTIVE_PARENT_OF: ${adoptions}`);
   } finally {
     await session.close();
     await driver.close();

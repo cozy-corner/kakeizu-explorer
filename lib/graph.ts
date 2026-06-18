@@ -20,6 +20,10 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
   const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
   const parentsOf = new Map<string, string[]>();
   const spouse: GraphEdge[] = [];
+  // Adoptive parent→child edges pass through untouched: they're a separate layer
+  // (drawn as a double line), not part of the patrilineal blood-descent reduction,
+  // and deliberately don't influence the father/mother/couple logic.
+  const adoptive: GraphEdge[] = [];
   const couple = new Set<string>(); // unordered pairs already linked as spouses
   const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
   for (const e of graph.edges) {
@@ -30,6 +34,8 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
     } else if (e.type === "SPOUSE_OF") {
       spouse.push(e);
       couple.add(pairKey(e.source, e.target));
+    } else if (e.type === "ADOPTIVE_PARENT_OF") {
+      adoptive.push(e);
     }
   }
   const structural: GraphEdge[] = [];
@@ -53,7 +59,7 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
       }
     }
   }
-  return [...structural, ...spouse];
+  return [...structural, ...spouse, ...adoptive];
 }
 
 // The parent→child edges that the patrilineal view drops from DRAWING (a mother's
