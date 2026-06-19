@@ -61,6 +61,10 @@ async function main() {
           UNION { ?s p:P40 ?st. ?st ps:P40 ?o. }
         }
         ?st pq:P1039 ?k.
+        # Reified p:/ps: returns all ranks; drop DeprecatedRank (known-wrong) so
+        # it doesn't become an edge — wdt: would have excluded it automatically.
+        ?st wikibase:rank ?rank.
+        FILTER(?rank != wikibase:DeprecatedRank)
       }`);
     for (const r of rows) {
       const s = qid(r.s!.value);
