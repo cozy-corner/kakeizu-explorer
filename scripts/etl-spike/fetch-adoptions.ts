@@ -1,10 +1,13 @@
 // Disposable ETL spike: fetch ADOPTION relations from Wikidata and write them to
 // adopted_of.json for load.ts, separate from the biological PARENT_OF spine.
 //
-// Why a dedicated stage (not part of fetch.ts): adoption lives in P1038 (relative)
-// qualified by P1039 (kinship to subject) — NOT in P22/P25/P40 — and needs the
-// reified statement form (p:/ps:/pq:) that fetch.ts's truthy `wdt:` queries can't
-// reach. We restrict to pairs where BOTH endpoints already exist in the graph
+// Why a dedicated stage (not part of fetch.ts): adoption is recorded two ways —
+// in P1038 (relative) qualified by P1039 (kinship to subject), AND inside the
+// ordinary P22/P25/P40 (father/mother/child) statements carrying the same P1039
+// qualifier. Both need the reified statement form (p:/ps:/pq:) that fetch.ts's
+// truthy `wdt:` queries can't reach — fetch.ts only EXCLUDES the P22/P25/P40 ones
+// from the biological spine; this stage turns them into adoption edges.
+// We restrict to pairs where BOTH endpoints already exist in the graph
 // (like spouse/sibling), so this never expands the node set. That node set is the
 // FINAL one — after traverse.ts adds frontier nodes and filter-foreign.ts prunes
 // foreign ones — so this reads the post-prune nodes.json, NOT fetch.ts's raw
@@ -21,23 +24,11 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
 import { qid, sparql, sparqlValues } from "./wdqs";
 
 const DATA_DIR = join(import.meta.dirname, "data");
 const BATCH = 120; // subjects per WDQS query (heavier reified form → keep small)
-
-// P1039 kinship values that mean "the object is the subject's adoptive PARENT".
-const PARENT_ROLE = new Set(["Q61740757" /* 養父 */, "Q61740758" /* 養母 */]);
-// ...and the ones that mean "the object is the subject's adoptive CHILD".
-const CHILD_ROLE = [
-  "Q25858158", // 養子 (legal, any gender)
-  "Q20746725", // 養男子 (legal, male)
-  "Q20746728", // 養女 (legal, female)
-  "Q110267632", // adoptee
-  "Q11572068", // 猶子 (nominal adoption)
-  "Q6933584", // 婿養子 (adopted son-in-law)
-];
-const KINSHIP = [...PARENT_ROLE, ...CHILD_ROLE];
 
 const chunk = <T>(a: T[], n: number): T[][] => {
   const out: T[][] = [];
@@ -63,7 +54,17 @@ async function main() {
       SELECT ?s ?o ?k WHERE {
         VALUES ?s { ${sparqlValues(batches[i])} }
         VALUES ?k { ${kinshipValues} }
-        ?s p:P1038 ?st. ?st ps:P1038 ?o. ?st pq:P1039 ?k.
+        {
+          { ?s p:P1038 ?st. ?st ps:P1038 ?o. }
+          UNION { ?s p:P22 ?st. ?st ps:P22 ?o. }
+          UNION { ?s p:P25 ?st. ?st ps:P25 ?o. }
+          UNION { ?s p:P40 ?st. ?st ps:P40 ?o. }
+        }
+        ?st pq:P1039 ?k.
+        # Reified p:/ps: returns all ranks; drop DeprecatedRank (known-wrong) so
+        # it doesn't become an edge — wdt: would have excluded it automatically.
+        ?st wikibase:rank ?rank.
+        FILTER(?rank != wikibase:DeprecatedRank)
       }`);
     for (const r of rows) {
       const s = qid(r.s!.value);
