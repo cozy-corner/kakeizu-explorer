@@ -17,13 +17,25 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { sparql } from "./wdqs";
+import { KINSHIP } from "./adoption-roles";
+import { sparql, sparqlValues } from "./wdqs";
 
 const DATA_DIR = join(import.meta.dirname, "data");
 const RELAX = process.env.SPIKE_RELAX === "1";
 
 const LABEL_SERVICE =
   'SERVICE wikibase:label { bd:serviceParam wikibase:language "ja,en". }';
+
+// Drop parent→child pairs whose P22/P25/P40 statement is qualified ADOPTIVE
+// (P1039 ∈ KINSHIP) so adoption never enters the biological PARENT_OF spine —
+// fetch-adoptions.ts re-captures them as ADOPTIVE_PARENT_OF. Biological P1039
+// clarifications (息子/実父/非嫡出子…) aren't in KINSHIP and stay. truthy `wdt:`
+// above still suppresses disputed (deprecated/non-preferred) parents by rank.
+const EXCLUDE_ADOPTIVE = `FILTER NOT EXISTS {
+             VALUES ?k { ${sparqlValues(KINSHIP)} }
+             { ?c p:P22 ?st. ?st ps:P22 ?p. ?st pq:P1039 ?k. }
+             UNION { ?c p:P25 ?st. ?st ps:P25 ?p. ?st pq:P1039 ?k. }
+             UNION { ?p p:P40 ?st. ?st ps:P40 ?c. ?st pq:P1039 ?k. } }`;
 
 // Entity URI (http://www.wikidata.org/entity/Q123) → bare Q-id.
 const qid = (uri: string) => uri.replace("http://www.wikidata.org/entity/", "");
@@ -43,17 +55,17 @@ async function fetchParentOf(): Promise<{ from: string; to: string }[]> {
         `SELECT ?p ?pLabel ?c ?cLabel WHERE {
            ?c wdt:P31 wd:Q5; wdt:P27 wd:Q17.
            { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c }
-           ?p wdt:P31 wd:Q5. ${LABEL_SERVICE} }`,
+           ?p wdt:P31 wd:Q5. ${EXCLUDE_ADOPTIVE} ${LABEL_SERVICE} }`,
         `SELECT ?p ?pLabel ?c ?cLabel WHERE {
            ?p wdt:P31 wd:Q5; wdt:P27 wd:Q17.
            { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c }
-           ?c wdt:P31 wd:Q5. ${LABEL_SERVICE} }`,
+           ?c wdt:P31 wd:Q5. ${EXCLUDE_ADOPTIVE} ${LABEL_SERVICE} }`,
       ]
     : [
         `SELECT ?p ?pLabel ?c ?cLabel WHERE {
            { ?c (wdt:P22|wdt:P25) ?p. } UNION { ?p wdt:P40 ?c. }
            ?c wdt:P31 wd:Q5; wdt:P27 wd:Q17.
-           ?p wdt:P31 wd:Q5; wdt:P27 wd:Q17. ${LABEL_SERVICE} }`,
+           ?p wdt:P31 wd:Q5; wdt:P27 wd:Q17. ${EXCLUDE_ADOPTIVE} ${LABEL_SERVICE} }`,
       ];
   const seen = new Set<string>();
   const edges: { from: string; to: string }[] = [];
