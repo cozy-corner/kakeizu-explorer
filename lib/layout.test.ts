@@ -247,3 +247,41 @@ test("spouseRouting: the bow sign follows the source→target vertical direction
     { edgeId: "S|SPOUSE_OF|T", bow: -70 },
   ]);
 });
+
+test("placeNodes: an empty graph yields an empty map", () => {
+  expect(obj(placeNodes(new Map(), [], "anyone", ROW))).toEqual({});
+});
+
+test("placeNodes: a focus absent from the positions still places everyone else", () => {
+  // No focus node present: the focus-spouse and adoptive passes are skipped (they
+  // early-return), but a married-in spouse still tucks beside its host.
+  const edges: GraphEdge[] = [
+    { source: "F", target: "C", type: "PARENT_OF" },
+    { source: "F", target: "W", type: "SPOUSE_OF" },
+  ];
+  const input = pos([
+    ["F", [0, 0]],
+    ["C", [100, 0]],
+    ["W", [200, 0]],
+  ]);
+
+  expect(obj(placeNodes(input, edges, "MISSING", ROW))).toEqual({
+    F: { x: 0, y: 0 },
+    C: { x: 100, y: 0 },
+    W: { x: 0, y: 46 },
+  });
+});
+
+test("spouseRouting: a graph with no marriage edges routes nothing", () => {
+  const edges: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  const input = pos([
+    ["F", [0, 0]],
+    ["C", [100, 0]],
+  ]);
+
+  expect(spouseRouting(input, edges, GUTTER)).toEqual([]);
+});
+
+test("spouseRouting: an empty graph routes nothing", () => {
+  expect(spouseRouting(new Map(), [], GUTTER)).toEqual([]);
+});
