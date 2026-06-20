@@ -1,14 +1,11 @@
 "use client";
 
-import cytoscape, {
-  type Core,
-  type ElementDefinition,
-  type NodeSingular,
-} from "cytoscape";
+import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
 import { layoutOnlyEdges, patrilinealEdges, type Graph } from "@/lib/graph";
+import { placeNodes, spouseRouting, type Positions } from "@/lib/layout";
 
 cytoscape.use(dagre);
 
@@ -106,167 +103,19 @@ const STYLE: cytoscape.StylesheetJson = [
 
 const SPOUSE_GUTTER = 70; // < rankSep (220): stays in the node-free inter-column gutter
 
-// No parent edge (blood or adoptive) = married-in: the patrilineal view drops a
-// mother's descent edges, so even a wife with children has none. These belong to no
-// parent's block, so they're the only nodes packColumns may move. An adopted child
-// IS placed by its adoptive parent, so it must not count as married-in.
-const isMarriedIn = (n: NodeSingular): boolean =>
-  n
-    .connectedEdges('[type = "PARENT_OF"], [type = "ADOPTIVE_PARENT_OF"]')
-    .empty();
-
-// Keep dagre's vertical positions for blood descendants — gaps and all, since the
-// gaps are what separate one parent's children from the next — so parent blocks stay
-// readable. Married-in spouses move: tuck each beside the partner it married,
-// preferring the focus when someone married more than one in-tree relative. The
-// focus's own spouse is tucked beside the focus too, even when that spouse heads their
-// own blood line (so dagre stacked them in their own block) — see the focus-spouse
-// block below.
-function packColumns(cy: Core, focusQid: string): void {
-  const hostOf = (n: NodeSingular): NodeSingular | null => {
-    const anchors = n
-      .connectedEdges('[type = "SPOUSE_OF"]')
-      .connectedNodes()
-      .filter((p) => p.id() !== n.id() && !isMarriedIn(p));
-    if (anchors.empty()) return null;
-    const focused = anchors.filter((p) => p.id() === focusQid);
-    return (
-      focused.nonempty() ? focused.first() : anchors.first()
-    ) as NodeSingular;
-  };
-
-  const attached = new Map<string, NodeSingular[]>();
+// Read dagre's coordinates into plain data for the layout domain, and write the
+// domain's result back. cytoscape is only the graph + coordinate store here; the
+// placement/priority rules live in lib/layout.
+function readPositions(cy: Core): Positions {
+  const pos: Positions = new Map();
   cy.nodes().forEach((n) => {
-    if (!isMarriedIn(n)) return;
-    const host = hostOf(n);
-    if (!host) return;
-    const list =
-      attached.get(host.id()) ?? attached.set(host.id(), []).get(host.id())!;
-    list.push(n);
-    n.position(host.position()); // provisional; overwritten by the spacing walk below
+    pos.set(n.id(), { x: n.position("x"), y: n.position("y") });
   });
-
-  // The focus's own spouse should sit beside them, but a spouse who heads their own
-  // blood line is not married-in, so the loop above skipped them. Attach each such
-  // focus-spouse to the focus so the spacing walk tucks them in like a married-in
-  // partner (their own married-in co-spouses ride along via the recursive expansion
-  // below). Only tuck a spouse in the focus's own generation column: a spouse in
-  // another column has no shared child co-ranking them beside the focus, and a blood
-  // parent/child of the focus is always in an adjacent column anyway (LR layout), so
-  // the same-column check also keeps us from pulling blood kin out of their block. A
-  // married-in focus is already tucked beside its host, so there is nothing to do.
-  const focus = cy.getElementById(focusQid);
-  if (focus.nonempty() && !isMarriedIn(focus as NodeSingular)) {
-    const focusX = Math.round(focus.position("x"));
-    focus
-      .connectedEdges('[type = "SPOUSE_OF"]')
-      .connectedNodes()
-      .forEach((sp: NodeSingular) => {
-        if (sp.id() === focusQid || isMarriedIn(sp)) return;
-        if (Math.round(sp.position("x")) !== focusX) return;
-        const list =
-          attached.get(focusQid) ?? attached.set(focusQid, []).get(focusQid)!;
-        list.push(sp);
-      });
-  }
-
-  const attachedIds = new Set([...attached.values()].flat().map((s) => s.id()));
-
-  const cols = new Map<number, NodeSingular[]>();
-  cy.nodes().forEach((n) => {
-    const x = Math.round(n.position("x"));
-    (cols.get(x) ?? cols.set(x, []).get(x)!).push(n);
-  });
-
-  cols.forEach((colNodes) => {
-    const seeds = colNodes
-      .filter((n) => !attachedIds.has(n.id()))
-      .sort((a, b) => a.position("y") - b.position("y"));
-    const order: NodeSingular[] = [];
-    // Expand transitively: a tucked-in spouse may itself host co-spouses (e.g. the
-    // focus's spouse who has another wife), so flatten the whole attached chain.
-    const expand = (n: NodeSingular): void => {
-      order.push(n);
-      for (const a of attached.get(n.id()) ?? []) expand(a);
-    };
-    for (const s of seeds) expand(s);
-    // dagre spaces anchors ≥ ROW apart, so keeping each anchor's own y reproduces a
-    // spouse-free column exactly; only a tucked-in spouse pushes the rows below down.
-    const x = order[0].position("x");
-    let prevY = -Infinity;
-    for (const n of order) {
-      const y = attachedIds.has(n.id())
-        ? prevY + ROW
-        : Math.max(prevY + ROW, n.position("y"));
-      n.position({ x, y });
-      prevY = y;
-    }
-  });
+  return pos;
 }
 
-// An adoptive parent of the focus enters the dagre ranking via its
-// ADOPTIVE_PARENT_OF edge, so it lands in the blood-parent column on the focus's
-// own row — right on top of the real father, so the green and grey lines overlap.
-// Drop each below the focus's sibling cluster: still left of the focus (parent
-// side, arrow still points right), but clear of the blood-parent line. Skip anyone
-// who is ALSO a blood parent of the focus — their grey line owns that column, and
-// moving them would tear the blood tree. (A node that merely parents some other
-// in-view person, e.g. 家茂→家達 by 家督 succession, is still moved.)
-function placeAdoptiveParents(cy: Core, focusQid: string): void {
-  const focus = cy.getElementById(focusQid);
-  if (focus.empty()) return;
-  const bloodParents = focus.incomers('edge[type = "PARENT_OF"]').sources();
-  const parents = focus
-    .connectedEdges('[type = "ADOPTIVE_PARENT_OF"]')
-    .filter((e) => e.target().id() === focusQid)
-    .sources()
-    .filter((p: NodeSingular) => !bloodParents.anySame(p));
-  if (parents.empty()) return;
-  // The sibling cluster is everyone dagre put in the focus's column.
-  const focusX = Math.round(focus.position("x"));
-  const clusterBottom = Math.max(
-    ...cy
-      .nodes()
-      .filter((n: NodeSingular) => Math.round(n.position("x")) === focusX)
-      .map((n: NodeSingular) => n.position("y")),
-  );
-  let y = clusterBottom + ROW;
-  parents.forEach((p: NodeSingular) => {
-    p.position("y", y);
-    y += ROW;
-  });
-}
-
-// Marriage lines stay straight, except one that runs over an UNRELATED person: a
-// cross-family/cousin marriage pins both partners to their own blocks, so its line
-// spans the column. Route just those into the empty inter-column gutter. Passing
-// among the person's own co-spouses is fine, so co-spouses don't count as in the
-// way. segment-distances is perpendicular to source→target — normalize its sign so
-// the bow always goes left, clear of the right-hand labels.
-function routeSpouseEdges(cy: Core): void {
-  const nodes = cy.nodes().toArray();
-  cy.edges('[type = "SPOUSE_OF"]').forEach((e) => {
-    const s = e.source();
-    const t = e.target();
-    const sp = s.position();
-    const tp = t.position();
-    const [yLo, yHi] = sp.y < tp.y ? [sp.y, tp.y] : [tp.y, sp.y];
-    const x = (sp.x + tp.x) / 2;
-    const coSpouses = s
-      .connectedEdges('[type = "SPOUSE_OF"]')
-      .connectedNodes()
-      .union(t.connectedEdges('[type = "SPOUSE_OF"]').connectedNodes());
-    const blocked = nodes.some((n) => {
-      if (n.same(s) || n.same(t) || coSpouses.anySame(n)) return false;
-      const p = n.position();
-      return p.y > yLo + 8 && p.y < yHi - 8 && Math.abs(p.x - x) < 24;
-    });
-    if (!blocked) return;
-    const d = (tp.y > sp.y ? 1 : -1) * SPOUSE_GUTTER;
-    e.style("curve-style", "segments");
-    e.style("segment-weights", "0.08 0.92");
-    e.style("segment-distances", `${d} ${d}`);
-  });
+function writePositions(cy: Core, pos: Positions): void {
+  for (const [id, p] of pos) cy.getElementById(id).position(p);
 }
 
 // Mounted with a key derived from focus + pathTo: changing either remounts this,
@@ -371,9 +220,21 @@ export function GraphPane({
         )
         .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: 220, fit: false }))
         .run();
-      packColumns(cy, focus.qid);
-      placeAdoptiveParents(cy, focus.qid);
-      routeSpouseEdges(cy);
+      // The placement/priority rules live in lib/layout as pure functions; this
+      // effect is just the cytoscape adapter — read dagre's coordinates, run the
+      // rules, write the result back, then apply the spouse-line detours as style.
+      const positions = placeNodes(readPositions(cy), edges, focus.qid, ROW);
+      writePositions(cy, positions);
+      for (const { edgeId, bow } of spouseRouting(
+        positions,
+        edges,
+        SPOUSE_GUTTER,
+      )) {
+        const e = cy.getElementById(edgeId);
+        e.style("curve-style", "segments");
+        e.style("segment-weights", "0.08 0.92");
+        e.style("segment-distances", `${bow} ${bow}`);
+      }
       cy.zoom(0.8);
       cy.center(cy.getElementById(focus.qid));
     }
