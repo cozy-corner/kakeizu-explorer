@@ -151,6 +151,9 @@ async function ego(qid: string): Promise<Graph> {
   const res = await fetch(
     `http://localhost:3000/api/person/${encodeURIComponent(qid)}/neighbors?hops=2`,
   );
+  if (!res.ok) {
+    throw new Error(`ego(${qid}) failed: ${res.status} ${await res.text()}`);
+  }
   return (await res.json()) as Graph;
 }
 
