@@ -117,8 +117,11 @@ const isMarriedIn = (n: NodeSingular): boolean =>
 
 // Keep dagre's vertical positions for blood descendants — gaps and all, since the
 // gaps are what separate one parent's children from the next — so parent blocks stay
-// readable. Only married-in spouses move: tuck each beside the partner it married,
-// preferring the focus when someone married more than one in-tree relative.
+// readable. Married-in spouses move: tuck each beside the partner it married,
+// preferring the focus when someone married more than one in-tree relative. The
+// focus's own spouse is tucked beside the focus too, even when that spouse heads their
+// own blood line (so dagre stacked them in their own block) — see the focus-spouse
+// block below.
 function packColumns(cy: Core, focusQid: string): void {
   const hostOf = (n: NodeSingular): NodeSingular | null => {
     const anchors = n
@@ -142,6 +145,31 @@ function packColumns(cy: Core, focusQid: string): void {
     list.push(n);
     n.position(host.position()); // provisional; overwritten by the spacing walk below
   });
+
+  // The focus's own spouse should sit beside them, but a spouse who heads their own
+  // blood line is not married-in, so the loop above skipped them. Attach each such
+  // focus-spouse to the focus so the spacing walk tucks them in like a married-in
+  // partner (their own married-in co-spouses ride along via the recursive expansion
+  // below). Only tuck a spouse in the focus's own generation column: a spouse in
+  // another column has no shared child co-ranking them beside the focus, and a blood
+  // parent/child of the focus is always in an adjacent column anyway (LR layout), so
+  // the same-column check also keeps us from pulling blood kin out of their block. A
+  // married-in focus is already tucked beside its host, so there is nothing to do.
+  const focus = cy.getElementById(focusQid);
+  if (focus.nonempty() && !isMarriedIn(focus as NodeSingular)) {
+    const focusX = Math.round(focus.position("x"));
+    focus
+      .connectedEdges('[type = "SPOUSE_OF"]')
+      .connectedNodes()
+      .forEach((sp: NodeSingular) => {
+        if (sp.id() === focusQid || isMarriedIn(sp)) return;
+        if (Math.round(sp.position("x")) !== focusX) return;
+        const list =
+          attached.get(focusQid) ?? attached.set(focusQid, []).get(focusQid)!;
+        list.push(sp);
+      });
+  }
+
   const attachedIds = new Set([...attached.values()].flat().map((s) => s.id()));
 
   const cols = new Map<number, NodeSingular[]>();
@@ -155,7 +183,13 @@ function packColumns(cy: Core, focusQid: string): void {
       .filter((n) => !attachedIds.has(n.id()))
       .sort((a, b) => a.position("y") - b.position("y"));
     const order: NodeSingular[] = [];
-    for (const s of seeds) order.push(s, ...(attached.get(s.id()) ?? []));
+    // Expand transitively: a tucked-in spouse may itself host co-spouses (e.g. the
+    // focus's spouse who has another wife), so flatten the whole attached chain.
+    const expand = (n: NodeSingular): void => {
+      order.push(n);
+      for (const a of attached.get(n.id()) ?? []) expand(a);
+    };
+    for (const s of seeds) expand(s);
     // dagre spaces anchors ≥ ROW apart, so keeping each anchor's own y reproduces a
     // spouse-free column exactly; only a tucked-in spouse pushes the rows below down.
     const x = order[0].position("x");
