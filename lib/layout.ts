@@ -208,6 +208,14 @@ export function spouseRouting(
   spouseGutter: number,
 ): { edgeId: string; bow: number }[] {
   const nodes = [...pos.entries()];
+  // Resolve spouse adjacency once; coSpouses is then an O(1) lookup per edge
+  // instead of re-scanning all edges twice inside the loop.
+  const spouseAdj = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (edge.type !== "SPOUSE_OF") continue;
+    pushInto(spouseAdj, edge.source, edge.target);
+    pushInto(spouseAdj, edge.target, edge.source);
+  }
   return edges
     .filter((edge) => edge.type === "SPOUSE_OF")
     .flatMap((edge) => {
@@ -219,8 +227,8 @@ export function spouseRouting(
       const coSpouses = new Set<string>([
         edge.source,
         edge.target,
-        ...spouseNeighbors(edge.source, edges),
-        ...spouseNeighbors(edge.target, edges),
+        ...(spouseAdj.get(edge.source) ?? []),
+        ...(spouseAdj.get(edge.target) ?? []),
       ]);
       const blocked = nodes.some(
         ([id, p]) =>
