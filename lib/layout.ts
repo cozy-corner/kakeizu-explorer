@@ -35,6 +35,10 @@ function pushInto<K>(map: Map<K, string[]>, key: K, value: string): void {
   (map.get(key) ?? map.set(key, []).get(key)!).push(value);
 }
 
+function addInto<K>(map: Map<K, Set<string>>, key: K, value: string): void {
+  (map.get(key) ?? map.set(key, new Set()).get(key)!).add(value);
+}
+
 function clonePositions(pos: Positions): Positions {
   return new Map([...pos].map(([id, p]) => [id, { x: p.x, y: p.y }]));
 }
@@ -293,11 +297,18 @@ export function descentJunctions(
     if (e.type === "PARENT_OF") pushInto(drawnFathersOf, e.target, e.source);
   }
 
-  const byCouple = new Map<
-    string,
-    { father: string; junction: DescentJunction }
-  >();
-  const mothersByFather = new Map<string, Set<string>>();
+  // Resolve each drawn father→child line to its co-located couple, when parentage
+  // is unambiguous: exactly one drawn father, exactly one in-view mother, both in
+  // the same column. `mid`/`gap` are captured now so the gating below needs no
+  // further position lookups.
+  type Candidate = {
+    father: string;
+    mother: string;
+    child: string;
+    mid: Pos;
+    gap: number;
+  };
+  const candidates: Candidate[] = [];
   for (const e of drawnEdges) {
     if (e.type !== "PARENT_OF") continue;
     const child = e.target;
@@ -311,28 +322,39 @@ export function descentJunctions(
     if (mothers.length !== 1) continue;
     const mp = positions.get(mothers[0])!;
     if (Math.round(mp.x) !== Math.round(fp.x)) continue; // not a co-located couple
-    // Count co-located mothers BEFORE the adjacency gate so polygamy is detected
-    // even when a second wife sits far down the column (and would be gated out).
-    (
-      mothersByFather.get(father) ??
-      mothersByFather.set(father, new Set()).get(father)!
-    ).add(mothers[0]);
-    if (Math.abs(mp.y - fp.y) > row * 1.5) continue; // not an adjacent pair
-    const key = `${father}|${mothers[0]}`;
-    const entry = byCouple.get(key) ?? {
+    candidates.push({
       father,
-      junction: {
-        id: `${JUNCTION_PREFIX}|${father}|${mothers[0]}`,
-        pos: { x: fp.x, y: (fp.y + mp.y) / 2 },
-        children: [],
-        hiddenEdgeIds: [],
-      },
-    };
-    entry.junction.children.push(child);
-    entry.junction.hiddenEdgeIds.push(`${father}|PARENT_OF|${child}`);
-    byCouple.set(key, entry);
+      mother: mothers[0],
+      child,
+      mid: { x: fp.x, y: (fp.y + mp.y) / 2 },
+      gap: Math.abs(mp.y - fp.y),
+    });
   }
-  return [...byCouple.values()]
-    .filter(({ father }) => mothersByFather.get(father)!.size === 1)
-    .map(({ junction }) => junction);
+
+  // A father with two or more distinct co-located mothers is polygamous; counted
+  // across ALL candidates (before the adjacency gate) so a far second wife still
+  // disqualifies. His children draw from the father, not a per-wife midpoint.
+  const mothersByFather = new Map<string, Set<string>>();
+  for (const c of candidates) addInto(mothersByFather, c.father, c.mother);
+  const polygamous = new Set<string>();
+  for (const [father, mothers] of mothersByFather) {
+    if (mothers.size > 1) polygamous.add(father);
+  }
+
+  const byCouple = new Map<string, DescentJunction>();
+  for (const c of candidates) {
+    if (polygamous.has(c.father)) continue;
+    if (c.gap > row * 1.5) continue; // not an adjacent pair
+    const key = `${c.father}|${c.mother}`;
+    const junction = byCouple.get(key) ?? {
+      id: `${JUNCTION_PREFIX}|${c.father}|${c.mother}`,
+      pos: c.mid,
+      children: [],
+      hiddenEdgeIds: [],
+    };
+    junction.children.push(c.child);
+    junction.hiddenEdgeIds.push(`${c.father}|PARENT_OF|${c.child}`);
+    byCouple.set(key, junction);
+  }
+  return [...byCouple.values()];
 }
