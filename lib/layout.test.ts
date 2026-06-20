@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
-import { isMarriedIn, placeNodes, spouseRouting } from "./layout";
-import type { GraphEdge } from "./graph";
+import {
+  descentJunctions,
+  isMarriedIn,
+  placeNodes,
+  spouseRouting,
+} from "./layout";
+import type { Graph, GraphEdge } from "./graph";
 
 const ROW = 46; // injected; matches the view's NODE_SEP + NODE_SIZE
 const GUTTER = 70;
@@ -284,4 +289,259 @@ test("spouseRouting: a graph with no marriage edges routes nothing", () => {
 
 test("spouseRouting: an empty graph routes nothing", () => {
   expect(spouseRouting(new Map(), [], GUTTER)).toEqual([]);
+});
+
+const graph = (
+  nodes: [string, string | undefined][],
+  edges: GraphEdge[],
+): Graph => ({
+  nodes: nodes.map(([qid, sex]) => ({ qid, label: qid, sex })),
+  edges,
+});
+
+test("descentJunctions: a father+mother couple yields a midpoint junction over their child", () => {
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M", "female"],
+      ["C", undefined],
+    ],
+    [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+    ],
+  );
+  // Drawn (patrilineal) edges keep only father→child; the mother is recovered
+  // from the unreduced graph above.
+  const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  const positions = pos([
+    ["F", [0, 0]],
+    ["M", [0, 46]],
+    ["C", [100, 0]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
+    {
+      id: "__junction__|F|M",
+      pos: { x: 0, y: 23 },
+      children: ["C"],
+      hiddenEdgeIds: ["F|PARENT_OF|C"],
+    },
+  ]);
+});
+
+test("descentJunctions: two children of one couple share a single junction", () => {
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M", "female"],
+      ["C1", undefined],
+      ["C2", undefined],
+    ],
+    [
+      { source: "F", target: "C1", type: "PARENT_OF" },
+      { source: "M", target: "C1", type: "PARENT_OF" },
+      { source: "F", target: "C2", type: "PARENT_OF" },
+      { source: "M", target: "C2", type: "PARENT_OF" },
+    ],
+  );
+  const drawn: GraphEdge[] = [
+    { source: "F", target: "C1", type: "PARENT_OF" },
+    { source: "F", target: "C2", type: "PARENT_OF" },
+  ];
+  const positions = pos([
+    ["F", [0, 0]],
+    ["M", [0, 46]],
+    ["C1", [100, 0]],
+    ["C2", [100, 100]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
+    {
+      id: "__junction__|F|M",
+      pos: { x: 0, y: 23 },
+      children: ["C1", "C2"],
+      hiddenEdgeIds: ["F|PARENT_OF|C1", "F|PARENT_OF|C2"],
+    },
+  ]);
+});
+
+test("descentJunctions: no in-view mother yields no junction (line stays on the father)", () => {
+  const g = graph(
+    [
+      ["F", "male"],
+      ["C", undefined],
+    ],
+    [{ source: "F", target: "C", type: "PARENT_OF" }],
+  );
+  const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  const positions = pos([
+    ["F", [0, 0]],
+    ["C", [100, 0]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+});
+
+test("descentJunctions: a child with two drawn fathers (disputed) gets no junction", () => {
+  const g = graph(
+    [
+      ["F1", undefined],
+      ["F2", undefined],
+      ["M", "female"],
+      ["C", undefined],
+    ],
+    [
+      { source: "F1", target: "C", type: "PARENT_OF" },
+      { source: "F2", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+    ],
+  );
+  // Both unknown-sex fathers survive the patrilineal reduction.
+  const drawn: GraphEdge[] = [
+    { source: "F1", target: "C", type: "PARENT_OF" },
+    { source: "F2", target: "C", type: "PARENT_OF" },
+  ];
+  const positions = pos([
+    ["F1", [0, 0]],
+    ["F2", [0, 46]],
+    ["M", [0, 92]],
+    ["C", [100, 0]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+});
+
+test("descentJunctions: a polygamous father's children fall back to father-origin (no junction)", () => {
+  // F has children by two different in-view mothers. A per-wife midpoint among
+  // stacked wives no longer reads as "which mother", so traditional patrilineal
+  // drawing wins: every child line stays on the father.
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M1", "female"],
+      ["M2", "female"],
+      ["C1", undefined],
+      ["C2", undefined],
+    ],
+    [
+      { source: "F", target: "C1", type: "PARENT_OF" },
+      { source: "M1", target: "C1", type: "PARENT_OF" },
+      { source: "F", target: "C2", type: "PARENT_OF" },
+      { source: "M2", target: "C2", type: "PARENT_OF" },
+    ],
+  );
+  const drawn: GraphEdge[] = [
+    { source: "F", target: "C1", type: "PARENT_OF" },
+    { source: "F", target: "C2", type: "PARENT_OF" },
+  ];
+  const positions = pos([
+    ["F", [0, 0]],
+    ["M1", [0, 46]],
+    ["M2", [0, 92]],
+    ["C1", [100, 0]],
+    ["C2", [100, 100]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+});
+
+test("descentJunctions: a wife with no in-view children doesn't make the father polygamous", () => {
+  // F has two wives present, but only M1 mothers an in-view child; M2 (childless
+  // here) must not suppress M1's midpoint.
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M1", "female"],
+      ["M2", "female"],
+      ["C", undefined],
+    ],
+    [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M1", target: "C", type: "PARENT_OF" },
+    ],
+  );
+  const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  const positions = pos([
+    ["F", [0, 0]],
+    ["M1", [0, 46]],
+    ["M2", [0, 92]],
+    ["C", [100, 0]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
+    {
+      id: "__junction__|F|M1",
+      pos: { x: 0, y: 23 },
+      children: ["C"],
+      hiddenEdgeIds: ["F|PARENT_OF|C"],
+    },
+  ]);
+});
+
+test("descentJunctions: a lone female parent (drawn as the father) gets no junction", () => {
+  // No male parent, so the patrilineal view draws the mother herself as the
+  // descent source. She must not be paired with herself into a degenerate junction.
+  const g = graph(
+    [
+      ["M", "female"],
+      ["C", undefined],
+    ],
+    [{ source: "M", target: "C", type: "PARENT_OF" }],
+  );
+  const drawn: GraphEdge[] = [{ source: "M", target: "C", type: "PARENT_OF" }];
+  const positions = pos([
+    ["M", [0, 0]],
+    ["C", [100, 0]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+});
+
+test("descentJunctions: a couple too far apart vertically gets no junction", () => {
+  // M heads her own descent, so she isn't tucked beside F — they sit rows apart
+  // in the column. Their midpoint would float in empty space, so fall back to F.
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M", "female"],
+      ["C", undefined],
+    ],
+    [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+    ],
+  );
+  const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  const positions = pos([
+    ["F", [0, 0]],
+    ["M", [0, 300]], // far below F, not an adjacent pair
+    ["C", [100, 0]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+});
+
+test("descentJunctions: parents in different columns are not treated as a couple", () => {
+  // A cross-generation parentage: the mother sits in another column, so no
+  // vertical midpoint applies — keep the father's line.
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M", "female"],
+      ["C", undefined],
+    ],
+    [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+    ],
+  );
+  const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  const positions = pos([
+    ["F", [0, 0]],
+    ["M", [200, 0]],
+    ["C", [100, 0]],
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
 });

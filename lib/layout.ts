@@ -1,4 +1,4 @@
-import type { GraphEdge } from "./graph";
+import type { Graph, GraphEdge } from "./graph";
 
 // Plain-data view of cytoscape's "graph + coordinates": placement rules operate
 // on these instead of touching the renderer, so they're unit-testable. The view
@@ -33,6 +33,10 @@ function spouseNeighbors(id: string, edges: GraphEdge[]): string[] {
 
 function pushInto<K>(map: Map<K, string[]>, key: K, value: string): void {
   (map.get(key) ?? map.set(key, []).get(key)!).push(value);
+}
+
+function addInto<K>(map: Map<K, Set<string>>, key: K, value: string): void {
+  (map.get(key) ?? map.set(key, new Set()).get(key)!).add(value);
 }
 
 function clonePositions(pos: Positions): Positions {
@@ -241,4 +245,116 @@ export function spouseRouting(
       const bow = (tp.y > sp.y ? 1 : -1) * spouseGutter;
       return [{ edgeId: `${edge.source}|SPOUSE_OF|${edge.target}`, bow }];
     });
+}
+
+// An invisible anchor placed at the midpoint of a couple so the descent line
+// sprouts from between the parents (the genealogy T-join) instead of from the
+// father alone. The view adds a node at `pos`, draws junction→child edges, and
+// hides the original father→child edges by id.
+export type DescentJunction = {
+  id: string;
+  pos: Pos;
+  children: string[]; // child ids to connect from the junction
+  hiddenEdgeIds: string[]; // father→child PARENT_OF edge ids the junction replaces
+};
+
+export const JUNCTION_PREFIX = "__junction__";
+
+// For each drawn father→child line whose child also has exactly one in-view
+// mother sharing the father's column, group the children under one junction at
+// the parents' midpoint. `graph` is the UNREDUCED graph so a mother dropped by
+// the patrilineal view is still recoverable; `drawnEdges` is the reduced set so
+// junctions only replace lines actually drawn. Skipped (father→child left alone)
+// when parentage is ambiguous — a child with more than one drawn father, or none
+// or several in-view mothers, or parents not sharing a column — so an uncertain
+// couple never invents a false midpoint.
+//
+// Polygamy falls back to father-origin too: a father with two or more distinct
+// in-view mothers gets NO junctions. The midpoint convention (descent line out of
+// the gap between a couple) only reads cleanly for one couple — with the wives
+// stacked in one column, a far wife's midpoint lands among the other wives, so it
+// no longer says which mother. Traditional Japanese genealogy draws such children
+// from the father (mother shown only as a spouse), which this matches.
+//
+// The mother must also be the father's immediate vertical neighbour (gap ≈ one
+// `row`). A mother who heads her own descent isn't tucked beside the father, so
+// the couple can sit far apart in the column; their midpoint would then float in
+// empty space, reading as a line from nowhere. Only an adjacent pair has a real
+// "between" to sprout from — anything farther falls back to father-origin.
+export function descentJunctions(
+  graph: Graph,
+  drawnEdges: GraphEdge[],
+  positions: Positions,
+  row: number,
+): DescentJunction[] {
+  const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
+  const parentsOf = new Map<string, string[]>();
+  for (const e of graph.edges) {
+    if (e.type === "PARENT_OF") pushInto(parentsOf, e.target, e.source);
+  }
+  const drawnFathersOf = new Map<string, string[]>();
+  for (const e of drawnEdges) {
+    if (e.type === "PARENT_OF") pushInto(drawnFathersOf, e.target, e.source);
+  }
+
+  // Resolve each drawn father→child line to its co-located couple, when parentage
+  // is unambiguous: exactly one drawn father, exactly one in-view mother, both in
+  // the same column. `mid`/`gap` are captured now so the gating below needs no
+  // further position lookups.
+  type Candidate = {
+    father: string;
+    mother: string;
+    child: string;
+    mid: Pos;
+    gap: number;
+  };
+  const candidates: Candidate[] = [];
+  for (const e of drawnEdges) {
+    if (e.type !== "PARENT_OF") continue;
+    const child = e.target;
+    const father = e.source;
+    if ((drawnFathersOf.get(child) ?? []).length !== 1) continue;
+    const fp = positions.get(father);
+    if (!fp) continue;
+    const mothers = (parentsOf.get(child) ?? []).filter(
+      (p) => sex.get(p) === "female" && positions.has(p) && p !== father,
+    );
+    if (mothers.length !== 1) continue;
+    const mp = positions.get(mothers[0])!;
+    if (Math.round(mp.x) !== Math.round(fp.x)) continue; // not a co-located couple
+    candidates.push({
+      father,
+      mother: mothers[0],
+      child,
+      mid: { x: fp.x, y: (fp.y + mp.y) / 2 },
+      gap: Math.abs(mp.y - fp.y),
+    });
+  }
+
+  // A father with two or more distinct co-located mothers is polygamous; counted
+  // across ALL candidates (before the adjacency gate) so a far second wife still
+  // disqualifies. His children draw from the father, not a per-wife midpoint.
+  const mothersByFather = new Map<string, Set<string>>();
+  for (const c of candidates) addInto(mothersByFather, c.father, c.mother);
+  const polygamous = new Set<string>();
+  for (const [father, mothers] of mothersByFather) {
+    if (mothers.size > 1) polygamous.add(father);
+  }
+
+  const byCouple = new Map<string, DescentJunction>();
+  for (const c of candidates) {
+    if (polygamous.has(c.father)) continue;
+    if (c.gap > row * 1.5) continue; // not an adjacent pair
+    const key = `${c.father}|${c.mother}`;
+    const junction = byCouple.get(key) ?? {
+      id: `${JUNCTION_PREFIX}|${c.father}|${c.mother}`,
+      pos: c.mid,
+      children: [],
+      hiddenEdgeIds: [],
+    };
+    junction.children.push(c.child);
+    junction.hiddenEdgeIds.push(`${c.father}|PARENT_OF|${c.child}`);
+    byCouple.set(key, junction);
+  }
+  return [...byCouple.values()];
 }

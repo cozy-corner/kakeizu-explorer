@@ -5,7 +5,12 @@ import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
 import { layoutOnlyEdges, patrilinealEdges, type Graph } from "@/lib/graph";
-import { placeNodes, spouseRouting, type Positions } from "@/lib/layout";
+import {
+  descentJunctions,
+  placeNodes,
+  spouseRouting,
+  type Positions,
+} from "@/lib/layout";
 
 cytoscape.use(dagre);
 
@@ -51,14 +56,25 @@ const STYLE: cytoscape.StylesheetJson = [
     },
   },
   {
+    // Invisible anchor at a couple's midpoint; the descent line sprouts from it.
+    // Drawn as a zero-size, click-through dot so its child edges still render
+    // while the node itself shows nothing and isn't selectable.
+    selector: "node[junction = 1]",
+    style: { width: 1, height: 1, "background-opacity": 0, events: "no" },
+  },
+  {
     selector: "edge",
     style: { width: 1.5, "curve-style": "bezier", "line-color": "#cbd5e1" },
   },
   {
-    // Both parent→child relations flow as a rightward right-angle (taxi) line with an
+    // All parent→child relations flow as a rightward right-angle (taxi) line with an
     // arrowhead; only the colour (and the adoptive double-line) differ — see the
-    // type-specific blocks below. Single-sourced so blood and adoption can't route apart.
-    selector: 'edge[type = "PARENT_OF"], edge[type = "ADOPTIVE_PARENT_OF"]',
+    // type-specific blocks below. Single-sourced so blood, adoption and the
+    // midpoint-rooted DESCENT lines can't route apart. DESCENT is the synthetic
+    // junction→child line (a distinct type so it never aliases a real person edge,
+    // e.g. in the dagre layout query); it is styled identically to PARENT_OF below.
+    selector:
+      'edge[type = "PARENT_OF"], edge[type = "ADOPTIVE_PARENT_OF"], edge[type = "DESCENT"]',
     style: {
       "target-arrow-shape": "triangle",
       "curve-style": "taxi",
@@ -67,7 +83,7 @@ const STYLE: cytoscape.StylesheetJson = [
     },
   },
   {
-    selector: 'edge[type = "PARENT_OF"]',
+    selector: 'edge[type = "PARENT_OF"], edge[type = "DESCENT"]',
     style: { "line-color": "#475569", "target-arrow-color": "#475569" },
   },
   {
@@ -234,6 +250,27 @@ export function GraphPane({
         e.style("curve-style", "segments");
         e.style("segment-weights", "0.08 0.92");
         e.style("segment-distances", `${bow} ${bow}`);
+      }
+      // Re-root each couple's descent lines at the parents' midpoint: add an
+      // invisible junction node there, draw junction→child DESCENT edges (a
+      // distinct type, styled like PARENT_OF, that never aliases a real person
+      // edge), and hide the original father→child edges — which stay in the graph
+      // for the layout pass above, just unseen.
+      for (const j of descentJunctions(graph, edges, positions, ROW)) {
+        cy.add({ data: { id: j.id, junction: 1 } }).position(j.pos);
+        for (const child of j.children) {
+          cy.add({
+            data: {
+              id: `${j.id}->${child}`,
+              source: j.id,
+              target: child,
+              type: "DESCENT",
+            },
+          });
+        }
+        for (const eid of j.hiddenEdgeIds) {
+          cy.getElementById(eid).style("visibility", "hidden");
+        }
       }
       cy.zoom(0.8);
       cy.center(cy.getElementById(focus.qid));
