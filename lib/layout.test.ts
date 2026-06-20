@@ -151,6 +151,32 @@ test("placeNodes: an adoptive parent of the focus drops below the sibling cluste
   });
 });
 
+test("placeNodes: multiple adoptive parents are stacked one ROW apart below the cluster", () => {
+  // AP1, AP2 both enter on FO's row in the parent column; both drop below FO's
+  // column cluster (bottoms at sib's y=100) and stack in edge order: 146, then 192.
+  const edges: GraphEdge[] = [
+    { source: "PA", target: "FO", type: "PARENT_OF" },
+    { source: "PA", target: "sib", type: "PARENT_OF" },
+    { source: "AP1", target: "FO", type: "ADOPTIVE_PARENT_OF" },
+    { source: "AP2", target: "FO", type: "ADOPTIVE_PARENT_OF" },
+  ];
+  const input = pos([
+    ["PA", [-100, 0]],
+    ["FO", [0, 0]],
+    ["sib", [0, 100]],
+    ["AP1", [-100, 0]],
+    ["AP2", [-100, 0]],
+  ]);
+
+  expect(obj(placeNodes(input, edges, "FO", ROW))).toEqual({
+    PA: { x: -100, y: 0 },
+    FO: { x: 0, y: 0 },
+    sib: { x: 0, y: 100 },
+    AP1: { x: -100, y: 146 },
+    AP2: { x: -100, y: 192 },
+  });
+});
+
 test("placeNodes: an adoptive parent who is also a blood parent is left in place", () => {
   // N parents FO both by blood and adoption; the blood line owns the column, so
   // the adoptive-parent relocation must skip N.
