@@ -5,7 +5,12 @@ import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
 import { layoutOnlyEdges, patrilinealEdges, type Graph } from "@/lib/graph";
-import { placeNodes, spouseRouting, type Positions } from "@/lib/layout";
+import {
+  descentJunctions,
+  placeNodes,
+  spouseRouting,
+  type Positions,
+} from "@/lib/layout";
 
 cytoscape.use(dagre);
 
@@ -49,6 +54,13 @@ const STYLE: cytoscape.StylesheetJson = [
       "font-weight": "bold",
       "z-index": 10,
     },
+  },
+  {
+    // Invisible anchor at a couple's midpoint; the descent line sprouts from it.
+    // Drawn as a zero-size, click-through dot so its child edges still render
+    // while the node itself shows nothing and isn't selectable.
+    selector: "node[junction = 1]",
+    style: { width: 1, height: 1, "background-opacity": 0, events: "no" },
   },
   {
     selector: "edge",
@@ -234,6 +246,26 @@ export function GraphPane({
         e.style("curve-style", "segments");
         e.style("segment-weights", "0.08 0.92");
         e.style("segment-distances", `${bow} ${bow}`);
+      }
+      // Re-root each couple's descent lines at the parents' midpoint: add an
+      // invisible junction node there, draw junction→child edges (PARENT_OF so
+      // they inherit the taxi descent style), and hide the original father→child
+      // edges — which stay in the graph for the layout pass above, just unseen.
+      for (const j of descentJunctions(graph, edges, positions, ROW)) {
+        cy.add({ data: { id: j.id, junction: 1 } }).position(j.pos);
+        for (const child of j.children) {
+          cy.add({
+            data: {
+              id: `${j.id}->${child}`,
+              source: j.id,
+              target: child,
+              type: "PARENT_OF",
+            },
+          });
+        }
+        for (const eid of j.hiddenEdgeIds) {
+          cy.getElementById(eid).style("visibility", "hidden");
+        }
       }
       cy.zoom(0.8);
       cy.center(cy.getElementById(focus.qid));
