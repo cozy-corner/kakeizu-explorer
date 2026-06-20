@@ -52,9 +52,14 @@ function packColumns(
   row: number,
 ): Positions {
   const pos = clonePositions(input);
+  // isMarriedIn is an O(edges) scan, queried per node and per spouse anchor below;
+  // resolve membership once into a set of the present nodes.
+  const married = new Set<string>();
+  for (const id of pos.keys()) if (isMarriedIn(id, edges)) married.add(id);
+
   const hostOf = (id: string): string | null => {
     const anchors = spouseNeighbors(id, edges).filter(
-      (p) => p !== id && pos.has(p) && !isMarriedIn(p, edges),
+      (p) => p !== id && pos.has(p) && !married.has(p),
     );
     if (anchors.length === 0) return null;
     return anchors.find((p) => p === focusId) ?? anchors[0];
@@ -62,7 +67,7 @@ function packColumns(
 
   const attached = new Map<string, string[]>();
   for (const [id] of pos) {
-    if (!isMarriedIn(id, edges)) continue;
+    if (!married.has(id)) continue;
     const host = hostOf(id);
     if (!host) continue;
     pushInto(attached, host, id);
@@ -79,10 +84,10 @@ function packColumns(
   // the check also keeps us from pulling blood kin out of their block. No provisional
   // move: such a spouse already shares the focus's column.
   const focus = pos.get(focusId);
-  if (focus && !isMarriedIn(focusId, edges)) {
+  if (focus && !married.has(focusId)) {
     const focusX = Math.round(focus.x);
     for (const sp of spouseNeighbors(focusId, edges)) {
-      if (sp === focusId || isMarriedIn(sp, edges)) continue;
+      if (sp === focusId || married.has(sp)) continue;
       const spp = pos.get(sp);
       if (!spp || Math.round(spp.x) !== focusX) continue;
       pushInto(attached, focusId, sp);
