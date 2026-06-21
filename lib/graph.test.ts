@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  egoDrawnEdges,
   layoutOnlyEdges,
   neighborsToGraph,
   patrilinealEdges,
@@ -373,4 +374,51 @@ test("sibling adoptive: keeps an adoption where an endpoint has no in-view blood
 
   expect(siblingAdoptiveEdges(adoptiveParentUnpinned)).toEqual([]);
   expect(siblingAdoptiveEdges(adoptedChildUnpinned)).toEqual([]);
+});
+
+test("ego drawn: patrilineal reduction with sibling adoptions dropped", () => {
+  // 頼職→吉宗 shape: the sibling adoption is dropped from the drawn set, the blood
+  // descent lines stay. This is the composition the ego view and dump-layout share.
+  const graph = {
+    nodes: [
+      { qid: "P", label: "父", sex: "male" },
+      { qid: "elder", label: "兄", sex: "male" },
+      { qid: "younger", label: "弟", sex: "male" },
+    ],
+    edges: [
+      { source: "P", target: "elder", type: "PARENT_OF" },
+      { source: "P", target: "younger", type: "PARENT_OF" },
+      { source: "elder", target: "younger", type: "ADOPTIVE_PARENT_OF" },
+    ],
+  };
+
+  expect(egoDrawnEdges(graph)).toEqual([
+    { source: "P", target: "elder", type: "PARENT_OF" },
+    { source: "P", target: "younger", type: "PARENT_OF" },
+  ]);
+});
+
+test("ego drawn: keeps a cross-generation adoption", () => {
+  // 斉彊→家茂 shape: uncle adopts nephew, not siblings — a genuine descent line that
+  // must stay in the drawn set.
+  const graph = {
+    nodes: [
+      { qid: "GF", label: "祖父", sex: "male" },
+      { qid: "uncle", label: "叔父", sex: "male" },
+      { qid: "parent", label: "親", sex: "male" },
+      { qid: "nephew", label: "甥", sex: "male" },
+    ],
+    edges: [
+      { source: "GF", target: "uncle", type: "PARENT_OF" },
+      { source: "GF", target: "parent", type: "PARENT_OF" },
+      { source: "parent", target: "nephew", type: "PARENT_OF" },
+      { source: "uncle", target: "nephew", type: "ADOPTIVE_PARENT_OF" },
+    ],
+  };
+
+  expect(egoDrawnEdges(graph)).toContainEqual({
+    source: "uncle",
+    target: "nephew",
+    type: "ADOPTIVE_PARENT_OF",
+  });
 });

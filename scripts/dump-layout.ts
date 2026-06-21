@@ -15,10 +15,11 @@ import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import {
+  egoDrawnEdges,
   layoutOnlyEdges,
   patrilinealEdges,
-  siblingAdoptiveEdges,
   type Graph,
+  type GraphEdge,
 } from "../lib/graph";
 import {
   descentJunctions,
@@ -53,10 +54,13 @@ try {
   process.exit(1);
 }
 
-const drawnAll = patrilinealEdges(graph);
-const dropped = new Set(siblingAdoptiveEdges(drawnAll)); // 家督 succession between siblings
-const edges = drawnAll.filter((e) => !dropped.has(e));
+const edges = egoDrawnEdges(graph);
 const layoutEdges = layoutOnlyEdges(graph, edges);
+// Report-only: the sibling adoptions egoDrawnEdges removed (kin succession, not
+// drawn/ranked). Derived as the difference so it tracks the drop rule, not a copy.
+const edgeKey = (e: GraphEdge) => `${e.source}|${e.type}|${e.target}`;
+const kept = new Set(edges.map(edgeKey));
+const dropped = patrilinealEdges(graph).filter((e) => !kept.has(edgeKey(e)));
 
 const elements: ElementDefinition[] = [
   ...graph.nodes.map((n) => ({
@@ -126,7 +130,7 @@ for (const [id, p] of placed) {
   console.log(`  ${r(p.x)}, ${r(p.y)}  ${label(id)} (${id})`);
 }
 
-if (dropped.size) {
+if (dropped.length) {
   console.log(
     "\n## Dropped non-descent adoptions (kin succession; not drawn/ranked)",
   );
