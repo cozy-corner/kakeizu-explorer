@@ -121,6 +121,18 @@ function addKey(map: Map<string, Set<string>>, key: string): Set<string> {
   return set;
 }
 
+// The edges the ego (focused-person) view draws: the patrilineal reduction minus
+// sibling adoptions. Sibling 養子 (家督 succession between blood siblings) is dropped
+// entirely so it neither draws a false second descent nor over-ranks the focus
+// below its own sibling in dagre — see siblingAdoptiveEdges. Keyed by value, not
+// object identity, so it survives siblingAdoptiveEdges returning fresh edge objects.
+export function egoDrawnEdges(graph: Graph): GraphEdge[] {
+  const drawn = patrilinealEdges(graph);
+  const key = (e: GraphEdge) => `${e.source}|${e.type}|${e.target}`;
+  const skip = new Set(siblingAdoptiveEdges(drawn).map(key));
+  return drawn.filter((e) => !skip.has(key(e)));
+}
+
 // edges is always empty: search returns people, not relationships.
 export function personsToGraph(rows: PersonRow[]): Graph {
   return {

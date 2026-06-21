@@ -7,7 +7,7 @@
 import cytoscape, { type Core, type NodeSingular } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import {
-  patrilinealEdges,
+  egoDrawnEdges,
   layoutOnlyEdges,
   type Graph,
   type GraphEdge,
@@ -161,7 +161,7 @@ function buildCy(
   graph: Graph,
   focus: string,
 ): { cy: Core; edges: GraphEdge[] } {
-  const edges = patrilinealEdges(graph);
+  const edges = egoDrawnEdges(graph);
   const layoutEdges = layoutOnlyEdges(graph, edges);
   const elements = [
     ...graph.nodes.map((n) => ({
