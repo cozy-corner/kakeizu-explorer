@@ -86,6 +86,27 @@ export function layoutOnlyEdges(
     .map((e) => ({ source: e.source, target: e.target, type: "LAYOUT" }));
 }
 
+// Adoptive edges that must NOT feed dagre's generation ranking: those whose BOTH
+// endpoints already have an in-view blood parent. Each endpoint's generation is
+// then pinned one rank below its blood parent, so the adoptive edge adds no
+// ranking information — it can only over-rank the deeper end a column too far.
+// This is the 家督-succession-as-adoption case (e.g. 頼職→吉宗: both are 光貞's
+// blood sons, so the adoption would otherwise push 吉宗 a generation below his own
+// brother). An edge with an un-pinned endpoint (an adoptive parent or adopted
+// child with no shown blood parent) is the only thing seating that node, so it
+// stays in the ranking. The edge is still DRAWN regardless; only ranking changes.
+export function nonRankingAdoptiveEdges(edges: GraphEdge[]): GraphEdge[] {
+  const hasBloodParent = new Set(
+    edges.filter((e) => e.type === "PARENT_OF").map((e) => e.target),
+  );
+  return edges.filter(
+    (e) =>
+      e.type === "ADOPTIVE_PARENT_OF" &&
+      hasBloodParent.has(e.source) &&
+      hasBloodParent.has(e.target),
+  );
+}
+
 // edges is always empty: search returns people, not relationships.
 export function personsToGraph(rows: PersonRow[]): Graph {
   return {

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   layoutOnlyEdges,
   neighborsToGraph,
+  nonRankingAdoptiveEdges,
   patrilinealEdges,
   pathToGraph,
   personsToGraph,
@@ -324,4 +325,37 @@ test("layout-only: no extra edges when every parent is already a drawn line", ()
 
   expect(layoutOnlyEdges(motherOnly)).toEqual([]);
   expect(layoutOnlyEdges(twoFathers)).toEqual([]);
+});
+
+test("non-ranking adoptive: drops a kin-succession adoption between two blood-placed people", () => {
+  // 頼職→吉宗 shape: both are blood children of the same father, so both are
+  // generation-pinned by blood. The adoptive edge would only over-rank 吉宗 one
+  // column deeper than his own brother, so it must not feed dagre.
+  const edges = [
+    { source: "P", target: "elder", type: "PARENT_OF" },
+    { source: "P", target: "younger", type: "PARENT_OF" },
+    { source: "elder", target: "younger", type: "ADOPTIVE_PARENT_OF" },
+  ];
+
+  expect(nonRankingAdoptiveEdges(edges)).toEqual([
+    { source: "elder", target: "younger", type: "ADOPTIVE_PARENT_OF" },
+  ]);
+});
+
+test("non-ranking adoptive: keeps an adoption where an endpoint has no in-view blood parent", () => {
+  // The adoptive edge is the only thing seating the un-pinned endpoint, so it has
+  // to rank: an adoptive parent with no shown blood parent (家継→吉宗), or an
+  // adopted child with no shown blood parent (吉宗→雲松院). Dropping either would
+  // let dagre float the un-pinned node to the leftmost column.
+  const adoptiveParentUnpinned = [
+    { source: "P", target: "C", type: "PARENT_OF" },
+    { source: "AP", target: "C", type: "ADOPTIVE_PARENT_OF" }, // AP has no blood parent
+  ];
+  const adoptedChildUnpinned = [
+    { source: "P", target: "F", type: "PARENT_OF" },
+    { source: "F", target: "AC", type: "ADOPTIVE_PARENT_OF" }, // AC has no blood parent
+  ];
+
+  expect(nonRankingAdoptiveEdges(adoptiveParentUnpinned)).toEqual([]);
+  expect(nonRankingAdoptiveEdges(adoptedChildUnpinned)).toEqual([]);
 });

@@ -4,10 +4,16 @@ import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
-import { layoutOnlyEdges, patrilinealEdges, type Graph } from "@/lib/graph";
+import {
+  layoutOnlyEdges,
+  nonRankingAdoptiveEdges,
+  patrilinealEdges,
+  type Graph,
+} from "@/lib/graph";
 import {
   descentJunctions,
   placeNodes,
+  sameGenerationAdoptiveEdges,
   spouseRouting,
   type Positions,
 } from "@/lib/layout";
@@ -228,12 +234,22 @@ export function GraphPane({
       // it to the pane shrinks names to nothing, so open at a readable zoom on the
       // focus instead. rankSep leaves room for a name between columns; nodeSep keeps
       // stacked labels apart.
+      // A kin-succession adoption (both ends already blood-ranked) must not feed
+      // dagre, or it ranks the focus a generation below its own sibling and the
+      // blood descent line bends across an extra column. Excluded from ranking
+      // only — still drawn.
+      const noRank = new Set(
+        nonRankingAdoptiveEdges(edges).map(
+          (e) => `${e.source}|${e.type}|${e.target}`,
+        ),
+      );
       cy.nodes()
         .union(
           cy.edges(
             '[type = "PARENT_OF"], [type = "LAYOUT"], [type = "ADOPTIVE_PARENT_OF"]',
           ),
         )
+        .filter((el) => !el.isEdge() || !noRank.has(el.id()))
         .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: 220, fit: false }))
         .run();
       // The placement/priority rules live in lib/layout as pure functions; this
@@ -241,6 +257,14 @@ export function GraphPane({
       // rules, write the result back, then apply the spouse-line detours as style.
       const positions = placeNodes(readPositions(cy), edges, focus.qid, ROW);
       writePositions(cy, positions);
+      // A same-generation adoption (kin succession, both ends in one column) is no
+      // descent; drawn it would be a vertical line crossing the column. Hide it.
+      for (const e of sameGenerationAdoptiveEdges(edges, positions)) {
+        cy.getElementById(`${e.source}|${e.type}|${e.target}`).style(
+          "visibility",
+          "hidden",
+        );
+      }
       for (const { edgeId, bow } of spouseRouting(
         positions,
         edges,

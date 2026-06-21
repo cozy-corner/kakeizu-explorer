@@ -358,3 +358,21 @@ export function descentJunctions(
   }
   return [...byCouple.values()];
 }
+
+// Adoptive edges whose endpoints share a column after layout: a same-generation
+// adoption is 家督 succession between kin (e.g. 頼職→吉宗, two brothers), not a
+// parent→child descent. Drawn it would be a vertical line crossing the column's
+// intervening nodes (the focus's stacked spouses), and a same-generation tie is
+// no descent anyway, so the view hides it. A cross-generation adoption (endpoints
+// in different columns) is a real descent line and is not returned.
+export function sameGenerationAdoptiveEdges(
+  edges: GraphEdge[],
+  pos: Positions,
+): GraphEdge[] {
+  return edges.filter((e) => {
+    if (e.type !== "ADOPTIVE_PARENT_OF") return false;
+    const s = pos.get(e.source);
+    const t = pos.get(e.target);
+    return !!s && !!t && Math.round(s.x) === Math.round(t.x);
+  });
+}
