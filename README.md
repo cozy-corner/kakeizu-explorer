@@ -36,7 +36,8 @@ bun run scripts/dump-layout.ts Q319664
 出力されるもの:
 
 - **Nodes** — 各ノードの `x, y`（`x` ＝世代の列）
-- **Drawn descent lines** — 各 descent 線の taxi 経路と `[cols=列スパン, bends=折れ数]`。`cols≥2` は世代配置の異常（線が余計な列を横断して折れる）のサイン。同世代の養子（家督継承）は `HIDDEN` と表示
+- **Dropped non-descent adoptions** — 兄弟間の養子（血縁の親を共有する家督継承）は descent でないため edges から除外され描画もランク付けもされない。該当時のみ表示
+- **Drawn descent lines** — 各 descent 線の taxi 経路と `[cols=列スパン, bends=折れ数]`。`cols≥2` は世代配置の異常（線が余計な列を横断して折れる）のサイン
 - **Descent junctions** — 夫婦の中点から子へ伸びる線の起点と `dy`
 - **Spouse detours** — 迂回（bow）するマリッジ線
 

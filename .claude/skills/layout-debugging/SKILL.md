@@ -24,32 +24,35 @@ Dev server must be up (`bun run dev`; the script reads `/api/person/:id/neighbor
 bun run scripts/dump-layout.ts <QID>   # QID optional, default Q319664 (徳川吉宗)
 ```
 
-It mirrors `components/GraphPane.tsx`'s layout step exactly (dagre ranking with
-`nonRankingAdoptiveEdges` excluded → `placeNodes` → `spouseRouting` →
-`descentJunctions`, and `sameGenerationAdoptiveEdges` marked hidden).
+It mirrors `components/GraphPane.tsx`'s layout step exactly: drop sibling adoptions
+(`siblingAdoptiveEdges`) from the edge set → dagre ranking → `placeNodes` →
+`spouseRouting` → `descentJunctions`.
 
 ## Read the output
 
 - **Nodes** `x, y` — `x` is the generation column. Two people in the same
   generation must share an `x`.
+- **Dropped non-descent adoptions** — sibling adoptions (家督 succession between kin
+  who share a blood parent) removed from the edge set, so they neither draw nor
+  rank. Listed only when present.
 - **Drawn descent lines** — taxi path + `[cols=column span, bends]`.
   - `cols≥2` is the red flag: a descent line crossing an extra column means the
     child is placed a generation too deep (the usual cause of an "unnecessary
     bend"). Every normal line is `cols=1`.
-  - `HIDDEN (same-gen adoption)` = a same-column adoptive edge (家督 succession
-    between kin) that is intentionally not drawn.
 - **Descent junctions** — couple-midpoint origin of a descent line + `dy` to each
   child.
 - **Spouse detours** — marriage lines bowed around a blocking node.
 
 ## Code map
 
-- `lib/graph.ts` — edge reduction: `patrilinealEdges`, `layoutOnlyEdges`,
-  `nonRankingAdoptiveEdges` (adoptive edges kept out of dagre ranking).
+- `lib/graph.ts` — edge reduction (pure topology): `patrilinealEdges`,
+  `layoutOnlyEdges`, `siblingAdoptiveEdges` (sibling adoptions to drop — kin
+  succession, no descent).
 - `lib/layout.ts` — pure placement on plain coordinates: `placeNodes`,
-  `spouseRouting`, `descentJunctions`, `sameGenerationAdoptiveEdges`.
-- `components/GraphPane.tsx` — the cytoscape adapter: reads dagre coords, runs the
-  pure rules, writes them back, hides/styles edges. No placement logic lives here.
+  `spouseRouting`, `descentJunctions`.
+- `components/GraphPane.tsx` — the cytoscape adapter: drops sibling adoptions from
+  the edge set, reads dagre coords, runs the pure rules, writes them back, styles
+  edges. No placement logic lives here.
 
 ## Non-regression
 
