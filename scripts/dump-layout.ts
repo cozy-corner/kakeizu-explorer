@@ -22,6 +22,7 @@ import {
   type GraphEdge,
 } from "../lib/graph";
 import {
+  centerOnlyChildren,
   descentJunctions,
   placeNodes,
   spouseRouting,
@@ -108,7 +109,12 @@ const positions: Positions = new Map();
 cy.nodes().forEach((n) => {
   positions.set(n.id(), { x: n.position("x"), y: n.position("y") });
 });
-const placed = placeNodes(positions, edges, qid, ROW);
+const placed = centerOnlyChildren(
+  placeNodes(positions, edges, qid, ROW),
+  graph,
+  edges,
+  ROW,
+);
 
 const label = (id: string) =>
   graph.nodes.find((n) => n.qid === id)?.label ?? id;
