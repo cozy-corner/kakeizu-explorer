@@ -86,25 +86,39 @@ export function layoutOnlyEdges(
     .map((e) => ({ source: e.source, target: e.target, type: "LAYOUT" }));
 }
 
-// Adoptive edges that must NOT feed dagre's generation ranking: those whose BOTH
-// endpoints already have an in-view blood parent. Each endpoint's generation is
-// then pinned one rank below its blood parent, so the adoptive edge adds no
-// ranking information — it can only over-rank the deeper end a column too far.
-// This is the 家督-succession-as-adoption case (e.g. 頼職→吉宗: both are 光貞's
-// blood sons, so the adoption would otherwise push 吉宗 a generation below his own
-// brother). An edge with an un-pinned endpoint (an adoptive parent or adopted
-// child with no shown blood parent) is the only thing seating that node, so it
-// stays in the ranking. The edge is still DRAWN regardless; only ranking changes.
-export function nonRankingAdoptiveEdges(edges: GraphEdge[]): GraphEdge[] {
-  const hasBloodParent = new Set(
-    edges.filter((e) => e.type === "PARENT_OF").map((e) => e.target),
-  );
+// Adoptive edges between siblings — the two people share a blood parent, so they
+// are the same generation (e.g. 頼職→吉宗, both 光貞's sons). This is 家督 succession
+// recorded as adoption, not a line of descent, so callers drop it from the edge
+// set entirely: drawn it would be a same-generation vertical line / a false second
+// descent into a child the blood line already places, and fed to dagre it would
+// rank the adopted sibling a generation below the other. A cross-generation
+// adoption (uncle→nephew 斉彊→家茂, or any pair not sharing a parent) is a genuine
+// descent and is kept. (A same-generation adoption between non-siblings — cousins
+// — is not detected here, but is vanishingly rare in the data.)
+export function siblingAdoptiveEdges(edges: GraphEdge[]): GraphEdge[] {
+  const bloodParents = new Map<string, Set<string>>();
+  for (const e of edges) {
+    if (e.type !== "PARENT_OF") continue;
+    (bloodParents.get(e.target) ?? addKey(bloodParents, e.target)).add(
+      e.source,
+    );
+  }
+  const shareParent = (a: string, b: string): boolean => {
+    const pa = bloodParents.get(a);
+    const pb = bloodParents.get(b);
+    if (!pa || !pb) return false;
+    for (const p of pa) if (pb.has(p)) return true;
+    return false;
+  };
   return edges.filter(
-    (e) =>
-      e.type === "ADOPTIVE_PARENT_OF" &&
-      hasBloodParent.has(e.source) &&
-      hasBloodParent.has(e.target),
+    (e) => e.type === "ADOPTIVE_PARENT_OF" && shareParent(e.source, e.target),
   );
+}
+
+function addKey(map: Map<string, Set<string>>, key: string): Set<string> {
+  const set = new Set<string>();
+  map.set(key, set);
+  return set;
 }
 
 // edges is always empty: search returns people, not relationships.

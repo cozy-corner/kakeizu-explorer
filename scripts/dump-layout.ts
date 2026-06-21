@@ -5,7 +5,7 @@
 // (with column span and bend count), couple junctions, and spouse detours, so a
 // misplaced node or an unnecessary bend shows up as numbers.
 //
-// Mirrors GraphPane's layout step, including nonRankingAdoptiveEdges, so the
+// Mirrors GraphPane's layout step, including dropping sibling adoptions, so the
 // output reflects what the app actually draws.
 //
 // Usage: bun run scripts/dump-layout.ts [QID]   (default: Q319664 徳川吉宗)
@@ -16,14 +16,13 @@ import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import {
   layoutOnlyEdges,
-  nonRankingAdoptiveEdges,
   patrilinealEdges,
+  siblingAdoptiveEdges,
   type Graph,
 } from "../lib/graph";
 import {
   descentJunctions,
   placeNodes,
-  sameGenerationAdoptiveEdges,
   spouseRouting,
   type Pos,
   type Positions,
@@ -44,7 +43,9 @@ const graph: Graph = await fetch(
   `http://localhost:3000/api/person/${qid}/neighbors?hops=2`,
 ).then((r) => r.json());
 
-const edges = patrilinealEdges(graph);
+const drawnAll = patrilinealEdges(graph);
+const dropped = new Set(siblingAdoptiveEdges(drawnAll)); // 家督 succession between siblings
+const edges = drawnAll.filter((e) => !dropped.has(e));
 const layoutEdges = layoutOnlyEdges(graph, edges);
 
 const elements: ElementDefinition[] = [
@@ -80,25 +81,19 @@ const dagreLR = (
   ...extra,
 });
 
-const noRank = new Set(
-  nonRankingAdoptiveEdges(edges).map(
-    (e) => `${e.source}|${e.type}|${e.target}`,
-  ),
-);
 cy.nodes()
   .union(
     cy.edges(
       '[type = "PARENT_OF"], [type = "LAYOUT"], [type = "ADOPTIVE_PARENT_OF"]',
     ),
   )
-  .filter((el) => !el.isEdge() || !noRank.has(el.id()))
   .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: RANK_SEP, fit: false }))
   .run();
 
 const positions: Positions = new Map();
-cy.nodes().forEach((n) =>
-  positions.set(n.id(), { x: n.position("x"), y: n.position("y") }),
-);
+cy.nodes().forEach((n) => {
+  positions.set(n.id(), { x: n.position("x"), y: n.position("y") });
+});
 const placed = placeNodes(positions, edges, qid, ROW);
 
 const label = (id: string) =>
@@ -121,14 +116,15 @@ for (const [id, p] of placed) {
   console.log(`  ${r(p.x)}, ${r(p.y)}  ${label(id)} (${id})`);
 }
 
+if (dropped.size) {
+  console.log(
+    "\n## Dropped non-descent adoptions (kin succession; not drawn/ranked)",
+  );
+  for (const e of dropped)
+    console.log(`  ${label(e.source)} →(養) ${label(e.target)}`);
+}
+
 console.log("\n## Drawn descent lines (taxi path)  [cols=column span, bends]");
-if (noRank.size)
-  console.log(`  (${noRank.size} adoptive edge(s) excluded from ranking)`);
-const hidden = new Set(
-  sameGenerationAdoptiveEdges(edges, placed).map(
-    (e) => `${e.source}|${e.type}|${e.target}`,
-  ),
-);
 for (const e of edges) {
   if (e.type !== "PARENT_OF" && e.type !== "ADOPTIVE_PARENT_OF") continue;
   const s = placed.get(e.source);
@@ -136,9 +132,8 @@ for (const e of edges) {
   if (!s || !t) continue;
   const cols = Math.round((t.x - s.x) / COL);
   const bends = s.y === t.y ? 0 : 2;
-  const isHidden = hidden.has(`${e.source}|${e.type}|${e.target}`);
   console.log(
-    `  ${label(e.source)} →${e.type === "ADOPTIVE_PARENT_OF" ? "(養)" : ""} ${label(e.target)}: ${fmt(taxiPoints(s, t))}  [cols=${cols}, bends=${bends}]${isHidden ? "  HIDDEN (same-gen adoption)" : ""}`,
+    `  ${label(e.source)} →${e.type === "ADOPTIVE_PARENT_OF" ? "(養)" : ""} ${label(e.target)}: ${fmt(taxiPoints(s, t))}  [cols=${cols}, bends=${bends}]`,
   );
 }
 

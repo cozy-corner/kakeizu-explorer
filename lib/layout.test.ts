@@ -3,7 +3,6 @@ import {
   descentJunctions,
   isMarriedIn,
   placeNodes,
-  sameGenerationAdoptiveEdges,
   spouseRouting,
 } from "./layout";
 import type { Graph, GraphEdge } from "./graph";
@@ -199,41 +198,6 @@ test("placeNodes: an adoptive parent who is also a blood parent is left in place
     N: { x: -100, y: 0 },
     FO: { x: 0, y: 0 },
   });
-});
-
-test("sameGenerationAdoptiveEdges: a same-column adoption is a succession, not descent", () => {
-  // 頼職→吉宗 shape: both blood sons of one father, so the rank exclusion lands
-  // them in one column. A vertical line there isn't a descent and would cross the
-  // intervening nodes, so the view hides it.
-  const edges: GraphEdge[] = [
-    { source: "elder", target: "younger", type: "ADOPTIVE_PARENT_OF" },
-  ];
-  const positions = pos([
-    ["elder", [487, 629]],
-    ["younger", [487, 445]],
-  ]);
-
-  expect(sameGenerationAdoptiveEdges(edges, positions)).toEqual([
-    { source: "elder", target: "younger", type: "ADOPTIVE_PARENT_OF" },
-  ]);
-});
-
-test("sameGenerationAdoptiveEdges: a cross-generation adoption stays drawn", () => {
-  // An adoptive parent one or more columns left of the adopted child is a real
-  // descent line (e.g. grandparent→grandchild), so it must NOT be hidden. Blood
-  // PARENT_OF edges in the same column are never adoptive, so never returned.
-  const edges: GraphEdge[] = [
-    { source: "gp", target: "gc", type: "ADOPTIVE_PARENT_OF" },
-    { source: "p", target: "c", type: "PARENT_OF" },
-  ];
-  const positions = pos([
-    ["gp", [244, 100]],
-    ["gc", [730, 100]],
-    ["p", [487, 100]],
-    ["c", [487, 200]],
-  ]);
-
-  expect(sameGenerationAdoptiveEdges(edges, positions)).toEqual([]);
 });
 
 test("spouseRouting: a clear marriage line is not routed", () => {
