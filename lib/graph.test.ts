@@ -5,6 +5,7 @@ import {
   patrilinealEdges,
   pathToGraph,
   personsToGraph,
+  siblingAdoptiveEdges,
 } from "./graph";
 
 test("maps person rows into graph nodes, preserving qid and label", () => {
@@ -324,4 +325,52 @@ test("layout-only: no extra edges when every parent is already a drawn line", ()
 
   expect(layoutOnlyEdges(motherOnly)).toEqual([]);
   expect(layoutOnlyEdges(twoFathers)).toEqual([]);
+});
+
+test("sibling adoptive: flags a kin-succession adoption between two blood siblings", () => {
+  // 頼職→吉宗 shape: both are blood children of the SAME father, so siblings and the
+  // same generation. The adoption is succession, not descent — dropped so it neither
+  // feeds dagre (would over-rank 吉宗 a column deeper than his brother) nor draws (a
+  // false second descent into 吉宗).
+  const edges = [
+    { source: "P", target: "elder", type: "PARENT_OF" },
+    { source: "P", target: "younger", type: "PARENT_OF" },
+    { source: "elder", target: "younger", type: "ADOPTIVE_PARENT_OF" },
+  ];
+
+  expect(siblingAdoptiveEdges(edges)).toEqual([
+    { source: "elder", target: "younger", type: "ADOPTIVE_PARENT_OF" },
+  ]);
+});
+
+test("sibling adoptive: keeps a cross-generation adoption between non-siblings", () => {
+  // 斉彊→家茂 shape: an uncle adopts a nephew. Both are blood-placed, but they do
+  // NOT share a parent (家斉→斉彊, but 斉順→家茂), so it is a genuine cross-generation
+  // descent line and must be kept. Regression guard: a blanket "both blood-placed"
+  // rule wrongly dropped this.
+  const edges = [
+    { source: "GF", target: "uncle", type: "PARENT_OF" },
+    { source: "GF", target: "parent", type: "PARENT_OF" },
+    { source: "parent", target: "nephew", type: "PARENT_OF" },
+    { source: "uncle", target: "nephew", type: "ADOPTIVE_PARENT_OF" },
+  ];
+
+  expect(siblingAdoptiveEdges(edges)).toEqual([]);
+});
+
+test("sibling adoptive: keeps an adoption where an endpoint has no in-view blood parent", () => {
+  // The adopted child or adoptive parent has no shown blood parent, so they can't be
+  // siblings — a genuine descent (an adoptive parent 家継→吉宗, or an adopted child
+  // 吉宗→雲松院) that must both rank and draw.
+  const adoptiveParentUnpinned = [
+    { source: "P", target: "C", type: "PARENT_OF" },
+    { source: "AP", target: "C", type: "ADOPTIVE_PARENT_OF" }, // AP has no blood parent
+  ];
+  const adoptedChildUnpinned = [
+    { source: "P", target: "F", type: "PARENT_OF" },
+    { source: "F", target: "AC", type: "ADOPTIVE_PARENT_OF" }, // AC has no blood parent
+  ];
+
+  expect(siblingAdoptiveEdges(adoptiveParentUnpinned)).toEqual([]);
+  expect(siblingAdoptiveEdges(adoptedChildUnpinned)).toEqual([]);
 });

@@ -86,6 +86,41 @@ export function layoutOnlyEdges(
     .map((e) => ({ source: e.source, target: e.target, type: "LAYOUT" }));
 }
 
+// Adoptive edges between siblings — the two people share a blood parent, so they
+// are the same generation (e.g. 頼職→吉宗, both 光貞's sons). This is 家督 succession
+// recorded as adoption, not a line of descent, so callers drop it from the edge
+// set entirely: drawn it would be a same-generation vertical line / a false second
+// descent into a child the blood line already places, and fed to dagre it would
+// rank the adopted sibling a generation below the other. A cross-generation
+// adoption (uncle→nephew 斉彊→家茂, or any pair not sharing a parent) is a genuine
+// descent and is kept. (A same-generation adoption between non-siblings — cousins
+// — is not detected here, but is vanishingly rare in the data.)
+export function siblingAdoptiveEdges(edges: GraphEdge[]): GraphEdge[] {
+  const bloodParents = new Map<string, Set<string>>();
+  for (const e of edges) {
+    if (e.type !== "PARENT_OF") continue;
+    (bloodParents.get(e.target) ?? addKey(bloodParents, e.target)).add(
+      e.source,
+    );
+  }
+  const shareParent = (a: string, b: string): boolean => {
+    const pa = bloodParents.get(a);
+    const pb = bloodParents.get(b);
+    if (!pa || !pb) return false;
+    for (const p of pa) if (pb.has(p)) return true;
+    return false;
+  };
+  return edges.filter(
+    (e) => e.type === "ADOPTIVE_PARENT_OF" && shareParent(e.source, e.target),
+  );
+}
+
+function addKey(map: Map<string, Set<string>>, key: string): Set<string> {
+  const set = new Set<string>();
+  map.set(key, set);
+  return set;
+}
+
 // edges is always empty: search returns people, not relationships.
 export function personsToGraph(rows: PersonRow[]): Graph {
   return {

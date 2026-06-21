@@ -23,3 +23,22 @@ bun run dev
 - グラフDB: Neo4j 5（Docker, `docker-compose.yml`）。本番は AuraDB を想定。
 - Neo4j 接続: `lib/neo4j.ts`（Driver シングルトン、API Routes からのみ利用）。
 - 環境変数: ローカル既定値は `.env.development`（コミット済み・非秘密）に入っており `bun run dev` が自動で読む。本番値は Vercel の環境変数で上書きする。個人の上書きが必要なら `.env.local`（gitignore）を作る。
+
+## レイアウト診断
+
+家系グラフのノード配置や descent 線の折れを、ブラウザを操作せず**数値で**確認するツール。dagre は決定論的なので、headless で同じ入力を流せばブラウザと同一座標を再現できる（`GraphPane` のレイアウト手順をそのまま再現）。
+
+```bash
+# dev サーバー起動中に実行（QID 省略時は徳川吉宗 Q319664）
+bun run scripts/dump-layout.ts Q319664
+```
+
+出力されるもの:
+
+- **Nodes** — 各ノードの `x, y`（`x` ＝世代の列）
+- **Dropped non-descent adoptions** — 兄弟間の養子（血縁の親を共有する家督継承）は descent でないため edges から除外され描画もランク付けもされない。該当時のみ表示
+- **Drawn descent lines** — 各 descent 線の taxi 経路と `[cols=列スパン, bends=折れ数]`。`cols≥2` は世代配置の異常（線が余計な列を横断して折れる）のサイン
+- **Descent junctions** — 夫婦の中点から子へ伸びる線の起点と `dy`
+- **Spouse detours** — 迂回（bow）するマリッジ線
+
+純粋なレイアウト関数の挙動が変わっていないかの非回帰チェックは `bun run scripts/layout-parity.ts`。

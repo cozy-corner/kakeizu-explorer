@@ -4,7 +4,13 @@ import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
-import { layoutOnlyEdges, patrilinealEdges, type Graph } from "@/lib/graph";
+import {
+  layoutOnlyEdges,
+  patrilinealEdges,
+  siblingAdoptiveEdges,
+  type Graph,
+  type GraphEdge,
+} from "@/lib/graph";
 import {
   descentJunctions,
   placeNodes,
@@ -182,7 +188,17 @@ export function GraphPane({
     if (!containerRef.current || !graph) return;
     // Ego view: collapse to a patrilineal tree (one parent line per child). Path
     // view keeps every edge so the chain between the two people reads end to end.
-    const edges = pathTo ? graph.edges : patrilinealEdges(graph);
+    // Drop sibling adoptions (家督 succession between two blood siblings, e.g.
+    // 頼職→吉宗): dropped from the edge set, they neither draw (no false second
+    // descent) nor reach dagre (no over-ranking the focus below its own sibling).
+    let edges = pathTo ? graph.edges : patrilinealEdges(graph);
+    if (!pathTo) {
+      // Key by value, not object identity: don't rely on siblingAdoptiveEdges
+      // returning the same edge references it was given.
+      const key = (e: GraphEdge) => `${e.source}|${e.type}|${e.target}`;
+      const skip = new Set(siblingAdoptiveEdges(edges).map(key));
+      edges = edges.filter((e) => !skip.has(key(e)));
+    }
     // Hidden edges that only steer dagre's ranking, so a married-in spouse sits in
     // their partner's generation column instead of drifting into their own family's.
     // Reuse the patrilineal reduction already in `edges` rather than recomputing it.
