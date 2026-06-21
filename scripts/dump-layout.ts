@@ -39,9 +39,19 @@ const RANK_SEP = 220;
 
 const qid = process.argv[2] ?? "Q319664";
 
-const graph: Graph = await fetch(
-  `http://localhost:3000/api/person/${qid}/neighbors?hops=2`,
-).then((r) => r.json());
+let graph: Graph;
+try {
+  const res = await fetch(
+    `http://localhost:3000/api/person/${qid}/neighbors?hops=2`,
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  graph = await res.json();
+} catch (err) {
+  console.error(
+    `Failed to fetch ${qid}: ${err instanceof Error ? err.message : String(err)}. Is the dev server running on http://localhost:3000? (bun run dev)`,
+  );
+  process.exit(1);
+}
 
 const drawnAll = patrilinealEdges(graph);
 const dropped = new Set(siblingAdoptiveEdges(drawnAll)); // 家督 succession between siblings
