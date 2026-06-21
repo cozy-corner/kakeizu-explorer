@@ -156,7 +156,11 @@ console.log("\n## Descent junctions (couple midpoint → children)");
 for (const j of descentJunctions(graph, edges, placed, ROW)) {
   console.log(`  junction ${j.id}  pos: ${r(j.pos.x)}, ${r(j.pos.y)}`);
   for (const c of j.children) {
-    const cp = placed.get(c)!;
+    const cp = placed.get(c);
+    if (!cp) {
+      console.error(`    -> ${label(c)} (${c}) MISSING from placed map`);
+      continue;
+    }
     const dy = r(cp.y - j.pos.y);
     console.log(
       `    -> ${label(c)} (${c}) at ${r(cp.x)}, ${r(cp.y)}  dy=${dy}`,
