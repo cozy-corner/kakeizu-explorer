@@ -9,6 +9,7 @@ import {
   patrilinealEdges,
   siblingAdoptiveEdges,
   type Graph,
+  type GraphEdge,
 } from "@/lib/graph";
 import {
   descentJunctions,
@@ -192,8 +193,11 @@ export function GraphPane({
     // descent) nor reach dagre (no over-ranking the focus below its own sibling).
     let edges = pathTo ? graph.edges : patrilinealEdges(graph);
     if (!pathTo) {
-      const skip = new Set(siblingAdoptiveEdges(edges));
-      edges = edges.filter((e) => !skip.has(e));
+      // Key by value, not object identity: don't rely on siblingAdoptiveEdges
+      // returning the same edge references it was given.
+      const key = (e: GraphEdge) => `${e.source}|${e.type}|${e.target}`;
+      const skip = new Set(siblingAdoptiveEdges(edges).map(key));
+      edges = edges.filter((e) => !skip.has(key(e)));
     }
     // Hidden edges that only steer dagre's ranking, so a married-in spouse sits in
     // their partner's generation column instead of drifting into their own family's.
