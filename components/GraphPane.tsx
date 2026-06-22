@@ -6,6 +6,7 @@ import type * as cytoscapeDagre from "cytoscape-dagre";
 import { useEffect, useRef, useState } from "react";
 import { egoDrawnEdges, layoutOnlyEdges, type Graph } from "@/lib/graph";
 import {
+  centerOnlyChildren,
   descentJunctions,
   placeNodes,
   spouseRouting,
@@ -239,7 +240,12 @@ export function GraphPane({
       // The placement/priority rules live in lib/layout as pure functions; this
       // effect is just the cytoscape adapter — read dagre's coordinates, run the
       // rules, write the result back, then apply the spouse-line detours as style.
-      const positions = placeNodes(readPositions(cy), edges, focus.qid, ROW);
+      const positions = centerOnlyChildren(
+        placeNodes(readPositions(cy), edges, focus.qid, ROW),
+        graph,
+        edges,
+        ROW,
+      );
       writePositions(cy, positions);
       for (const { edgeId, bow } of spouseRouting(
         positions,

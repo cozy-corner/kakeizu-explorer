@@ -260,33 +260,43 @@ export type DescentJunction = {
 
 export const JUNCTION_PREFIX = "__junction__";
 
+// A co-located couple and the drawn children that hang from their midpoint. The
+// shared resolution behind both the rendered junction and the only-child centering
+// nudge, so the two always agree on which couples qualify.
+type CoupleGroup = {
+  father: string;
+  mother: string;
+  children: string[];
+  mid: Pos;
+};
+
 // For each drawn father→child line whose child also has exactly one in-view
-// mother sharing the father's column, group the children under one junction at
-// the parents' midpoint. `graph` is the UNREDUCED graph so a mother dropped by
-// the patrilineal view is still recoverable; `drawnEdges` is the reduced set so
-// junctions only replace lines actually drawn. Skipped (father→child left alone)
-// when parentage is ambiguous — a child with more than one drawn father, or none
-// or several in-view mothers, or parents not sharing a column — so an uncertain
-// couple never invents a false midpoint.
+// mother sharing the father's column, group the children under their parents'
+// midpoint. `graph` is the UNREDUCED graph so a mother dropped by the patrilineal
+// view is still recoverable; `drawnEdges` is the reduced set so this covers only
+// lines actually drawn. Skipped (father→child left alone) when parentage is
+// ambiguous — a child with more than one drawn father, or none or several in-view
+// mothers, or parents not sharing a column — so an uncertain couple never invents
+// a false midpoint.
 //
 // Polygamy falls back to father-origin too: a father with two or more distinct
-// in-view mothers gets NO junctions. The midpoint convention (descent line out of
-// the gap between a couple) only reads cleanly for one couple — with the wives
-// stacked in one column, a far wife's midpoint lands among the other wives, so it
-// no longer says which mother. Traditional Japanese genealogy draws such children
-// from the father (mother shown only as a spouse), which this matches.
+// in-view mothers is dropped. The midpoint convention (descent out of the gap
+// between a couple) only reads cleanly for one couple — with the wives stacked in
+// one column, a far wife's midpoint lands among the other wives, so it no longer
+// says which mother. Traditional Japanese genealogy draws such children from the
+// father (mother shown only as a spouse), which this matches.
 //
 // The mother must also be the father's immediate vertical neighbour (gap ≈ one
 // `row`). A mother who heads her own descent isn't tucked beside the father, so
 // the couple can sit far apart in the column; their midpoint would then float in
 // empty space, reading as a line from nowhere. Only an adjacent pair has a real
 // "between" to sprout from — anything farther falls back to father-origin.
-export function descentJunctions(
+function coLocatedCouples(
   graph: Graph,
   drawnEdges: GraphEdge[],
   positions: Positions,
   row: number,
-): DescentJunction[] {
+): CoupleGroup[] {
   const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
   const parentsOf = new Map<string, string[]>();
   for (const e of graph.edges) {
@@ -341,20 +351,118 @@ export function descentJunctions(
     if (mothers.size > 1) polygamous.add(father);
   }
 
-  const byCouple = new Map<string, DescentJunction>();
+  const byCouple = new Map<string, CoupleGroup>();
   for (const c of candidates) {
     if (polygamous.has(c.father)) continue;
     if (c.gap > row * 1.5) continue; // not an adjacent pair
     const key = `${c.father}|${c.mother}`;
-    const junction = byCouple.get(key) ?? {
-      id: `${JUNCTION_PREFIX}|${c.father}|${c.mother}`,
-      pos: c.mid,
+    const group = byCouple.get(key) ?? {
+      father: c.father,
+      mother: c.mother,
       children: [],
-      hiddenEdgeIds: [],
+      mid: c.mid,
     };
-    junction.children.push(c.child);
-    junction.hiddenEdgeIds.push(`${c.father}|PARENT_OF|${c.child}`);
-    byCouple.set(key, junction);
+    group.children.push(c.child);
+    byCouple.set(key, group);
   }
   return [...byCouple.values()];
+}
+
+// One junction per co-located couple, anchored at their midpoint, replacing the
+// drawn father→child edges (hidden by id) with junction→child DESCENT edges.
+export function descentJunctions(
+  graph: Graph,
+  drawnEdges: GraphEdge[],
+  positions: Positions,
+  row: number,
+): DescentJunction[] {
+  return coLocatedCouples(graph, drawnEdges, positions, row).map((c) => ({
+    id: `${JUNCTION_PREFIX}|${c.father}|${c.mother}`,
+    pos: c.mid,
+    children: c.children,
+    hiddenEdgeIds: c.children.map((child) => `${c.father}|PARENT_OF|${child}`),
+  }));
+}
+
+// Nudge each near-horizontal only-child onto its parents' midpoint so the descent
+// line leaves the couple straight instead of jogging half a row. The midpoint
+// convention is right; the jog is only the artifact of a lone child sitting on the
+// father's row while the mother is packed a row below.
+//
+// Selection uses the ORIGINAL positions: a single-child couple whose child sits
+// within one `row` of the midpoint. A child that drops far below is a long vertical
+// line where the half-row is invisible and the midpoint origin already reads right,
+// so it's excluded. Selecting on the original layout means a child stays selected
+// even after its own parents shift.
+//
+// Couples are then centered parents-before-children (a father sits one column left
+// of his child), and each child is moved onto its parents' LIVE midpoint — after
+// the parents may themselves have moved. So an only-child lineage forms a clean
+// half-row staircase: every link is straight, the lineage just steps down a half
+// row per generation (unavoidable — the midpoint is always half a row below the
+// father). The child's tucked-in spouse rides along to keep that couple adjacent,
+// and the shift is clamped to the column's row spacing so it never overlaps a
+// neighbour. Kept out of `placeNodes` (and thus the #18 parity check): it's a new
+// rule, not part of the dagre-placement contract that parity guards.
+export function centerOnlyChildren(
+  input: Positions,
+  graph: Graph,
+  drawnEdges: GraphEdge[],
+  row: number,
+): Positions {
+  const pos = clonePositions(input);
+  const married = new Set<string>();
+  for (const id of pos.keys()) if (isMarriedIn(id, drawnEdges)) married.add(id);
+
+  const selected = coLocatedCouples(graph, drawnEdges, input, row)
+    .filter((c) => {
+      if (c.children.length !== 1) return false;
+      // coLocatedCouples validates father/mother positions but not the child's, so
+      // guard before the deref — same defence the loop and the view already apply.
+      const cp = input.get(c.children[0]);
+      return cp !== undefined && Math.abs(c.mid.y - cp.y) <= row;
+    })
+    .sort((a, b) => input.get(a.father)!.x - input.get(b.father)!.x);
+
+  for (const c of selected) {
+    const child = c.children[0];
+    const cp = pos.get(child);
+    const fp = pos.get(c.father);
+    const mp = pos.get(c.mother);
+    if (!cp || !fp || !mp) continue;
+    const dy = (fp.y + mp.y) / 2 - cp.y; // live midpoint: parents may have moved
+    if (dy === 0) continue;
+
+    // Move the child together with the married-in spouse(s) tucked beside it in
+    // the same column, so the child's own couple keeps its spacing.
+    const col = Math.round(cp.x);
+    const movers = [
+      child,
+      ...spouseNeighbors(child, drawnEdges).filter(
+        (s) =>
+          married.has(s) && pos.has(s) && Math.round(pos.get(s)!.x) === col,
+      ),
+    ];
+    const moverSet = new Set(movers);
+    const top = Math.min(...movers.map((m) => pos.get(m)!.y));
+    const bottom = Math.max(...movers.map((m) => pos.get(m)!.y));
+    // Nearest fixed neighbours above/below the moved block in this column.
+    let above = -Infinity;
+    let below = Infinity;
+    for (const [id, p] of pos) {
+      if (moverSet.has(id) || Math.round(p.x) !== col) continue;
+      if (p.y < top) above = Math.max(above, p.y);
+      if (p.y > bottom) below = Math.min(below, p.y);
+    }
+    const lo = above === -Infinity ? -Infinity : above + row - top;
+    const hi = below === Infinity ? Infinity : below - row - bottom;
+    if (lo > hi) continue; // column too tight to center without overlap
+    const shift = Math.max(lo, Math.min(hi, dy));
+    if (shift === 0) continue;
+    for (const m of movers) {
+      const p = pos.get(m)!;
+      pos.set(m, { x: p.x, y: p.y + shift });
+    }
+  }
+  return pos;
 }
