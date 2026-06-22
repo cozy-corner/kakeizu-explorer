@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  centerOnlyChildren,
   descentJunctions,
   isMarriedIn,
   placeNodes,
@@ -129,6 +130,31 @@ test("placeNodes: the focus's own spouse who heads a blood line is tucked beside
     S: { x: 0, y: 46 },
     X: { x: 0, y: 100 },
     Y: { x: 0, y: 200 },
+  });
+});
+
+test("placeNodes: a reverse-direction SPOUSE_OF tucks the focus-spouse once, not twice", () => {
+  // The same couple recorded in both directions (P26 is symmetric): without a
+  // dedup in the tuck-chain walk, S would be packed twice and land a phantom row
+  // lower (y=92 instead of 46).
+  const edges: GraphEdge[] = [
+    { source: "PA", target: "FO", type: "PARENT_OF" },
+    { source: "PB", target: "S", type: "PARENT_OF" },
+    { source: "FO", target: "S", type: "SPOUSE_OF" },
+    { source: "S", target: "FO", type: "SPOUSE_OF" },
+  ];
+  const input = pos([
+    ["PA", [-100, 50]],
+    ["PB", [-100, 200]],
+    ["FO", [0, 0]],
+    ["S", [0, 200]],
+  ]);
+
+  expect(obj(placeNodes(input, edges, "FO", ROW))).toEqual({
+    PA: { x: -100, y: 50 },
+    PB: { x: -100, y: 200 },
+    FO: { x: 0, y: 0 },
+    S: { x: 0, y: 46 },
   });
 });
 
@@ -544,4 +570,94 @@ test("descentJunctions: parents in different columns are not treated as a couple
   ]);
 
   expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+});
+
+test("centerOnlyChildren: the focus's blood-line spouse rides along to the midpoint (#30)", () => {
+  // Couple F+M's only child is the focus FO, sitting on F's row while M is one
+  // ROW below; the midpoint is half a row under FO, so centering wants to drop FO
+  // by 23. FO's spouse S heads her own blood line (not married-in) and is tucked
+  // right below FO. The old mover set kept only married-in spouses, so S was read
+  // as a fixed neighbour one ROW below — pinning the shift to 0 (the jog stayed).
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M", "female"],
+      ["FO", "male"],
+      ["S", "female"],
+      ["PS", "male"],
+    ],
+    [
+      { source: "F", target: "FO", type: "PARENT_OF" },
+      { source: "M", target: "FO", type: "PARENT_OF" },
+      { source: "PS", target: "S", type: "PARENT_OF" },
+      { source: "FO", target: "S", type: "SPOUSE_OF" },
+    ],
+  );
+  // Patrilineal view: M's descent edge is dropped, so only F→FO is drawn.
+  const drawn: GraphEdge[] = [
+    { source: "F", target: "FO", type: "PARENT_OF" },
+    { source: "PS", target: "S", type: "PARENT_OF" },
+    { source: "FO", target: "S", type: "SPOUSE_OF" },
+  ];
+  const input = pos([
+    ["F", [0, 0]],
+    ["M", [0, 46]],
+    ["FO", [100, 0]],
+    ["S", [100, 46]],
+    ["PS", [200, 0]],
+  ]);
+
+  expect(obj(centerOnlyChildren(input, g, drawn, "FO", ROW))).toEqual({
+    F: { x: 0, y: 0 },
+    M: { x: 0, y: 46 },
+    FO: { x: 100, y: 23 }, // on the midpoint, line straightened
+    S: { x: 100, y: 69 }, // rode along, couple spacing preserved
+    PS: { x: 200, y: 0 },
+  });
+});
+
+test("centerOnlyChildren: a transitive co-spouse below the focus's spouse rides along (#30)", () => {
+  // As above, but S in turn has a married-in co-spouse T tucked below her. T is
+  // two hops from FO (FO→S→T), past the reach of a direct-spouse lookup, so the
+  // old mover set left T fixed and again clamped the shift to 0.
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M", "female"],
+      ["FO", "male"],
+      ["S", "female"],
+      ["T", "female"],
+      ["PS", "male"],
+    ],
+    [
+      { source: "F", target: "FO", type: "PARENT_OF" },
+      { source: "M", target: "FO", type: "PARENT_OF" },
+      { source: "PS", target: "S", type: "PARENT_OF" },
+      { source: "FO", target: "S", type: "SPOUSE_OF" },
+      { source: "S", target: "T", type: "SPOUSE_OF" },
+    ],
+  );
+  const drawn: GraphEdge[] = [
+    { source: "F", target: "FO", type: "PARENT_OF" },
+    { source: "PS", target: "S", type: "PARENT_OF" },
+    { source: "FO", target: "S", type: "SPOUSE_OF" },
+    { source: "S", target: "T", type: "SPOUSE_OF" },
+  ];
+  const input = pos([
+    ["F", [0, 0]],
+    ["M", [0, 46]],
+    ["FO", [100, 0]],
+    ["S", [100, 46]],
+    ["T", [100, 92]],
+    ["PS", [200, 0]],
+  ]);
+
+  expect(obj(centerOnlyChildren(input, g, drawn, "FO", ROW))).toEqual({
+    F: { x: 0, y: 0 },
+    M: { x: 0, y: 46 },
+    FO: { x: 100, y: 23 },
+    S: { x: 100, y: 69 },
+    T: { x: 100, y: 115 }, // transitive co-spouse rode along too
+    PS: { x: 200, y: 0 },
+  });
 });

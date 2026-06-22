@@ -113,6 +113,7 @@ const placed = centerOnlyChildren(
   placeNodes(positions, edges, qid, ROW),
   graph,
   edges,
+  qid,
   ROW,
 );
 

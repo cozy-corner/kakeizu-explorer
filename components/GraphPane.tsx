@@ -244,6 +244,7 @@ export function GraphPane({
         placeNodes(readPositions(cy), edges, focus.qid, ROW),
         graph,
         edges,
+        focus.qid,
         ROW,
       );
       writePositions(cy, positions);
