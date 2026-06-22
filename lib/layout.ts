@@ -104,7 +104,11 @@ function tuckHosts(
 // always pack the same set — the divergence that re-derived movers caused in #30.
 function tuckChain(attached: Map<string, string[]>, root: string): string[] {
   const chain: string[] = [];
+  const seen = new Set<string>(); // a reverse-direction SPOUSE_OF can list a
+  // partner twice; visit each once so the spacing walk doesn't insert a phantom row
   const walk = (id: string): void => {
+    if (seen.has(id)) return;
+    seen.add(id);
     chain.push(id);
     for (const a of attached.get(id) ?? []) walk(a);
   };

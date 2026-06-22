@@ -133,6 +133,31 @@ test("placeNodes: the focus's own spouse who heads a blood line is tucked beside
   });
 });
 
+test("placeNodes: a reverse-direction SPOUSE_OF tucks the focus-spouse once, not twice", () => {
+  // The same couple recorded in both directions (P26 is symmetric): without a
+  // dedup in the tuck-chain walk, S would be packed twice and land a phantom row
+  // lower (y=92 instead of 46).
+  const edges: GraphEdge[] = [
+    { source: "PA", target: "FO", type: "PARENT_OF" },
+    { source: "PB", target: "S", type: "PARENT_OF" },
+    { source: "FO", target: "S", type: "SPOUSE_OF" },
+    { source: "S", target: "FO", type: "SPOUSE_OF" },
+  ];
+  const input = pos([
+    ["PA", [-100, 50]],
+    ["PB", [-100, 200]],
+    ["FO", [0, 0]],
+    ["S", [0, 200]],
+  ]);
+
+  expect(obj(placeNodes(input, edges, "FO", ROW))).toEqual({
+    PA: { x: -100, y: 50 },
+    PB: { x: -100, y: 200 },
+    FO: { x: 0, y: 0 },
+    S: { x: 0, y: 46 },
+  });
+});
+
 test("placeNodes: an adoptive parent of the focus drops below the sibling cluster", () => {
   // AP enters in the parent column on FO's row (overlapping the blood father PA).
   // It is moved below FO's column cluster (which bottoms at X's y=100), still in
