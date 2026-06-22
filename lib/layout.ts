@@ -415,11 +415,13 @@ export function centerOnlyChildren(
   for (const id of pos.keys()) if (isMarriedIn(id, drawnEdges)) married.add(id);
 
   const selected = coLocatedCouples(graph, drawnEdges, input, row)
-    .filter(
-      (c) =>
-        c.children.length === 1 &&
-        Math.abs(c.mid.y - input.get(c.children[0])!.y) <= row,
-    )
+    .filter((c) => {
+      if (c.children.length !== 1) return false;
+      // coLocatedCouples validates father/mother positions but not the child's, so
+      // guard before the deref — same defence the loop and the view already apply.
+      const cp = input.get(c.children[0]);
+      return cp !== undefined && Math.abs(c.mid.y - cp.y) <= row;
+    })
     .sort((a, b) => input.get(a.father)!.x - input.get(b.father)!.x);
 
   for (const c of selected) {
