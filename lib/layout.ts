@@ -43,19 +43,20 @@ function clonePositions(pos: Positions): Positions {
   return new Map([...pos].map(([id, p]) => [id, { x: p.x, y: p.y }]));
 }
 
-// Keep dagre's vertical positions for blood descendants — gaps and all, since the
-// gaps separate one parent's children from the next — so parent blocks stay
-// readable. Married-in spouses move: tuck each beside the partner it married,
-// preferring the focus when someone married more than one in-tree relative. The
-// focus's own spouse is tucked beside the focus too, even when that spouse heads
-// their own blood line (so dagre stacked them in their own block).
-function packColumns(
-  input: Positions,
+// Resolve who tucks beside whom, as host → its directly-attached spouse ids:
+// a married-in spouse rides beside the in-tree partner it married (preferring the
+// focus when it married more than one in-tree relative), and the focus's own
+// spouse rides beside the focus even when that spouse heads their own blood line.
+// Transitive co-spouses are reached by walking the map (a tucked spouse may host
+// its own). Depends only on edges, the present node set, and the focus column —
+// not on y — so it's stable across the y-repacking, letting both packColumns and
+// centerOnlyChildren derive their mover sets from one definition (the two used to
+// re-derive it separately and drift apart).
+function tuckHosts(
+  pos: Positions,
   edges: GraphEdge[],
   focusId: string,
-  row: number,
-): Positions {
-  const pos = clonePositions(input);
+): Map<string, string[]> {
   // isMarriedIn is an O(edges) scan, queried per node and per spouse anchor below;
   // resolve membership once into a set of the present nodes.
   const married = new Set<string>();
@@ -75,18 +76,15 @@ function packColumns(
     const host = hostOf(id);
     if (!host) continue;
     pushInto(attached, host, id);
-    const hp = pos.get(host)!;
-    pos.set(id, { x: hp.x, y: hp.y }); // provisional; the spacing walk overwrites y
   }
 
   // The focus's own spouse should sit beside them, but a spouse who heads their
   // own blood line is not married-in, so the loop above skipped them. Attach each
-  // such focus-spouse to the focus so the walk tucks them in (their own co-spouses
-  // ride along via the recursive expansion below). Only same-column spouses: one in
-  // another column has no shared child co-ranking them beside the focus, and a blood
-  // parent/child of the focus is always in an adjacent column anyway (LR layout), so
-  // the check also keeps us from pulling blood kin out of their block. No provisional
-  // move: such a spouse already shares the focus's column.
+  // such focus-spouse to the focus so the walk tucks them in. Only same-column
+  // spouses: one in another column has no shared child co-ranking them beside the
+  // focus, and a blood parent/child of the focus is always in an adjacent column
+  // anyway (LR layout), so the check also keeps us from pulling blood kin out of
+  // their block.
   const focus = pos.get(focusId);
   if (focus && !married.has(focusId)) {
     const focusX = Math.round(focus.x);
@@ -96,6 +94,45 @@ function packColumns(
       if (!spp || Math.round(spp.x) !== focusX) continue;
       pushInto(attached, focusId, sp);
     }
+  }
+  return attached;
+}
+
+// Flatten a host's tuck chain in DFS pre-order, host first: a tucked-in spouse
+// may itself host co-spouses, so this walks the whole `attached` subtree. Shared
+// so packColumns (the spacing walk) and centerOnlyChildren (the mover block)
+// always pack the same set — the divergence that re-derived movers caused in #30.
+function tuckChain(attached: Map<string, string[]>, root: string): string[] {
+  const chain: string[] = [];
+  const walk = (id: string): void => {
+    chain.push(id);
+    for (const a of attached.get(id) ?? []) walk(a);
+  };
+  walk(root);
+  return chain;
+}
+
+// Keep dagre's vertical positions for blood descendants — gaps and all, since the
+// gaps separate one parent's children from the next — so parent blocks stay
+// readable. Married-in spouses move: tuck each beside the partner it married,
+// preferring the focus when someone married more than one in-tree relative. The
+// focus's own spouse is tucked beside the focus too, even when that spouse heads
+// their own blood line (so dagre stacked them in their own block).
+function packColumns(
+  input: Positions,
+  edges: GraphEdge[],
+  focusId: string,
+  row: number,
+): Positions {
+  const pos = clonePositions(input);
+  const attached = tuckHosts(pos, edges, focusId);
+
+  // Provisional: pull each tucked spouse into its host's column so the column
+  // grouping below processes it there; the spacing walk overwrites both coords.
+  // A focus-spouse already shares the focus's column, so this is a no-op for it.
+  for (const [host, ids] of attached) {
+    const hp = pos.get(host)!;
+    for (const id of ids) pos.set(id, { x: hp.x, y: hp.y });
   }
 
   const attachedIds = new Set<string>();
@@ -109,14 +146,7 @@ function packColumns(
     const seeds = colIds
       .filter((id) => !attachedIds.has(id))
       .sort((a, b) => pos.get(a)!.y - pos.get(b)!.y);
-    // Expand transitively: a tucked-in spouse may itself host co-spouses, so
-    // flatten the whole attached chain.
-    const order: string[] = [];
-    const expand = (id: string): void => {
-      order.push(id);
-      for (const a of attached.get(id) ?? []) expand(a);
-    };
-    for (const s of seeds) expand(s);
+    const order = seeds.flatMap((s) => tuckChain(attached, s));
     // dagre spaces anchors ≥ row apart, so keeping each anchor's own y reproduces a
     // spouse-free column exactly; only a tucked-in spouse pushes the rows below down.
     const x = pos.get(order[0])!.x;
@@ -400,7 +430,7 @@ export function descentJunctions(
 // the parents may themselves have moved. So an only-child lineage forms a clean
 // half-row staircase: every link is straight, the lineage just steps down a half
 // row per generation (unavoidable — the midpoint is always half a row below the
-// father). The child's tucked-in spouse rides along to keep that couple adjacent,
+// father). The child's tucked-in spouse(s) ride along to keep that couple adjacent,
 // and the shift is clamped to the column's row spacing so it never overlaps a
 // neighbour. Kept out of `placeNodes` (and thus the #18 parity check): it's a new
 // rule, not part of the dagre-placement contract that parity guards.
@@ -408,11 +438,15 @@ export function centerOnlyChildren(
   input: Positions,
   graph: Graph,
   drawnEdges: GraphEdge[],
+  focusId: string,
   row: number,
 ): Positions {
   const pos = clonePositions(input);
-  const married = new Set<string>();
-  for (const id of pos.keys()) if (isMarriedIn(id, drawnEdges)) married.add(id);
+  // Same tuck model packColumns packed the column with: a spouse it tucked beside
+  // the child must ride along, or the clamp below would mistake it for a fixed
+  // neighbour and pin the shift to 0. Re-deriving movers from spouseNeighbors used
+  // to miss the focus's blood-line spouse and transitive co-spouses (#30).
+  const attached = tuckHosts(pos, drawnEdges, focusId);
 
   const selected = coLocatedCouples(graph, drawnEdges, input, row)
     .filter((c) => {
@@ -433,16 +467,11 @@ export function centerOnlyChildren(
     const dy = (fp.y + mp.y) / 2 - cp.y; // live midpoint: parents may have moved
     if (dy === 0) continue;
 
-    // Move the child together with the married-in spouse(s) tucked beside it in
-    // the same column, so the child's own couple keeps its spacing.
+    // Move the child together with every spouse tucked beside it (transitively),
+    // so the child's own couple keeps its spacing. Walking `attached` from the
+    // child reproduces exactly the column block packColumns built around it.
     const col = Math.round(cp.x);
-    const movers = [
-      child,
-      ...spouseNeighbors(child, drawnEdges).filter(
-        (s) =>
-          married.has(s) && pos.has(s) && Math.round(pos.get(s)!.x) === col,
-      ),
-    ];
+    const movers = tuckChain(attached, child);
     const moverSet = new Set(movers);
     const top = Math.min(...movers.map((m) => pos.get(m)!.y));
     const bottom = Math.max(...movers.map((m) => pos.get(m)!.y));
