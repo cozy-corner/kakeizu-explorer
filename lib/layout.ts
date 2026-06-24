@@ -404,18 +404,48 @@ function coLocatedCouples(
 
 // One junction per co-located couple, anchored at their midpoint, replacing the
 // drawn father→child edges (hidden by id) with junction→child DESCENT edges.
+//
+// A lone child that centerOnlyChildren couldn't pull onto the midpoint — a fixed
+// blood spouse pinned directly below it aborts the shift (#28) — is left a half row
+// off, jogging its descent line. For that one child, drop the junction onto the
+// child's row instead (clamped to the parents' marriage segment so it stays between
+// them): the line runs straight, sprouting from whichever parent shares that row —
+// a smaller artifact than the jog, and no node moves. Only single, near-level
+// children qualify: a long-drop child (#27) keeps the midpoint origin, where the
+// jog is invisible and the couple-centered start reads right.
 export function descentJunctions(
   graph: Graph,
   drawnEdges: GraphEdge[],
   positions: Positions,
   row: number,
 ): DescentJunction[] {
-  return coLocatedCouples(graph, drawnEdges, positions, row).map((c) => ({
-    id: `${JUNCTION_PREFIX}|${c.father}|${c.mother}`,
-    pos: c.mid,
-    children: c.children,
-    hiddenEdgeIds: c.children.map((child) => `${c.father}|PARENT_OF|${child}`),
-  }));
+  return coLocatedCouples(graph, drawnEdges, positions, row).map((c) => {
+    let mid = c.mid;
+    if (c.children.length === 1) {
+      const cp = positions.get(c.children[0]);
+      const fp = positions.get(c.father);
+      const mp = positions.get(c.mother);
+      if (
+        cp &&
+        fp &&
+        mp &&
+        cp.y !== c.mid.y &&
+        Math.abs(c.mid.y - cp.y) <= row
+      ) {
+        const loY = Math.min(fp.y, mp.y);
+        const hiY = Math.max(fp.y, mp.y);
+        mid = { x: c.mid.x, y: Math.max(loY, Math.min(hiY, cp.y)) };
+      }
+    }
+    return {
+      id: `${JUNCTION_PREFIX}|${c.father}|${c.mother}`,
+      pos: mid,
+      children: c.children,
+      hiddenEdgeIds: c.children.map(
+        (child) => `${c.father}|PARENT_OF|${child}`,
+      ),
+    };
+  });
 }
 
 // Nudge each near-horizontal only-child onto its parents' midpoint so the descent
