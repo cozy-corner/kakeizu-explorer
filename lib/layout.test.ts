@@ -340,16 +340,54 @@ test("descentJunctions: a father+mother couple yields a midpoint junction over t
   // Drawn (patrilineal) edges keep only father→child; the mother is recovered
   // from the unreduced graph above.
   const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  // C already sits on the midpoint (centerOnlyChildren ran in the real flow), so
+  // the junction stays at the couple's midpoint.
   const positions = pos([
     ["F", [0, 0]],
     ["M", [0, 46]],
-    ["C", [100, 0]],
+    ["C", [100, 23]],
   ]);
 
   expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
     {
       id: "__junction__|F|M",
       pos: { x: 0, y: 23 },
+      children: ["C"],
+      hiddenEdgeIds: ["F|PARENT_OF|C"],
+    },
+  ]);
+});
+
+test("descentJunctions: a lone child stuck on the father's row drops the junction onto that row (#28)", () => {
+  // C couldn't be centered onto the midpoint — a fixed blood spouse S pinned
+  // directly below it aborts centerOnlyChildren's shift — so C stays on F's row.
+  // The junction follows C onto that row (here = F's), straightening the line,
+  // instead of staying at the midpoint and jogging a half row.
+  const g = graph(
+    [
+      ["F", "male"],
+      ["M", "female"],
+      ["C", "female"],
+      ["S", "male"],
+    ],
+    [
+      { source: "F", target: "C", type: "PARENT_OF" },
+      { source: "M", target: "C", type: "PARENT_OF" },
+      { source: "C", target: "S", type: "SPOUSE_OF" },
+    ],
+  );
+  const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  const positions = pos([
+    ["F", [0, 0]],
+    ["M", [0, 46]],
+    ["C", [100, 0]],
+    ["S", [100, 46]], // blood spouse pinned below C, blocking the center shift
+  ]);
+
+  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
+    {
+      id: "__junction__|F|M",
+      pos: { x: 0, y: 0 }, // dropped to C's row, not the midpoint (0, 23)
       children: ["C"],
       hiddenEdgeIds: ["F|PARENT_OF|C"],
     },
@@ -488,11 +526,12 @@ test("descentJunctions: a wife with no in-view children doesn't make the father 
     ],
   );
   const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  // C on the midpoint (the centered real-flow state); the junction stays there.
   const positions = pos([
     ["F", [0, 0]],
     ["M1", [0, 46]],
     ["M2", [0, 92]],
-    ["C", [100, 0]],
+    ["C", [100, 23]],
   ]);
 
   expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
