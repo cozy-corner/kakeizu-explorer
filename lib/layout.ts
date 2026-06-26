@@ -1,39 +1,10 @@
-import type { Graph, GraphEdge } from "./graph";
+import { pushInto, type FamilyGraph } from "./graph";
 
 // Plain-data view of cytoscape's "graph + coordinates": placement rules operate
 // on these instead of touching the renderer, so they're unit-testable. The view
 // reads dagre's output into a Positions map, runs these, and writes back.
 export type Pos = { x: number; y: number };
 export type Positions = Map<string, Pos>; // insertion order mirrors cy.nodes()
-
-const PARENT_TYPES = new Set(["PARENT_OF", "ADOPTIVE_PARENT_OF"]);
-
-// No parent edge (blood or adoptive) incident in either direction = married-in:
-// the patrilineal view drops a mother's descent edges, so even a wife with
-// children has none. These belong to no parent's block, so they're the only
-// nodes placeNodes may move. An adopted child IS placed by its adoptive parent,
-// so it must not count as married-in.
-export function isMarriedIn(id: string, edges: GraphEdge[]): boolean {
-  return !edges.some(
-    (edge) =>
-      PARENT_TYPES.has(edge.type) && (edge.source === id || edge.target === id),
-  );
-}
-
-// Spouse partners of `id`, in edge order — the deterministic stand-in for the
-// order a cytoscape collection would have yielded.
-function spouseNeighbors(id: string, edges: GraphEdge[]): string[] {
-  return edges
-    .filter(
-      (edge) =>
-        edge.type === "SPOUSE_OF" && (edge.source === id || edge.target === id),
-    )
-    .map((edge) => (edge.source === id ? edge.target : edge.source));
-}
-
-function pushInto<K>(map: Map<K, string[]>, key: K, value: string): void {
-  (map.get(key) ?? map.set(key, []).get(key)!).push(value);
-}
 
 function addInto<K>(map: Map<K, Set<string>>, key: K, value: string): void {
   (map.get(key) ?? map.set(key, new Set()).get(key)!).add(value);
@@ -54,17 +25,12 @@ function clonePositions(pos: Positions): Positions {
 // re-derive it separately and drift apart).
 function tuckHosts(
   pos: Positions,
-  edges: GraphEdge[],
+  fam: FamilyGraph,
   focusId: string,
 ): Map<string, string[]> {
-  // isMarriedIn is an O(edges) scan, queried per node and per spouse anchor below;
-  // resolve membership once into a set of the present nodes.
-  const married = new Set<string>();
-  for (const id of pos.keys()) if (isMarriedIn(id, edges)) married.add(id);
-
   const hostOf = (id: string): string | null => {
-    const anchors = spouseNeighbors(id, edges).filter(
-      (p) => p !== id && pos.has(p) && !married.has(p),
+    const anchors = (fam.spouseOf.get(id) ?? []).filter(
+      (p) => p !== id && pos.has(p) && !fam.isMarriedIn(p),
     );
     if (anchors.length === 0) return null;
     return anchors.find((p) => p === focusId) ?? anchors[0];
@@ -72,7 +38,7 @@ function tuckHosts(
 
   const attached = new Map<string, string[]>();
   for (const [id] of pos) {
-    if (!married.has(id)) continue;
+    if (!fam.isMarriedIn(id)) continue;
     const host = hostOf(id);
     if (!host) continue;
     pushInto(attached, host, id);
@@ -86,10 +52,10 @@ function tuckHosts(
   // anyway (LR layout), so the check also keeps us from pulling blood kin out of
   // their block.
   const focus = pos.get(focusId);
-  if (focus && !married.has(focusId)) {
+  if (focus && !fam.isMarriedIn(focusId)) {
     const focusX = Math.round(focus.x);
-    for (const sp of spouseNeighbors(focusId, edges)) {
-      if (sp === focusId || married.has(sp)) continue;
+    for (const sp of fam.spouseOf.get(focusId) ?? []) {
+      if (sp === focusId || fam.isMarriedIn(sp)) continue;
       const spp = pos.get(sp);
       if (!spp || Math.round(spp.x) !== focusX) continue;
       pushInto(attached, focusId, sp);
@@ -124,12 +90,12 @@ function tuckChain(attached: Map<string, string[]>, root: string): string[] {
 // their own blood line (so dagre stacked them in their own block).
 function packColumns(
   input: Positions,
-  edges: GraphEdge[],
+  fam: FamilyGraph,
   focusId: string,
   row: number,
 ): Positions {
   const pos = clonePositions(input);
-  const attached = tuckHosts(pos, edges, focusId);
+  const attached = tuckHosts(pos, fam, focusId);
 
   // Provisional: pull each tucked spouse into its host's column so the column
   // grouping below processes it there; the spacing walk overwrites both coords.
@@ -175,29 +141,20 @@ function packColumns(
 // some other in-view person by succession is still moved.)
 function placeAdoptiveParents(
   input: Positions,
-  edges: GraphEdge[],
+  fam: FamilyGraph,
   focusId: string,
   row: number,
 ): Positions {
   const pos = clonePositions(input);
   const focus = pos.get(focusId);
   if (!focus) return pos;
-  const bloodParents = new Set(
-    edges
-      .filter((edge) => edge.type === "PARENT_OF" && edge.target === focusId)
-      .map((edge) => edge.source),
-  );
+  const bloodParents = new Set(fam.fatherOf.get(focusId) ?? []);
   const seen = new Set<string>();
-  const parents = edges
-    .filter(
-      (edge) => edge.type === "ADOPTIVE_PARENT_OF" && edge.target === focusId,
-    )
-    .map((edge) => edge.source)
-    .filter((p) => {
-      if (bloodParents.has(p) || !pos.has(p) || seen.has(p)) return false;
-      seen.add(p);
-      return true;
-    });
+  const parents = (fam.adoptiveParentOf.get(focusId) ?? []).filter((p) => {
+    if (bloodParents.has(p) || !pos.has(p) || seen.has(p)) return false;
+    seen.add(p);
+    return true;
+  });
   if (parents.length === 0) return pos;
 
   // The sibling cluster is everyone dagre put in the focus's column.
@@ -219,13 +176,13 @@ function placeAdoptiveParents(
 // caller's positions; the view writes the result back into cytoscape.
 export function placeNodes(
   pos: Positions,
-  edges: GraphEdge[],
+  fam: FamilyGraph,
   focusId: string,
   row: number,
 ): Positions {
   return placeAdoptiveParents(
-    packColumns(pos, edges, focusId, row),
-    edges,
+    packColumns(pos, fam, focusId, row),
+    fam,
     focusId,
     row,
   );
@@ -242,43 +199,33 @@ const BLOCK_X_RADIUS = 24; // a node within this of the mid-x sits on the line
 // follows source→target so it always bends left, clear of the right-hand labels.
 export function spouseRouting(
   pos: Positions,
-  edges: GraphEdge[],
+  fam: FamilyGraph,
   spouseGutter: number,
 ): { edgeId: string; bow: number }[] {
   const nodes = [...pos.entries()];
-  // Resolve spouse adjacency once; coSpouses is then an O(1) lookup per edge
-  // instead of re-scanning all edges twice inside the loop.
-  const spouseAdj = new Map<string, string[]>();
-  for (const edge of edges) {
-    if (edge.type !== "SPOUSE_OF") continue;
-    pushInto(spouseAdj, edge.source, edge.target);
-    pushInto(spouseAdj, edge.target, edge.source);
-  }
-  return edges
-    .filter((edge) => edge.type === "SPOUSE_OF")
-    .flatMap((edge) => {
-      const sp = pos.get(edge.source);
-      const tp = pos.get(edge.target);
-      if (!sp || !tp) return [];
-      const [yLo, yHi] = sp.y < tp.y ? [sp.y, tp.y] : [tp.y, sp.y];
-      const x = (sp.x + tp.x) / 2;
-      const coSpouses = new Set<string>([
-        edge.source,
-        edge.target,
-        ...(spouseAdj.get(edge.source) ?? []),
-        ...(spouseAdj.get(edge.target) ?? []),
-      ]);
-      const blocked = nodes.some(
-        ([id, p]) =>
-          !coSpouses.has(id) &&
-          p.y > yLo + BLOCK_Y_MARGIN &&
-          p.y < yHi - BLOCK_Y_MARGIN &&
-          Math.abs(p.x - x) < BLOCK_X_RADIUS,
-      );
-      if (!blocked) return [];
-      const bow = (tp.y > sp.y ? 1 : -1) * spouseGutter;
-      return [{ edgeId: `${edge.source}|SPOUSE_OF|${edge.target}`, bow }];
-    });
+  return fam.spousePairs.flatMap((edge) => {
+    const sp = pos.get(edge.source);
+    const tp = pos.get(edge.target);
+    if (!sp || !tp) return [];
+    const [yLo, yHi] = sp.y < tp.y ? [sp.y, tp.y] : [tp.y, sp.y];
+    const x = (sp.x + tp.x) / 2;
+    const coSpouses = new Set<string>([
+      edge.source,
+      edge.target,
+      ...(fam.spouseOf.get(edge.source) ?? []),
+      ...(fam.spouseOf.get(edge.target) ?? []),
+    ]);
+    const blocked = nodes.some(
+      ([id, p]) =>
+        !coSpouses.has(id) &&
+        p.y > yLo + BLOCK_Y_MARGIN &&
+        p.y < yHi - BLOCK_Y_MARGIN &&
+        Math.abs(p.x - x) < BLOCK_X_RADIUS,
+    );
+    if (!blocked) return [];
+    const bow = (tp.y > sp.y ? 1 : -1) * spouseGutter;
+    return [{ edgeId: `${edge.source}|SPOUSE_OF|${edge.target}`, bow }];
+  });
 }
 
 // An invisible anchor placed at the midpoint of a couple so the descent line
@@ -306,9 +253,10 @@ type CoupleGroup = {
 
 // For each drawn father→child line whose child also has exactly one in-view
 // mother sharing the father's column, group the children under their parents'
-// midpoint. `graph` is the UNREDUCED graph so a mother dropped by the patrilineal
-// view is still recoverable; `drawnEdges` is the reduced set so this covers only
-// lines actually drawn. Skipped (father→child left alone) when parentage is
+// midpoint. `fam.trueParentsOf` is the UNREDUCED parentage so a mother dropped by
+// the patrilineal view is still recoverable; `fam.fatherOf` is the reduced set so
+// this covers only lines actually drawn. Skipped (father→child left alone) when
+// parentage is
 // ambiguous — a child with more than one drawn father, or none or several in-view
 // mothers, or parents not sharing a column — so an uncertain couple never invents
 // a false midpoint.
@@ -326,20 +274,13 @@ type CoupleGroup = {
 // empty space, reading as a line from nowhere. Only an adjacent pair has a real
 // "between" to sprout from — anything farther falls back to father-origin.
 function coLocatedCouples(
-  graph: Graph,
-  drawnEdges: GraphEdge[],
+  fam: FamilyGraph,
   positions: Positions,
   row: number,
 ): CoupleGroup[] {
-  const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
-  const parentsOf = new Map<string, string[]>();
-  for (const e of graph.edges) {
-    if (e.type === "PARENT_OF") pushInto(parentsOf, e.target, e.source);
-  }
-  const drawnFathersOf = new Map<string, string[]>();
-  for (const e of drawnEdges) {
-    if (e.type === "PARENT_OF") pushInto(drawnFathersOf, e.target, e.source);
-  }
+  const sex = fam.sex;
+  const parentsOf = fam.trueParentsOf;
+  const drawnFathersOf = fam.fatherOf;
 
   // Resolve each drawn father→child line to its co-located couple, when parentage
   // is unambiguous: exactly one drawn father, exactly one in-view mother, both in
@@ -353,11 +294,11 @@ function coLocatedCouples(
     gap: number;
   };
   const candidates: Candidate[] = [];
-  for (const e of drawnEdges) {
-    if (e.type !== "PARENT_OF") continue;
-    const child = e.target;
-    const father = e.source;
-    if ((drawnFathersOf.get(child) ?? []).length !== 1) continue;
+  // Iterate drawn father→child pairs grouped by child (patrilinealEdges already
+  // emits them child-grouped, so this matches the old per-edge order).
+  for (const [child, fathers] of drawnFathersOf) {
+    if (fathers.length !== 1) continue;
+    const father = fathers[0];
     const fp = positions.get(father);
     if (!fp) continue;
     const mothers = (parentsOf.get(child) ?? []).filter(
@@ -414,12 +355,11 @@ function coLocatedCouples(
 // children qualify: a long-drop child (#27) keeps the midpoint origin, where the
 // jog is invisible and the couple-centered start reads right.
 export function descentJunctions(
-  graph: Graph,
-  drawnEdges: GraphEdge[],
+  fam: FamilyGraph,
   positions: Positions,
   row: number,
 ): DescentJunction[] {
-  return coLocatedCouples(graph, drawnEdges, positions, row).map((c) => {
+  return coLocatedCouples(fam, positions, row).map((c) => {
     let mid = c.mid;
     if (c.children.length === 1) {
       const cp = positions.get(c.children[0]);
@@ -470,19 +410,18 @@ export function descentJunctions(
 // rule, not part of the dagre-placement contract that parity guards.
 export function centerOnlyChildren(
   input: Positions,
-  graph: Graph,
-  drawnEdges: GraphEdge[],
+  fam: FamilyGraph,
   focusId: string,
   row: number,
 ): Positions {
   const pos = clonePositions(input);
   // Same tuck model packColumns packed the column with: a spouse it tucked beside
   // the child must ride along, or the clamp below would mistake it for a fixed
-  // neighbour and pin the shift to 0. Re-deriving movers from spouseNeighbors used
+  // neighbour and pin the shift to 0. Re-deriving movers from spouse edges used
   // to miss the focus's blood-line spouse and transitive co-spouses (#30).
-  const attached = tuckHosts(pos, drawnEdges, focusId);
+  const attached = tuckHosts(pos, fam, focusId);
 
-  const selected = coLocatedCouples(graph, drawnEdges, input, row)
+  const selected = coLocatedCouples(fam, input, row)
     .filter((c) => {
       if (c.children.length !== 1) return false;
       // coLocatedCouples validates father/mother positions but not the child's, so

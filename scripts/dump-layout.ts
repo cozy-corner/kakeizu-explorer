@@ -15,6 +15,7 @@ import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import type * as cytoscapeDagre from "cytoscape-dagre";
 import {
+  buildFamilyGraph,
   egoDrawnEdges,
   layoutOnlyEdges,
   patrilinealEdges,
@@ -109,10 +110,10 @@ const positions: Positions = new Map();
 cy.nodes().forEach((n) => {
   positions.set(n.id(), { x: n.position("x"), y: n.position("y") });
 });
+const fam = buildFamilyGraph(graph, edges);
 const placed = centerOnlyChildren(
-  placeNodes(positions, edges, qid, ROW),
-  graph,
-  edges,
+  placeNodes(positions, fam, qid, ROW),
+  fam,
   qid,
   ROW,
 );
@@ -159,12 +160,12 @@ for (const e of edges) {
 }
 
 console.log("\n## Spouse detours (bowed lines)");
-const detours = spouseRouting(placed, edges, SPOUSE_GUTTER);
+const detours = spouseRouting(placed, fam, SPOUSE_GUTTER);
 if (detours.length === 0) console.log("  (none)");
 for (const d of detours) console.log(`  ${d.edgeId}  bow=${d.bow}`);
 
 console.log("\n## Descent junctions (couple midpoint → children)");
-for (const j of descentJunctions(graph, edges, placed, ROW)) {
+for (const j of descentJunctions(fam, placed, ROW)) {
   console.log(`  junction ${j.id}  pos: ${r(j.pos.x)}, ${r(j.pos.y)}`);
   for (const c of j.children) {
     const cp = placed.get(c);
