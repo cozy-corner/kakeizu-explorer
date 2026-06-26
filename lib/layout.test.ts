@@ -6,7 +6,7 @@ import {
   placeNodes,
   spouseRouting,
 } from "./layout";
-import type { Graph, GraphEdge } from "./graph";
+import { buildFamilyGraph, type Graph, type GraphEdge } from "./graph";
 
 const ROW = 46; // injected; matches the view's NODE_SEP + NODE_SIZE
 const GUTTER = 70;
@@ -15,6 +15,12 @@ const GUTTER = 70;
 const obj = (m: Map<string, { x: number; y: number }>) => Object.fromEntries(m);
 const pos = (entries: [string, [number, number]][]) =>
   new Map(entries.map(([id, [x, y]]) => [id, { x, y }]));
+
+// The passes now take a resolved FamilyGraph. For pack/route cases only the drawn
+// edges matter (sex/true-parentage go unused); couple cases also pass the unreduced
+// graph so trueParentsOf can recover a dropped mother.
+const fam = (drawn: GraphEdge[], g: Graph = { nodes: [], edges: [] }) =>
+  buildFamilyGraph(g, drawn);
 
 test("isMarriedIn: a spouse with no parent edge is married-in", () => {
   const edges: GraphEdge[] = [{ source: "F", target: "W", type: "SPOUSE_OF" }];
@@ -50,7 +56,7 @@ test("placeNodes: a blood column keeps dagre's vertical positions (immovable)", 
     ["B", [100, 100]],
   ]);
 
-  expect(obj(placeNodes(input, edges, "F", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "F", ROW))).toEqual({
     F: { x: 0, y: 50 },
     A: { x: 100, y: 0 },
     B: { x: 100, y: 100 },
@@ -70,7 +76,7 @@ test("placeNodes: a married-in spouse is pulled into the host's column and tucke
     ["W", [200, 0]],
   ]);
 
-  expect(obj(placeNodes(input, edges, "C", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "C", ROW))).toEqual({
     F: { x: 0, y: 0 },
     C: { x: 100, y: 0 },
     W: { x: 0, y: 46 },
@@ -94,7 +100,7 @@ test("placeNodes: a spouse married to two in-tree relatives tucks beside the foc
   ]);
 
   // W ends one ROW below F2 (146), proving the focus won the host tie.
-  expect(obj(placeNodes(input, edges, "F2", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "F2", ROW))).toEqual({
     F1: { x: 0, y: 0 },
     F2: { x: 0, y: 100 },
     W: { x: 0, y: 146 },
@@ -123,7 +129,7 @@ test("placeNodes: the focus's own spouse who heads a blood line is tucked beside
     ["S", [0, 300]],
   ]);
 
-  expect(obj(placeNodes(input, edges, "FO", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "FO", ROW))).toEqual({
     PA: { x: -100, y: 50 },
     PB: { x: -100, y: 300 },
     FO: { x: 0, y: 0 },
@@ -150,7 +156,7 @@ test("placeNodes: a reverse-direction SPOUSE_OF tucks the focus-spouse once, not
     ["S", [0, 200]],
   ]);
 
-  expect(obj(placeNodes(input, edges, "FO", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "FO", ROW))).toEqual({
     PA: { x: -100, y: 50 },
     PB: { x: -100, y: 200 },
     FO: { x: 0, y: 0 },
@@ -174,7 +180,7 @@ test("placeNodes: an adoptive parent of the focus drops below the sibling cluste
     ["AP", [-100, 0]],
   ]);
 
-  expect(obj(placeNodes(input, edges, "FO", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "FO", ROW))).toEqual({
     PA: { x: -100, y: 0 },
     FO: { x: 0, y: 0 },
     X: { x: 0, y: 100 },
@@ -199,7 +205,7 @@ test("placeNodes: multiple adoptive parents are stacked one ROW apart below the 
     ["AP2", [-100, 0]],
   ]);
 
-  expect(obj(placeNodes(input, edges, "FO", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "FO", ROW))).toEqual({
     PA: { x: -100, y: 0 },
     FO: { x: 0, y: 0 },
     sib: { x: 0, y: 100 },
@@ -220,7 +226,7 @@ test("placeNodes: an adoptive parent who is also a blood parent is left in place
     ["FO", [0, 0]],
   ]);
 
-  expect(obj(placeNodes(input, edges, "FO", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "FO", ROW))).toEqual({
     N: { x: -100, y: 0 },
     FO: { x: 0, y: 0 },
   });
@@ -233,7 +239,7 @@ test("spouseRouting: a clear marriage line is not routed", () => {
     ["T", [0, 46]],
   ]);
 
-  expect(spouseRouting(input, edges, GUTTER)).toEqual([]);
+  expect(spouseRouting(input, fam(edges), GUTTER)).toEqual([]);
 });
 
 test("spouseRouting: a line blocked by an unrelated node is bowed", () => {
@@ -245,7 +251,7 @@ test("spouseRouting: a line blocked by an unrelated node is bowed", () => {
     ["U", [0, 100]],
   ]);
 
-  expect(spouseRouting(input, edges, GUTTER)).toEqual([
+  expect(spouseRouting(input, fam(edges), GUTTER)).toEqual([
     { edgeId: "S|SPOUSE_OF|T", bow: 70 },
   ]);
 });
@@ -262,7 +268,7 @@ test("spouseRouting: a co-spouse between the partners does not block", () => {
     ["CS", [0, 100]],
   ]);
 
-  expect(spouseRouting(input, edges, GUTTER)).toEqual([]);
+  expect(spouseRouting(input, fam(edges), GUTTER)).toEqual([]);
 });
 
 test("spouseRouting: the bow sign follows the source→target vertical direction", () => {
@@ -274,13 +280,13 @@ test("spouseRouting: the bow sign follows the source→target vertical direction
     ["U", [0, 100]],
   ]);
 
-  expect(spouseRouting(input, edges, GUTTER)).toEqual([
+  expect(spouseRouting(input, fam(edges), GUTTER)).toEqual([
     { edgeId: "S|SPOUSE_OF|T", bow: -70 },
   ]);
 });
 
 test("placeNodes: an empty graph yields an empty map", () => {
-  expect(obj(placeNodes(new Map(), [], "anyone", ROW))).toEqual({});
+  expect(obj(placeNodes(new Map(), fam([]), "anyone", ROW))).toEqual({});
 });
 
 test("placeNodes: a focus absent from the positions still places everyone else", () => {
@@ -296,7 +302,7 @@ test("placeNodes: a focus absent from the positions still places everyone else",
     ["W", [200, 0]],
   ]);
 
-  expect(obj(placeNodes(input, edges, "MISSING", ROW))).toEqual({
+  expect(obj(placeNodes(input, fam(edges), "MISSING", ROW))).toEqual({
     F: { x: 0, y: 0 },
     C: { x: 100, y: 0 },
     W: { x: 0, y: 46 },
@@ -310,11 +316,11 @@ test("spouseRouting: a graph with no marriage edges routes nothing", () => {
     ["C", [100, 0]],
   ]);
 
-  expect(spouseRouting(input, edges, GUTTER)).toEqual([]);
+  expect(spouseRouting(input, fam(edges), GUTTER)).toEqual([]);
 });
 
 test("spouseRouting: an empty graph routes nothing", () => {
-  expect(spouseRouting(new Map(), [], GUTTER)).toEqual([]);
+  expect(spouseRouting(new Map(), fam([]), GUTTER)).toEqual([]);
 });
 
 const graph = (
@@ -348,7 +354,7 @@ test("descentJunctions: a father+mother couple yields a midpoint junction over t
     ["C", [100, 23]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([
     {
       id: "__junction__|F|M",
       pos: { x: 0, y: 23 },
@@ -384,7 +390,7 @@ test("descentJunctions: a lone child stuck on the father's row drops the junctio
     ["S", [100, 46]], // blood spouse pinned below C, blocking the center shift
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([
     {
       id: "__junction__|F|M",
       pos: { x: 0, y: 0 }, // dropped to C's row, not the midpoint (0, 23)
@@ -420,7 +426,7 @@ test("descentJunctions: two children of one couple share a single junction", () 
     ["C2", [100, 100]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([
     {
       id: "__junction__|F|M",
       pos: { x: 0, y: 23 },
@@ -444,7 +450,7 @@ test("descentJunctions: no in-view mother yields no junction (line stays on the 
     ["C", [100, 0]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([]);
 });
 
 test("descentJunctions: a child with two drawn fathers (disputed) gets no junction", () => {
@@ -473,7 +479,7 @@ test("descentJunctions: a child with two drawn fathers (disputed) gets no juncti
     ["C", [100, 0]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([]);
 });
 
 test("descentJunctions: a polygamous father's children fall back to father-origin (no junction)", () => {
@@ -507,7 +513,7 @@ test("descentJunctions: a polygamous father's children fall back to father-origi
     ["C2", [100, 100]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([]);
 });
 
 test("descentJunctions: a wife with no in-view children doesn't make the father polygamous", () => {
@@ -534,7 +540,7 @@ test("descentJunctions: a wife with no in-view children doesn't make the father 
     ["C", [100, 23]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([
     {
       id: "__junction__|F|M1",
       pos: { x: 0, y: 23 },
@@ -560,7 +566,7 @@ test("descentJunctions: a lone female parent (drawn as the father) gets no junct
     ["C", [100, 0]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([]);
 });
 
 test("descentJunctions: a couple too far apart vertically gets no junction", () => {
@@ -584,7 +590,7 @@ test("descentJunctions: a couple too far apart vertically gets no junction", () 
     ["C", [100, 0]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([]);
 });
 
 test("descentJunctions: parents in different columns are not treated as a couple", () => {
@@ -608,7 +614,7 @@ test("descentJunctions: parents in different columns are not treated as a couple
     ["C", [100, 0]],
   ]);
 
-  expect(descentJunctions(g, drawn, positions, ROW)).toEqual([]);
+  expect(descentJunctions(fam(drawn, g), positions, ROW)).toEqual([]);
 });
 
 test("centerOnlyChildren: the focus's blood-line spouse rides along to the midpoint (#30)", () => {
@@ -646,7 +652,7 @@ test("centerOnlyChildren: the focus's blood-line spouse rides along to the midpo
     ["PS", [200, 0]],
   ]);
 
-  expect(obj(centerOnlyChildren(input, g, drawn, "FO", ROW))).toEqual({
+  expect(obj(centerOnlyChildren(input, fam(drawn, g), "FO", ROW))).toEqual({
     F: { x: 0, y: 0 },
     M: { x: 0, y: 46 },
     FO: { x: 100, y: 23 }, // on the midpoint, line straightened
@@ -691,7 +697,7 @@ test("centerOnlyChildren: a transitive co-spouse below the focus's spouse rides 
     ["PS", [200, 0]],
   ]);
 
-  expect(obj(centerOnlyChildren(input, g, drawn, "FO", ROW))).toEqual({
+  expect(obj(centerOnlyChildren(input, fam(drawn, g), "FO", ROW))).toEqual({
     F: { x: 0, y: 0 },
     M: { x: 0, y: 46 },
     FO: { x: 100, y: 23 },

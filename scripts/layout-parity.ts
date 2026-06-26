@@ -7,6 +7,7 @@
 import cytoscape, { type Core, type NodeSingular } from "cytoscape";
 import dagre from "cytoscape-dagre";
 import {
+  buildFamilyGraph,
   egoDrawnEdges,
   layoutOnlyEdges,
   type Graph,
@@ -223,13 +224,14 @@ function runParity(graph: Graph, qid: string, label: string): number {
   const distinctX = new Set([...P0.values()].map((p) => Math.round(p.x))).size;
 
   // NEW (pure)
+  const fam = buildFamilyGraph(graph, edges);
   const placed = placeNodes(
     new Map([...P0].map(([id, p]) => [id, { ...p }])),
-    edges,
+    fam,
     qid,
     ROW,
   );
-  const newRouting = spouseRouting(placed, edges, SPOUSE_GUTTER);
+  const newRouting = spouseRouting(placed, fam, SPOUSE_GUTTER);
 
   // OLD (cytoscape), from the same dagre snapshot
   restore(cy, P0);

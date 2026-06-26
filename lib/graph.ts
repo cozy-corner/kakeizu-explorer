@@ -133,6 +133,72 @@ export function egoDrawnEdges(graph: Graph): GraphEdge[] {
   return drawn.filter((e) => !skip.has(key(e)));
 }
 
+// Resolved kinship indices for one ego view, built once at the layout boundary so
+// the placement passes read father/spouse/adoptive lookups instead of each
+// re-scanning edges (coLocatedCouples alone used to re-derive them on every call).
+//
+// `graph` is the UNREDUCED ego graph; `drawnEdges` is the patrilineal-reduced,
+// sibling-adoption-stripped set the passes actually draw and pack on. The two are
+// kept apart on purpose: `trueParentsOf` reads the unreduced graph so a mother the
+// patrilineal view dropped is still recoverable (side-wife / couple-midpoint), while
+// `fatherOf` reads the drawn set so it only spans lines actually rendered.
+export type FamilyGraph = {
+  sex: Map<string, string | undefined>;
+  fatherOf: Map<string, string[]>; // drawn PARENT_OF: child → fathers
+  trueParentsOf: Map<string, string[]>; // unreduced PARENT_OF: child → parents (mothers incl.)
+  spouseOf: Map<string, string[]>; // drawn SPOUSE_OF: symmetric adjacency, edge order
+  spousePairs: { source: string; target: string }[]; // drawn SPOUSE_OF, directed, edge order
+  adoptiveParentOf: Map<string, string[]>; // drawn ADOPTIVE_PARENT_OF: child → adoptive parents
+  isMarriedIn: (id: string) => boolean;
+};
+
+function push(map: Map<string, string[]>, key: string, value: string): void {
+  (map.get(key) ?? map.set(key, []).get(key)!).push(value);
+}
+
+export function buildFamilyGraph(
+  graph: Graph,
+  drawnEdges: GraphEdge[],
+): FamilyGraph {
+  const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
+
+  const trueParentsOf = new Map<string, string[]>();
+  for (const e of graph.edges) {
+    if (e.type === "PARENT_OF") push(trueParentsOf, e.target, e.source);
+  }
+
+  const fatherOf = new Map<string, string[]>();
+  const spouseOf = new Map<string, string[]>();
+  const spousePairs: { source: string; target: string }[] = [];
+  const adoptiveParentOf = new Map<string, string[]>();
+  // Incident to any parent-type edge (either end) ⇒ NOT married-in. Drawn-set only,
+  // matching isMarriedIn(id, edges): an adopted child has an ADOPTIVE_PARENT_OF in.
+  const hasParentEdge = new Set<string>();
+  for (const e of drawnEdges) {
+    if (e.type === "PARENT_OF") {
+      push(fatherOf, e.target, e.source);
+      hasParentEdge.add(e.source).add(e.target);
+    } else if (e.type === "SPOUSE_OF") {
+      push(spouseOf, e.source, e.target);
+      push(spouseOf, e.target, e.source);
+      spousePairs.push({ source: e.source, target: e.target });
+    } else if (e.type === "ADOPTIVE_PARENT_OF") {
+      push(adoptiveParentOf, e.target, e.source);
+      hasParentEdge.add(e.source).add(e.target);
+    }
+  }
+
+  return {
+    sex,
+    fatherOf,
+    trueParentsOf,
+    spouseOf,
+    spousePairs,
+    adoptiveParentOf,
+    isMarriedIn: (id) => !hasParentEdge.has(id),
+  };
+}
+
 // edges is always empty: search returns people, not relationships.
 export function personsToGraph(rows: PersonRow[]): Graph {
   return {
