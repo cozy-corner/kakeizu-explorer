@@ -1,24 +1,10 @@
-import type { FamilyGraph, GraphEdge } from "./graph";
+import type { FamilyGraph } from "./graph";
 
 // Plain-data view of cytoscape's "graph + coordinates": placement rules operate
 // on these instead of touching the renderer, so they're unit-testable. The view
 // reads dagre's output into a Positions map, runs these, and writes back.
 export type Pos = { x: number; y: number };
 export type Positions = Map<string, Pos>; // insertion order mirrors cy.nodes()
-
-const PARENT_TYPES = new Set(["PARENT_OF", "ADOPTIVE_PARENT_OF"]);
-
-// No parent edge (blood or adoptive) incident in either direction = married-in:
-// the patrilineal view drops a mother's descent edges, so even a wife with
-// children has none. These belong to no parent's block, so they're the only
-// nodes placeNodes may move. An adopted child IS placed by its adoptive parent,
-// so it must not count as married-in.
-export function isMarriedIn(id: string, edges: GraphEdge[]): boolean {
-  return !edges.some(
-    (edge) =>
-      PARENT_TYPES.has(edge.type) && (edge.source === id || edge.target === id),
-  );
-}
 
 function pushInto<K>(map: Map<K, string[]>, key: K, value: string): void {
   (map.get(key) ?? map.set(key, []).get(key)!).push(value);

@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import {
   centerOnlyChildren,
   descentJunctions,
-  isMarriedIn,
   placeNodes,
   spouseRouting,
 } from "./layout";
@@ -24,24 +23,24 @@ const fam = (drawn: GraphEdge[], g: Graph = { nodes: [], edges: [] }) =>
 
 test("isMarriedIn: a spouse with no parent edge is married-in", () => {
   const edges: GraphEdge[] = [{ source: "F", target: "W", type: "SPOUSE_OF" }];
-  expect(isMarriedIn("W", edges)).toBe(true);
+  expect(fam(edges).isMarriedIn("W")).toBe(true);
 });
 
 test("isMarriedIn: a parent (source of PARENT_OF) is not married-in", () => {
   const edges: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
-  expect(isMarriedIn("F", edges)).toBe(false);
+  expect(fam(edges).isMarriedIn("F")).toBe(false);
 });
 
 test("isMarriedIn: a child (target of PARENT_OF) is not married-in", () => {
   const edges: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
-  expect(isMarriedIn("C", edges)).toBe(false);
+  expect(fam(edges).isMarriedIn("C")).toBe(false);
 });
 
 test("isMarriedIn: an adopted child is not married-in (adoptive parent places it)", () => {
   const edges: GraphEdge[] = [
     { source: "AP", target: "C", type: "ADOPTIVE_PARENT_OF" },
   ];
-  expect(isMarriedIn("C", edges)).toBe(false);
+  expect(fam(edges).isMarriedIn("C")).toBe(false);
 });
 
 test("placeNodes: a blood column keeps dagre's vertical positions (immovable)", () => {

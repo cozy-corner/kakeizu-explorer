@@ -171,8 +171,11 @@ export function buildFamilyGraph(
   const spouseOf = new Map<string, string[]>();
   const spousePairs: { source: string; target: string }[] = [];
   const adoptiveParentOf = new Map<string, string[]>();
-  // Incident to any parent-type edge (either end) ⇒ NOT married-in. Drawn-set only,
-  // matching isMarriedIn(id, edges): an adopted child has an ADOPTIVE_PARENT_OF in.
+  // No parent edge (blood or adoptive) incident in either direction ⇒ married-in:
+  // the patrilineal view drops a mother's descent edges, so even a wife with
+  // children has none, and such nodes belong to no parent's block — they're the
+  // only ones placeNodes may move. An adopted child has an ADOPTIVE_PARENT_OF in,
+  // so it is NOT married-in (its adoptive parent places it).
   const hasParentEdge = new Set<string>();
   for (const e of drawnEdges) {
     if (e.type === "PARENT_OF") {
