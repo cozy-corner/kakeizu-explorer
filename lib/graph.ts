@@ -152,7 +152,12 @@ export type FamilyGraph = {
   isMarriedIn: (id: string) => boolean;
 };
 
-function push(map: Map<string, string[]>, key: string, value: string): void {
+// Append to a multimap, creating the bucket on first use. Shared with lib/layout.
+export function pushInto<K>(
+  map: Map<K, string[]>,
+  key: K,
+  value: string,
+): void {
   (map.get(key) ?? map.set(key, []).get(key)!).push(value);
 }
 
@@ -164,7 +169,7 @@ export function buildFamilyGraph(
 
   const trueParentsOf = new Map<string, string[]>();
   for (const e of graph.edges) {
-    if (e.type === "PARENT_OF") push(trueParentsOf, e.target, e.source);
+    if (e.type === "PARENT_OF") pushInto(trueParentsOf, e.target, e.source);
   }
 
   const fatherOf = new Map<string, string[]>();
@@ -179,14 +184,14 @@ export function buildFamilyGraph(
   const hasParentEdge = new Set<string>();
   for (const e of drawnEdges) {
     if (e.type === "PARENT_OF") {
-      push(fatherOf, e.target, e.source);
+      pushInto(fatherOf, e.target, e.source);
       hasParentEdge.add(e.source).add(e.target);
     } else if (e.type === "SPOUSE_OF") {
-      push(spouseOf, e.source, e.target);
-      push(spouseOf, e.target, e.source);
+      pushInto(spouseOf, e.source, e.target);
+      pushInto(spouseOf, e.target, e.source);
       spousePairs.push({ source: e.source, target: e.target });
     } else if (e.type === "ADOPTIVE_PARENT_OF") {
-      push(adoptiveParentOf, e.target, e.source);
+      pushInto(adoptiveParentOf, e.target, e.source);
       hasParentEdge.add(e.source).add(e.target);
     }
   }

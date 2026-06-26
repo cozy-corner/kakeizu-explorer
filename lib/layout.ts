@@ -1,14 +1,10 @@
-import type { FamilyGraph } from "./graph";
+import { pushInto, type FamilyGraph } from "./graph";
 
 // Plain-data view of cytoscape's "graph + coordinates": placement rules operate
 // on these instead of touching the renderer, so they're unit-testable. The view
 // reads dagre's output into a Positions map, runs these, and writes back.
 export type Pos = { x: number; y: number };
 export type Positions = Map<string, Pos>; // insertion order mirrors cy.nodes()
-
-function pushInto<K>(map: Map<K, string[]>, key: K, value: string): void {
-  (map.get(key) ?? map.set(key, []).get(key)!).push(value);
-}
 
 function addInto<K>(map: Map<K, Set<string>>, key: K, value: string): void {
   (map.get(key) ?? map.set(key, new Set()).get(key)!).add(value);
