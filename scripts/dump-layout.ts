@@ -26,6 +26,9 @@ import {
   centerOnlyChildren,
   descentJunctions,
   placeNodes,
+  project,
+  projectOne,
+  readPlacement,
   spouseRouting,
   type Pos,
   type Positions,
@@ -111,12 +114,13 @@ cy.nodes().forEach((n) => {
   positions.set(n.id(), { x: n.position("x"), y: n.position("y") });
 });
 const fam = buildFamilyGraph(graph, edges);
-const placed = centerOnlyChildren(
-  placeNodes(positions, fam, qid, ROW),
+const { placements, colX } = readPlacement(positions, ROW);
+const placedStruct = centerOnlyChildren(
+  placeNodes(placements, fam, qid),
   fam,
   qid,
-  ROW,
 );
+const placed = project(placedStruct, colX, ROW);
 
 const label = (id: string) =>
   graph.nodes.find((n) => n.qid === id)?.label ?? id;
@@ -165,15 +169,16 @@ if (detours.length === 0) console.log("  (none)");
 for (const d of detours) console.log(`  ${d.edgeId}  bow=${d.bow}`);
 
 console.log("\n## Descent junctions (couple midpoint → children)");
-for (const j of descentJunctions(fam, placed, ROW)) {
-  console.log(`  junction ${j.id}  pos: ${r(j.pos.x)}, ${r(j.pos.y)}`);
+for (const j of descentJunctions(fam, placedStruct)) {
+  const jpos = projectOne(j.pos, colX, ROW);
+  console.log(`  junction ${j.id}  pos: ${r(jpos.x)}, ${r(jpos.y)}`);
   for (const c of j.children) {
     const cp = placed.get(c);
     if (!cp) {
       console.error(`    -> ${label(c)} (${c}) MISSING from placed map`);
       continue;
     }
-    const dy = r(cp.y - j.pos.y);
+    const dy = r(cp.y - jpos.y);
     console.log(
       `    -> ${label(c)} (${c}) at ${r(cp.x)}, ${r(cp.y)}  dy=${dy}`,
     );

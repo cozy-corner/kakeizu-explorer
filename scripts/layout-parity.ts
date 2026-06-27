@@ -13,7 +13,13 @@ import {
   type Graph,
   type GraphEdge,
 } from "../lib/graph";
-import { placeNodes, spouseRouting, type Positions } from "../lib/layout";
+import {
+  placeNodes,
+  project,
+  readPlacement,
+  spouseRouting,
+  type Positions,
+} from "../lib/layout";
 
 cytoscape.use(dagre);
 
@@ -223,14 +229,12 @@ function runParity(graph: Graph, qid: string, label: string): number {
   const P0 = snapshot(cy);
   const distinctX = new Set([...P0.values()].map((p) => Math.round(p.x))).size;
 
-  // NEW (pure)
+  // NEW (pure): pixels → {col, order} → run passes → project back to pixels.
+  // The round-trip reproduces dagre's non-uniform columns (colX) and y (order×row)
+  // exactly, so this stays a strict pixel-level parity against the OLD logic.
   const fam = buildFamilyGraph(graph, edges);
-  const placed = placeNodes(
-    new Map([...P0].map(([id, p]) => [id, { ...p }])),
-    fam,
-    qid,
-    ROW,
-  );
+  const { placements, colX } = readPlacement(P0, ROW);
+  const placed = project(placeNodes(placements, fam, qid), colX, ROW);
   const newRouting = spouseRouting(placed, fam, SPOUSE_GUTTER);
 
   // OLD (cytoscape), from the same dagre snapshot
