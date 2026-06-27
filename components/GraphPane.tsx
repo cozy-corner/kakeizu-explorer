@@ -14,6 +14,9 @@ import {
   centerOnlyChildren,
   descentJunctions,
   placeNodes,
+  project,
+  projectOne,
+  readPlacement,
   spouseRouting,
   type Positions,
 } from "@/lib/layout";
@@ -243,16 +246,19 @@ export function GraphPane({
         .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: 220, fit: false }))
         .run();
       // The placement/priority rules live in lib/layout as pure functions; this
-      // effect is just the cytoscape adapter — read dagre's coordinates, run the
-      // rules, write the result back, then apply the spouse-line detours as style.
+      // effect is just the cytoscape adapter — read dagre's coordinates into the
+      // structural {col, order} space, run the rules, project back to pixels and
+      // write them, then apply the spouse-line detours as style. ROW is injected
+      // only at the read/project boundary; the passes themselves carry no pixels.
       // Resolve kinship once and hand the same FamilyGraph to every pass.
       const fam = buildFamilyGraph(graph, edges);
-      const positions = centerOnlyChildren(
-        placeNodes(readPositions(cy), fam, focus.qid, ROW),
+      const { placements, colX } = readPlacement(readPositions(cy), ROW);
+      const placed = centerOnlyChildren(
+        placeNodes(placements, fam, focus.qid),
         fam,
         focus.qid,
-        ROW,
       );
+      const positions = project(placed, colX, ROW);
       writePositions(cy, positions);
       for (const { edgeId, bow } of spouseRouting(
         positions,
@@ -269,8 +275,10 @@ export function GraphPane({
       // distinct type, styled like PARENT_OF, that never aliases a real person
       // edge), and hide the original father→child edges — which stay in the graph
       // for the layout pass above, just unseen.
-      for (const j of descentJunctions(fam, positions, ROW)) {
-        cy.add({ data: { id: j.id, junction: 1 } }).position(j.pos);
+      for (const j of descentJunctions(fam, placed)) {
+        cy.add({ data: { id: j.id, junction: 1 } }).position(
+          projectOne(j.pos, colX, ROW),
+        );
         for (const child of j.children) {
           cy.add({
             data: {
