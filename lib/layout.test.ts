@@ -349,6 +349,15 @@ test("spouseRouting: an empty graph routes nothing", () => {
   expect(spouseRouting(new Map(), fam([]), GUTTER)).toEqual([]);
 });
 
+test("projectOne: a col absent from colX throws instead of emitting an undefined x", () => {
+  // Boundary contract: every Placement.col is seeded by readPlacement, so it's
+  // always a colX key. A col that isn't is a column-bookkeeping bug — fail loud
+  // here rather than projecting the bucket index as a far-left ghost pixel.
+  expect(() =>
+    projectOne({ col: 5, order: 2 }, new Map([[0, 0]]), ROW),
+  ).toThrow();
+});
+
 const graph = (
   nodes: [string, string | undefined][],
   edges: GraphEdge[],
