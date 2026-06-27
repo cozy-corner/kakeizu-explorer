@@ -34,12 +34,15 @@ export function readPlacement(
 }
 
 // Structural → pixel: x from the column's captured value, y back to order×row.
+// Every col a pass emits is copied from a placement readPlacement seeded, so it's
+// always a colX key; assert rather than falling back to pl.col, which would project
+// the bucket index as a pixel and hide a column-bookkeeping bug as a far-left node.
 export function projectOne(
   pl: Placement,
   colX: Map<number, number>,
   row: number,
 ): Pos {
-  return { x: colX.get(pl.col) ?? pl.col, y: pl.order * row };
+  return { x: colX.get(pl.col)!, y: pl.order * row };
 }
 
 export function project(
