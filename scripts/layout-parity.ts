@@ -12,6 +12,7 @@ import {
   layoutOnlyEdges,
   type Graph,
   type GraphEdge,
+  type PersonId,
 } from "../lib/graph";
 import {
   placeNodes,
@@ -213,7 +214,7 @@ function buildCy(
 function snapshot(cy: Core): Positions {
   const m: Positions = new Map();
   cy.nodes().forEach((n) => {
-    m.set(n.id(), { x: n.position("x"), y: n.position("y") });
+    m.set(n.id() as PersonId, { x: n.position("x"), y: n.position("y") });
   });
   return m;
 }
@@ -234,7 +235,11 @@ function runParity(graph: Graph, qid: string, label: string): number {
   // exactly, so this stays a strict pixel-level parity against the OLD logic.
   const fam = buildFamilyGraph(graph, edges);
   const { placements, colX } = readPlacement(P0, ROW);
-  const placed = project(placeNodes(placements, fam, qid), colX, ROW);
+  const placed = project(
+    placeNodes(placements, fam, qid as PersonId),
+    colX,
+    ROW,
+  );
   const newRouting = spouseRouting(placed, fam, SPOUSE_GUTTER);
 
   // OLD (cytoscape), from the same dagre snapshot
@@ -258,9 +263,12 @@ function runParity(graph: Graph, qid: string, label: string): number {
     }
   }
 
-  const key = (r: { edgeId: string; bow: number }) => `${r.edgeId}=${r.bow}`;
-  const newSet = new Set(newRouting.map(key));
-  const oldSet = new Set(oldRouting.map(key));
+  // NEW returns the couple; OLD returns the cytoscape edge id. Both reduce to the
+  // same `source|SPOUSE_OF|target=bow` key, so a divergent bow or pair still shows.
+  const newSet = new Set(
+    newRouting.map((r) => `${r.source}|SPOUSE_OF|${r.target}=${r.bow}`),
+  );
+  const oldSet = new Set(oldRouting.map((r) => `${r.edgeId}=${r.bow}`));
   const routeDiffs = [
     ...[...newSet].filter((k) => !oldSet.has(k)).map((k) => `  +new ${k}`),
     ...[...oldSet].filter((k) => !newSet.has(k)).map((k) => `  +old ${k}`),
