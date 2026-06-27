@@ -1,10 +1,11 @@
-import { pushInto, type FamilyGraph } from "./graph";
+import { pushInto, type FamilyGraph, type PersonId } from "./graph";
 
 // Plain-data view of cytoscape's "graph + coordinates": placement rules operate
 // on these instead of touching the renderer, so they're unit-testable. The view
-// reads dagre's output into a Positions map, runs these, and writes back.
+// reads dagre's output into a Positions map, runs these, and writes back. Keyed by
+// PersonId: every node placed here is a real person, never a junction.
 export type Pos = { x: number; y: number };
-export type Positions = Map<string, Pos>; // insertion order mirrors cy.nodes()
+export type Positions = Map<PersonId, Pos>; // insertion order mirrors cy.nodes()
 
 // Structural coordinate the placement passes actually work in. `col` is the
 // generation column (dagre's rank, keyed by round(x) — uniform within a rank);
@@ -13,7 +14,7 @@ export type Positions = Map<string, Pos>; // insertion order mirrors cy.nodes()
 // readPlacement projects pixels in; project sends them back out. Keeping the rules
 // in this space drops `row` from every pass and centralises the round(x).
 export type Placement = { col: number; order: number };
-export type Placements = Map<string, Placement>;
+export type Placements = Map<PersonId, Placement>;
 
 // Pixel → structural at the layout boundary. round(x) happens here, once, and the
 // per-column actual x is captured in colX so project reproduces dagre's
@@ -60,7 +61,7 @@ export function project(
   return pos;
 }
 
-function addInto<K>(map: Map<K, Set<string>>, key: K, value: string): void {
+function addInto<K, V>(map: Map<K, Set<V>>, key: K, value: V): void {
   (map.get(key) ?? map.set(key, new Set()).get(key)!).add(value);
 }
 
@@ -82,9 +83,9 @@ function clonePlacements(p: Placements): Placements {
 function tuckHosts(
   place: Placements,
   fam: FamilyGraph,
-  focusId: string,
-): Map<string, string[]> {
-  const hostOf = (id: string): string | null => {
+  focusId: PersonId,
+): Map<PersonId, PersonId[]> {
+  const hostOf = (id: PersonId): PersonId | null => {
     const anchors = (fam.spouseOf.get(id) ?? []).filter(
       (p) => p !== id && place.has(p) && !fam.isMarriedIn(p),
     );
@@ -92,7 +93,7 @@ function tuckHosts(
     return anchors.find((p) => p === focusId) ?? anchors[0];
   };
 
-  const attached = new Map<string, string[]>();
+  const attached = new Map<PersonId, PersonId[]>();
   for (const [id] of place) {
     if (!fam.isMarriedIn(id)) continue;
     const host = hostOf(id);
@@ -123,11 +124,14 @@ function tuckHosts(
 // may itself host co-spouses, so this walks the whole `attached` subtree. Shared
 // so packColumns (the spacing walk) and centerOnlyChildren (the mover block)
 // always pack the same set — the divergence that re-derived movers caused in #30.
-function tuckChain(attached: Map<string, string[]>, root: string): string[] {
-  const chain: string[] = [];
-  const seen = new Set<string>(); // a reverse-direction SPOUSE_OF can list a
+function tuckChain(
+  attached: Map<PersonId, PersonId[]>,
+  root: PersonId,
+): PersonId[] {
+  const chain: PersonId[] = [];
+  const seen = new Set<PersonId>(); // a reverse-direction SPOUSE_OF can list a
   // partner twice; visit each once so the spacing walk doesn't insert a phantom row
-  const walk = (id: string): void => {
+  const walk = (id: PersonId): void => {
     if (seen.has(id)) return;
     seen.add(id);
     chain.push(id);
@@ -146,7 +150,7 @@ function tuckChain(attached: Map<string, string[]>, root: string): string[] {
 function packColumns(
   input: Placements,
   fam: FamilyGraph,
-  focusId: string,
+  focusId: PersonId,
 ): Placements {
   const place = clonePlacements(input);
   const attached = tuckHosts(place, fam, focusId);
@@ -159,11 +163,11 @@ function packColumns(
     for (const id of ids) place.set(id, { col: hp.col, order: hp.order });
   }
 
-  const attachedIds = new Set<string>();
+  const attachedIds = new Set<PersonId>();
   for (const list of attached.values())
     for (const id of list) attachedIds.add(id);
 
-  const cols = new Map<number, string[]>();
+  const cols = new Map<number, PersonId[]>();
   for (const [id, p] of place) pushInto(cols, p.col, id);
 
   for (const colIds of cols.values()) {
@@ -197,13 +201,13 @@ function packColumns(
 function placeAdoptiveParents(
   input: Placements,
   fam: FamilyGraph,
-  focusId: string,
+  focusId: PersonId,
 ): Placements {
   const place = clonePlacements(input);
   const focus = place.get(focusId);
   if (!focus) return place;
   const bloodParents = new Set(fam.fatherOf.get(focusId) ?? []);
-  const seen = new Set<string>();
+  const seen = new Set<PersonId>();
   const parents = (fam.adoptiveParentOf.get(focusId) ?? []).filter((p) => {
     if (bloodParents.has(p) || !place.has(p) || seen.has(p)) return false;
     seen.add(p);
@@ -229,7 +233,7 @@ function placeAdoptiveParents(
 export function placeNodes(
   place: Placements,
   fam: FamilyGraph,
-  focusId: string,
+  focusId: PersonId,
 ): Placements {
   return placeAdoptiveParents(packColumns(place, fam, focusId), fam, focusId);
 }
@@ -247,11 +251,15 @@ const BLOCK_X_RADIUS = 24; // a node within this of the mid-x sits on the line
 // Runs on projected pixels (post-project), not placements: the block test is a
 // pixel proximity check (BLOCK_X_RADIUS in px, the mid-x between two columns), so
 // it stays in pixel space and needs no row.
+//
+// Returns the couple (source, target) and the bow, not a cytoscape edge id: building
+// the `source|SPOUSE_OF|target` address is the view's job, so lib/layout never holds
+// a concatenated key.
 export function spouseRouting(
   pos: Positions,
   fam: FamilyGraph,
   spouseGutter: number,
-): { edgeId: string; bow: number }[] {
+): { source: PersonId; target: PersonId; bow: number }[] {
   const nodes = [...pos.entries()];
   return fam.spousePairs.flatMap((edge) => {
     const sp = pos.get(edge.source);
@@ -259,7 +267,7 @@ export function spouseRouting(
     if (!sp || !tp) return [];
     const [yLo, yHi] = sp.y < tp.y ? [sp.y, tp.y] : [tp.y, sp.y];
     const x = (sp.x + tp.x) / 2;
-    const coSpouses = new Set<string>([
+    const coSpouses = new Set<PersonId>([
       edge.source,
       edge.target,
       ...(fam.spouseOf.get(edge.source) ?? []),
@@ -274,30 +282,30 @@ export function spouseRouting(
     );
     if (!blocked) return [];
     const bow = (tp.y > sp.y ? 1 : -1) * spouseGutter;
-    return [{ edgeId: `${edge.source}|SPOUSE_OF|${edge.target}`, bow }];
+    return [{ source: edge.source, target: edge.target, bow }];
   });
 }
 
 // An invisible anchor placed at the midpoint of a couple so the descent line
 // sprouts from between the parents (the genealogy T-join) instead of from the
 // father alone. The view projects `pos` to pixels, adds a node there, draws
-// junction→child edges, and hides the original father→child edges by id.
+// junction→child edges, and hides the original father→child edges. The cytoscape
+// ids (the junction's own JunctionId, the hidden `father|PARENT_OF|child` keys) are
+// the view's to build from these fields — lib/layout stays free of concat keys.
 export type DescentJunction = {
-  id: string;
+  father: PersonId;
+  mother: PersonId;
   pos: Placement;
-  children: string[]; // child ids to connect from the junction
-  hiddenEdgeIds: string[]; // father→child PARENT_OF edge ids the junction replaces
+  children: PersonId[]; // child ids to connect from the junction
 };
-
-export const JUNCTION_PREFIX = "__junction__";
 
 // A co-located couple and the drawn children that hang from their midpoint. The
 // shared resolution behind both the rendered junction and the only-child centering
 // nudge, so the two always agree on which couples qualify.
 type CoupleGroup = {
-  father: string;
-  mother: string;
-  children: string[];
+  father: PersonId;
+  mother: PersonId;
+  children: PersonId[];
   mid: Placement;
 };
 
@@ -336,9 +344,9 @@ function coLocatedCouples(
   // the same column. `mid`/`gap` are captured now so the gating below needs no
   // further placement lookups.
   type Candidate = {
-    father: string;
-    mother: string;
-    child: string;
+    father: PersonId;
+    mother: PersonId;
+    child: PersonId;
     mid: Placement;
     gap: number;
   };
@@ -368,9 +376,9 @@ function coLocatedCouples(
   // A father with two or more distinct co-located mothers is polygamous; counted
   // across ALL candidates (before the adjacency gate) so a far second wife still
   // disqualifies. His children draw from the father, not a per-wife midpoint.
-  const mothersByFather = new Map<string, Set<string>>();
+  const mothersByFather = new Map<PersonId, Set<PersonId>>();
   for (const c of candidates) addInto(mothersByFather, c.father, c.mother);
-  const polygamous = new Set<string>();
+  const polygamous = new Set<PersonId>();
   for (const [father, mothers] of mothersByFather) {
     if (mothers.size > 1) polygamous.add(father);
   }
@@ -429,12 +437,10 @@ export function descentJunctions(
       }
     }
     return {
-      id: `${JUNCTION_PREFIX}|${c.father}|${c.mother}`,
+      father: c.father,
+      mother: c.mother,
       pos: mid,
       children: c.children,
-      hiddenEdgeIds: c.children.map(
-        (child) => `${c.father}|PARENT_OF|${child}`,
-      ),
     };
   });
 }
@@ -462,7 +468,7 @@ export function descentJunctions(
 export function centerOnlyChildren(
   input: Placements,
   fam: FamilyGraph,
-  focusId: string,
+  focusId: PersonId,
 ): Placements {
   const place = clonePlacements(input);
   // Same tuck model packColumns packed the column with: a spouse it tucked beside

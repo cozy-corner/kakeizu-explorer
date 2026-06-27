@@ -7,8 +7,11 @@ import { useEffect, useRef, useState } from "react";
 import {
   buildFamilyGraph,
   egoDrawnEdges,
+  junctionId,
   layoutOnlyEdges,
   type Graph,
+  type PersonId,
+  type SyntheticEdge,
 } from "@/lib/graph";
 import {
   centerOnlyChildren,
@@ -134,7 +137,9 @@ const SPOUSE_GUTTER = 70; // < rankSep (220): stays in the node-free inter-colum
 function readPositions(cy: Core): Positions {
   const pos: Positions = new Map();
   cy.nodes().forEach((n) => {
-    pos.set(n.id(), { x: n.position("x"), y: n.position("y") });
+    // Every layout node is a person here (junctions are added after this read), so
+    // brand the cytoscape id as a PersonId at this single boundary.
+    pos.set(n.id() as PersonId, { x: n.position("x"), y: n.position("y") });
   });
   return pos;
 }
@@ -252,20 +257,21 @@ export function GraphPane({
       // only at the read/project boundary; the passes themselves carry no pixels.
       // Resolve kinship once and hand the same FamilyGraph to every pass.
       const fam = buildFamilyGraph(graph, edges);
+      const focusId = focus.qid as PersonId;
       const { placements, colX } = readPlacement(readPositions(cy), ROW);
       const placed = centerOnlyChildren(
-        placeNodes(placements, fam, focus.qid),
+        placeNodes(placements, fam, focusId),
         fam,
-        focus.qid,
+        focusId,
       );
       const positions = project(placed, colX, ROW);
       writePositions(cy, positions);
-      for (const { edgeId, bow } of spouseRouting(
+      for (const { source, target, bow } of spouseRouting(
         positions,
         fam,
         SPOUSE_GUTTER,
       )) {
-        const e = cy.getElementById(edgeId);
+        const e = cy.getElementById(`${source}|SPOUSE_OF|${target}`);
         e.style("curve-style", "segments");
         e.style("segment-weights", "0.08 0.92");
         e.style("segment-distances", `${bow} ${bow}`);
@@ -276,21 +282,25 @@ export function GraphPane({
       // edge), and hide the original father→child edges — which stay in the graph
       // for the layout pass above, just unseen.
       for (const j of descentJunctions(fam, placed)) {
-        cy.add({ data: { id: j.id, junction: 1 } }).position(
+        const jid = junctionId(j.father, j.mother);
+        cy.add({ data: { id: jid, junction: 1 } }).position(
           projectOne(j.pos, colX, ROW),
         );
         for (const child of j.children) {
           cy.add({
             data: {
-              id: `${j.id}->${child}`,
-              source: j.id,
+              id: `${jid}->${child}`,
+              source: jid,
               target: child,
-              type: "DESCENT",
+              type: "DESCENT" satisfies SyntheticEdge,
             },
           });
-        }
-        for (const eid of j.hiddenEdgeIds) {
-          cy.getElementById(eid).style("visibility", "hidden");
+          // Hide the father→child edge this junction replaces (its cytoscape id is
+          // the same `source|type|target` the elements were built with above).
+          cy.getElementById(`${j.father}|PARENT_OF|${child}`).style(
+            "visibility",
+            "hidden",
+          );
         }
       }
       cy.zoom(0.8);

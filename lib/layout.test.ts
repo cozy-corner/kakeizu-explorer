@@ -14,31 +14,40 @@ import {
   type FamilyGraph,
   type Graph,
   type GraphEdge,
+  type PersonId,
+  type Sex,
 } from "./graph";
 
 const ROW = 46; // injected; matches the view's NODE_SEP + NODE_SIZE
 const GUTTER = 70;
 
+// Fixtures use bare-string ids; brand them at the boundary so the layout's
+// PersonId-keyed maps accept them (the real flow brands in readPositions).
+const pid = (s: string): PersonId => s as PersonId;
+
 // Compare position Maps as plain objects so a mismatch prints readable diffs.
-const obj = (m: Map<string, { x: number; y: number }>) => Object.fromEntries(m);
-const pos = (entries: [string, [number, number]][]) =>
-  new Map(entries.map(([id, [x, y]]) => [id, { x, y }]));
+const obj = (m: Positions) => Object.fromEntries(m);
+const pos = (entries: [string, [number, number]][]): Positions =>
+  new Map(entries.map(([id, [x, y]]) => [pid(id), { x, y }]));
 
 // The passes now work in {col, order} space. These wrappers keep the assertions in
 // pixels: read dagre's pixel input into a placement, run the pass, project back.
 const place = (input: Positions, f: FamilyGraph, focus: string): Positions => {
   const { placements, colX } = readPlacement(input, ROW);
-  return project(placeNodes(placements, f, focus), colX, ROW);
+  return project(placeNodes(placements, f, pid(focus)), colX, ROW);
 };
 const center = (input: Positions, f: FamilyGraph, focus: string): Positions => {
   const { placements, colX } = readPlacement(input, ROW);
-  return project(centerOnlyChildren(placements, f, focus), colX, ROW);
+  return project(centerOnlyChildren(placements, f, pid(focus)), colX, ROW);
 };
+// Project to plain strings/pixels so assertions read in bare ids, not branded ones.
 const junctions = (f: FamilyGraph, input: Positions) => {
   const { placements, colX } = readPlacement(input, ROW);
   return descentJunctions(f, placements).map((j) => ({
-    ...j,
+    father: j.father as string,
+    mother: j.mother as string,
     pos: projectOne(j.pos, colX, ROW),
+    children: j.children as string[],
   }));
 };
 
@@ -50,24 +59,24 @@ const fam = (drawn: GraphEdge[], g: Graph = { nodes: [], edges: [] }) =>
 
 test("isMarriedIn: a spouse with no parent edge is married-in", () => {
   const edges: GraphEdge[] = [{ source: "F", target: "W", type: "SPOUSE_OF" }];
-  expect(fam(edges).isMarriedIn("W")).toBe(true);
+  expect(fam(edges).isMarriedIn(pid("W"))).toBe(true);
 });
 
 test("isMarriedIn: a parent (source of PARENT_OF) is not married-in", () => {
   const edges: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
-  expect(fam(edges).isMarriedIn("F")).toBe(false);
+  expect(fam(edges).isMarriedIn(pid("F"))).toBe(false);
 });
 
 test("isMarriedIn: a child (target of PARENT_OF) is not married-in", () => {
   const edges: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
-  expect(fam(edges).isMarriedIn("C")).toBe(false);
+  expect(fam(edges).isMarriedIn(pid("C"))).toBe(false);
 });
 
 test("isMarriedIn: an adopted child is not married-in (adoptive parent places it)", () => {
   const edges: GraphEdge[] = [
     { source: "AP", target: "C", type: "ADOPTIVE_PARENT_OF" },
   ];
-  expect(fam(edges).isMarriedIn("C")).toBe(false);
+  expect(fam(edges).isMarriedIn(pid("C"))).toBe(false);
 });
 
 test("placeNodes: a blood column keeps dagre's vertical positions (immovable)", () => {
@@ -278,7 +287,7 @@ test("spouseRouting: a line blocked by an unrelated node is bowed", () => {
   ]);
 
   expect(spouseRouting(input, fam(edges), GUTTER)).toEqual([
-    { edgeId: "S|SPOUSE_OF|T", bow: 70 },
+    { source: pid("S"), target: pid("T"), bow: 70 },
   ]);
 });
 
@@ -307,7 +316,7 @@ test("spouseRouting: the bow sign follows the source→target vertical direction
   ]);
 
   expect(spouseRouting(input, fam(edges), GUTTER)).toEqual([
-    { edgeId: "S|SPOUSE_OF|T", bow: -70 },
+    { source: pid("S"), target: pid("T"), bow: -70 },
   ]);
 });
 
@@ -359,7 +368,7 @@ test("projectOne: a col absent from colX throws instead of emitting an undefined
 });
 
 const graph = (
-  nodes: [string, string | undefined][],
+  nodes: [string, Sex | undefined][],
   edges: GraphEdge[],
 ): Graph => ({
   nodes: nodes.map(([qid, sex]) => ({ qid, label: qid, sex })),
@@ -391,10 +400,10 @@ test("descentJunctions: a father+mother couple yields a midpoint junction over t
 
   expect(junctions(fam(drawn, g), positions)).toEqual([
     {
-      id: "__junction__|F|M",
+      father: "F",
+      mother: "M",
       pos: { x: 0, y: 23 },
       children: ["C"],
-      hiddenEdgeIds: ["F|PARENT_OF|C"],
     },
   ]);
 });
@@ -427,10 +436,10 @@ test("descentJunctions: a lone child stuck on the father's row drops the junctio
 
   expect(junctions(fam(drawn, g), positions)).toEqual([
     {
-      id: "__junction__|F|M",
+      father: "F",
+      mother: "M",
       pos: { x: 0, y: 0 }, // dropped to C's row, not the midpoint (0, 23)
       children: ["C"],
-      hiddenEdgeIds: ["F|PARENT_OF|C"],
     },
   ]);
 });
@@ -463,10 +472,10 @@ test("descentJunctions: two children of one couple share a single junction", () 
 
   expect(junctions(fam(drawn, g), positions)).toEqual([
     {
-      id: "__junction__|F|M",
+      father: "F",
+      mother: "M",
       pos: { x: 0, y: 23 },
       children: ["C1", "C2"],
-      hiddenEdgeIds: ["F|PARENT_OF|C1", "F|PARENT_OF|C2"],
     },
   ]);
 });
@@ -577,10 +586,10 @@ test("descentJunctions: a wife with no in-view children doesn't make the father 
 
   expect(junctions(fam(drawn, g), positions)).toEqual([
     {
-      id: "__junction__|F|M1",
+      father: "F",
+      mother: "M1",
       pos: { x: 0, y: 23 },
       children: ["C"],
-      hiddenEdgeIds: ["F|PARENT_OF|C"],
     },
   ]);
 });

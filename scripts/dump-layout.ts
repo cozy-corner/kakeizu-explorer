@@ -17,10 +17,12 @@ import type * as cytoscapeDagre from "cytoscape-dagre";
 import {
   buildFamilyGraph,
   egoDrawnEdges,
+  junctionId,
   layoutOnlyEdges,
   patrilinealEdges,
   type Graph,
   type GraphEdge,
+  type PersonId,
 } from "../lib/graph";
 import {
   centerOnlyChildren,
@@ -43,7 +45,7 @@ const ROW = NODE_SEP + NODE_SIZE;
 const SPOUSE_GUTTER = 70;
 const RANK_SEP = 220;
 
-const qid = process.argv[2] ?? "Q319664";
+const qid = (process.argv[2] ?? "Q319664") as PersonId;
 
 let graph: Graph;
 try {
@@ -111,7 +113,7 @@ cy.nodes()
 
 const positions: Positions = new Map();
 cy.nodes().forEach((n) => {
-  positions.set(n.id(), { x: n.position("x"), y: n.position("y") });
+  positions.set(n.id() as PersonId, { x: n.position("x"), y: n.position("y") });
 });
 const fam = buildFamilyGraph(graph, edges);
 const { placements, colX } = readPlacement(positions, ROW);
@@ -153,8 +155,8 @@ if (dropped.length) {
 console.log("\n## Drawn descent lines (taxi path)  [cols=column span, bends]");
 for (const e of edges) {
   if (e.type !== "PARENT_OF" && e.type !== "ADOPTIVE_PARENT_OF") continue;
-  const s = placed.get(e.source);
-  const t = placed.get(e.target);
+  const s = placed.get(e.source as PersonId);
+  const t = placed.get(e.target as PersonId);
   if (!s || !t) continue;
   const cols = Math.round((t.x - s.x) / COL);
   const bends = s.y === t.y ? 0 : 2;
@@ -166,12 +168,14 @@ for (const e of edges) {
 console.log("\n## Spouse detours (bowed lines)");
 const detours = spouseRouting(placed, fam, SPOUSE_GUTTER);
 if (detours.length === 0) console.log("  (none)");
-for (const d of detours) console.log(`  ${d.edgeId}  bow=${d.bow}`);
+for (const d of detours)
+  console.log(`  ${d.source}|SPOUSE_OF|${d.target}  bow=${d.bow}`);
 
 console.log("\n## Descent junctions (couple midpoint → children)");
 for (const j of descentJunctions(fam, placedStruct)) {
   const jpos = projectOne(j.pos, colX, ROW);
-  console.log(`  junction ${j.id}  pos: ${r(jpos.x)}, ${r(jpos.y)}`);
+  const jid = junctionId(j.father, j.mother);
+  console.log(`  junction ${jid}  pos: ${r(jpos.x)}, ${r(jpos.y)}`);
   for (const c of j.children) {
     const cp = placed.get(c);
     if (!cp) {

@@ -1,8 +1,50 @@
+// A person's Wikidata QID, branded so it can't be mixed up with a JunctionId — the
+// synthetic id of a couple's midpoint node. The layout's coordinate maps are keyed
+// by PersonId; the brand stops a junction id (a cytoscape-only address) being used
+// as a key. Raw DB rows carry plain strings; the brand is applied once at the layout
+// boundary (buildFamilyGraph / the view's readPositions), never sprinkled around.
+export type PersonId = string & { readonly __brand: "PersonId" };
+export type JunctionId = string & { readonly __brand: "JunctionId" };
+
+// Wikidata P21 as the ETL stores it: male/female, with anything else (intersex,
+// trans, …) collapsed to "other" — see scripts/etl-spike/add-sex.ts. Absent ⇒
+// undefined. The patrilineal reduction tests `!== "female"`, so male/other/unknown
+// are all father candidates.
+export type Sex = "male" | "female" | "other";
+
+// A recorded blood/marriage/adoption relationship (a Neo4j relationship type).
+// SIBLING_OF only surfaces in the path view; the ego layout never sees it.
+export type Kinship =
+  | "PARENT_OF"
+  | "SPOUSE_OF"
+  | "ADOPTIVE_PARENT_OF"
+  | "SIBLING_OF";
+// Non-kinship edges the layout/view synthesise: LAYOUT is a hidden edge that only
+// steers dagre's ranking; DESCENT is the junction→child line from a couple's
+// midpoint. Neither is a relationship.
+export type SyntheticEdge = "LAYOUT" | "DESCENT";
+
 export type PersonRow = { qid: string; label: string };
 
-export type GraphNode = { qid: string; label: string; sex?: string };
-export type GraphEdge = { source: string; target: string; type: string };
+export type GraphNode = { qid: string; label: string; sex?: Sex };
+// A domain edge carries a kinship type, or the hidden LAYOUT type when fed to dagre.
+// DESCENT (the other SyntheticEdge) is built straight into cytoscape by the view and
+// never exists as a GraphEdge. source/target are raw QIDs — branded only once they
+// cross into the layout via buildFamilyGraph.
+export type GraphEdge = {
+  source: string;
+  target: string;
+  type: Kinship | "LAYOUT";
+};
 export type Graph = { nodes: GraphNode[]; edges: GraphEdge[] };
+
+// The sole constructor for a JunctionId — the cytoscape id of the invisible anchor
+// at a couple's midpoint. Single-sourced (it was an exported const, then briefly an
+// inline build in two files) so the live view and the offline dump-layout tool emit
+// byte-identical ids; a drift would silently desync the layout-debug dump.
+export const JUNCTION_PREFIX = "__junction__";
+export const junctionId = (father: PersonId, mother: PersonId): JunctionId =>
+  `${JUNCTION_PREFIX}|${father}|${mother}` as JunctionId;
 
 // Reduce a neighbourhood toward a patrilineal tree: the line of descent runs
 // through fathers, mothers are shown as the father's spouse (not as a second
@@ -143,21 +185,17 @@ export function egoDrawnEdges(graph: Graph): GraphEdge[] {
 // patrilineal view dropped is still recoverable (side-wife / couple-midpoint), while
 // `fatherOf` reads the drawn set so it only spans lines actually rendered.
 export type FamilyGraph = {
-  sex: Map<string, string | undefined>;
-  fatherOf: Map<string, string[]>; // drawn PARENT_OF: child → fathers
-  trueParentsOf: Map<string, string[]>; // unreduced PARENT_OF: child → parents (mothers incl.)
-  spouseOf: Map<string, string[]>; // drawn SPOUSE_OF: symmetric adjacency, edge order
-  spousePairs: { source: string; target: string }[]; // drawn SPOUSE_OF, directed, edge order
-  adoptiveParentOf: Map<string, string[]>; // drawn ADOPTIVE_PARENT_OF: child → adoptive parents
-  isMarriedIn: (id: string) => boolean;
+  sex: Map<PersonId, Sex | undefined>;
+  fatherOf: Map<PersonId, PersonId[]>; // drawn PARENT_OF: child → fathers
+  trueParentsOf: Map<PersonId, PersonId[]>; // unreduced PARENT_OF: child → parents (mothers incl.)
+  spouseOf: Map<PersonId, PersonId[]>; // drawn SPOUSE_OF: symmetric adjacency, edge order
+  spousePairs: { source: PersonId; target: PersonId }[]; // drawn SPOUSE_OF, directed, edge order
+  adoptiveParentOf: Map<PersonId, PersonId[]>; // drawn ADOPTIVE_PARENT_OF: child → adoptive parents
+  isMarriedIn: (id: PersonId) => boolean;
 };
 
 // Append to a multimap, creating the bucket on first use. Shared with lib/layout.
-export function pushInto<K>(
-  map: Map<K, string[]>,
-  key: K,
-  value: string,
-): void {
+export function pushInto<K, V>(map: Map<K, V[]>, key: K, value: V): void {
   (map.get(key) ?? map.set(key, []).get(key)!).push(value);
 }
 
@@ -165,34 +203,41 @@ export function buildFamilyGraph(
   graph: Graph,
   drawnEdges: GraphEdge[],
 ): FamilyGraph {
-  const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
+  // The brand boundary: raw QID strings on graph/drawnEdges become PersonId as they
+  // enter the layout's keyed maps. One cast per kind of ingress, nowhere else.
+  const sex = new Map<PersonId, Sex | undefined>(
+    graph.nodes.map((n) => [n.qid as PersonId, n.sex]),
+  );
 
-  const trueParentsOf = new Map<string, string[]>();
+  const trueParentsOf = new Map<PersonId, PersonId[]>();
   for (const e of graph.edges) {
-    if (e.type === "PARENT_OF") pushInto(trueParentsOf, e.target, e.source);
+    if (e.type === "PARENT_OF")
+      pushInto(trueParentsOf, e.target as PersonId, e.source as PersonId);
   }
 
-  const fatherOf = new Map<string, string[]>();
-  const spouseOf = new Map<string, string[]>();
-  const spousePairs: { source: string; target: string }[] = [];
-  const adoptiveParentOf = new Map<string, string[]>();
+  const fatherOf = new Map<PersonId, PersonId[]>();
+  const spouseOf = new Map<PersonId, PersonId[]>();
+  const spousePairs: { source: PersonId; target: PersonId }[] = [];
+  const adoptiveParentOf = new Map<PersonId, PersonId[]>();
   // No parent edge (blood or adoptive) incident in either direction ⇒ married-in:
   // the patrilineal view drops a mother's descent edges, so even a wife with
   // children has none, and such nodes belong to no parent's block — they're the
   // only ones placeNodes may move. An adopted child has an ADOPTIVE_PARENT_OF in,
   // so it is NOT married-in (its adoptive parent places it).
-  const hasParentEdge = new Set<string>();
+  const hasParentEdge = new Set<PersonId>();
   for (const e of drawnEdges) {
+    const source = e.source as PersonId;
+    const target = e.target as PersonId;
     if (e.type === "PARENT_OF") {
-      pushInto(fatherOf, e.target, e.source);
-      hasParentEdge.add(e.source).add(e.target);
+      pushInto(fatherOf, target, source);
+      hasParentEdge.add(source).add(target);
     } else if (e.type === "SPOUSE_OF") {
-      pushInto(spouseOf, e.source, e.target);
-      pushInto(spouseOf, e.target, e.source);
-      spousePairs.push({ source: e.source, target: e.target });
+      pushInto(spouseOf, source, target);
+      pushInto(spouseOf, target, source);
+      spousePairs.push({ source, target });
     } else if (e.type === "ADOPTIVE_PARENT_OF") {
-      pushInto(adoptiveParentOf, e.target, e.source);
-      hasParentEdge.add(e.source).add(e.target);
+      pushInto(adoptiveParentOf, target, source);
+      hasParentEdge.add(source).add(target);
     }
   }
 
@@ -234,16 +279,20 @@ export function neighborsToGraph(rows: NeighborRow[]): Graph {
     nodes.set(row.aQid, {
       qid: row.aQid,
       label: row.aLabel,
-      sex: row.aSex ?? undefined,
+      sex: (row.aSex ?? undefined) as Sex | undefined,
     });
     if (row.type && row.bQid && row.bLabel) {
       nodes.set(row.bQid, {
         qid: row.bQid,
         label: row.bLabel,
-        sex: row.bSex ?? undefined,
+        sex: (row.bSex ?? undefined) as Sex | undefined,
       });
       const key = `${row.aQid}|${row.type}|${row.bQid}`;
-      edges.set(key, { source: row.aQid, target: row.bQid, type: row.type });
+      edges.set(key, {
+        source: row.aQid,
+        target: row.bQid,
+        type: row.type as Kinship,
+      });
     }
   }
   return { nodes: [...nodes.values()], edges: [...edges.values()] };
@@ -271,7 +320,7 @@ export function pathToGraph(rows: PathRow[]): Graph {
     edges.push({
       source: row.sourceQid,
       target: row.targetQid,
-      type: row.type,
+      type: row.type as Kinship,
     });
   }
   return { nodes: [...nodes.values()], edges };

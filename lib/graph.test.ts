@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import {
   egoDrawnEdges,
+  type Graph,
+  type GraphEdge,
   layoutOnlyEdges,
   neighborsToGraph,
   patrilinealEdges,
@@ -174,7 +176,7 @@ test("neighbors: carries each node's sex through", () => {
 });
 
 test("patrilineal: a child with both parents descends from the father only", () => {
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "F", label: "父", sex: "male" },
       { qid: "M", label: "母", sex: "female" },
@@ -194,7 +196,7 @@ test("patrilineal: a child with both parents descends from the father only", () 
 });
 
 test("patrilineal: falls back to any parent when no father is known", () => {
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "M", label: "母", sex: "female" },
       { qid: "C", label: "子" }, // child of a mother only
@@ -208,7 +210,7 @@ test("patrilineal: falls back to any parent when no father is known", () => {
 });
 
 test("patrilineal: a child with two recorded fathers keeps both father edges", () => {
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "F1", label: "父1", sex: "male" },
       { qid: "F2", label: "父2", sex: "male" },
@@ -228,7 +230,7 @@ test("patrilineal: a child with two recorded fathers keeps both father edges", (
 });
 
 test("patrilineal: an unknown-sex parent is kept as a descent line, not hidden", () => {
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "F", label: "父", sex: undefined }, // P21 not fetched
       { qid: "M", label: "母", sex: "female" },
@@ -249,7 +251,7 @@ test("patrilineal: an unknown-sex parent is kept as a descent line, not hidden",
 });
 
 test("patrilineal: a spouse-less mother is linked to the father via her shared child", () => {
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "F", label: "父", sex: "male" },
       { qid: "M", label: "母", sex: "female" }, // no SPOUSE_OF recorded
@@ -270,7 +272,7 @@ test("patrilineal: a spouse-less mother is linked to the father via her shared c
 });
 
 test("patrilineal: drops sibling edges entirely", () => {
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "A", label: "兄", sex: "male" },
       { qid: "B", label: "弟", sex: "male" },
@@ -282,7 +284,7 @@ test("patrilineal: drops sibling edges entirely", () => {
 });
 
 test("layout-only: surfaces the dropped mother→child edge so the couple co-ranks", () => {
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "F", label: "父", sex: "male" },
       { qid: "M", label: "母", sex: "female" },
@@ -305,14 +307,14 @@ test("layout-only: surfaces the dropped mother→child edge so the couple co-ran
 test("layout-only: no extra edges when every parent is already a drawn line", () => {
   // No father → both parents stay drawn; two fathers → both stay drawn. Nothing
   // is dropped, so there is no hidden edge to add.
-  const motherOnly = {
+  const motherOnly: Graph = {
     nodes: [
       { qid: "M", label: "母", sex: "female" },
       { qid: "C", label: "子" },
     ],
     edges: [{ source: "M", target: "C", type: "PARENT_OF" }],
   };
-  const twoFathers = {
+  const twoFathers: Graph = {
     nodes: [
       { qid: "F1", label: "父1", sex: "male" },
       { qid: "F2", label: "父2", sex: "male" },
@@ -333,7 +335,7 @@ test("sibling adoptive: flags a kin-succession adoption between two blood siblin
   // same generation. The adoption is succession, not descent — dropped so it neither
   // feeds dagre (would over-rank 吉宗 a column deeper than his brother) nor draws (a
   // false second descent into 吉宗).
-  const edges = [
+  const edges: GraphEdge[] = [
     { source: "P", target: "elder", type: "PARENT_OF" },
     { source: "P", target: "younger", type: "PARENT_OF" },
     { source: "elder", target: "younger", type: "ADOPTIVE_PARENT_OF" },
@@ -349,7 +351,7 @@ test("sibling adoptive: keeps a cross-generation adoption between non-siblings",
   // NOT share a parent (家斉→斉彊, but 斉順→家茂), so it is a genuine cross-generation
   // descent line and must be kept. Regression guard: a blanket "both blood-placed"
   // rule wrongly dropped this.
-  const edges = [
+  const edges: GraphEdge[] = [
     { source: "GF", target: "uncle", type: "PARENT_OF" },
     { source: "GF", target: "parent", type: "PARENT_OF" },
     { source: "parent", target: "nephew", type: "PARENT_OF" },
@@ -363,11 +365,11 @@ test("sibling adoptive: keeps an adoption where an endpoint has no in-view blood
   // The adopted child or adoptive parent has no shown blood parent, so they can't be
   // siblings — a genuine descent (an adoptive parent 家継→吉宗, or an adopted child
   // 吉宗→雲松院) that must both rank and draw.
-  const adoptiveParentUnpinned = [
+  const adoptiveParentUnpinned: GraphEdge[] = [
     { source: "P", target: "C", type: "PARENT_OF" },
     { source: "AP", target: "C", type: "ADOPTIVE_PARENT_OF" }, // AP has no blood parent
   ];
-  const adoptedChildUnpinned = [
+  const adoptedChildUnpinned: GraphEdge[] = [
     { source: "P", target: "F", type: "PARENT_OF" },
     { source: "F", target: "AC", type: "ADOPTIVE_PARENT_OF" }, // AC has no blood parent
   ];
@@ -379,7 +381,7 @@ test("sibling adoptive: keeps an adoption where an endpoint has no in-view blood
 test("ego drawn: patrilineal reduction with sibling adoptions dropped", () => {
   // 頼職→吉宗 shape: the sibling adoption is dropped from the drawn set, the blood
   // descent lines stay. This is the composition the ego view and dump-layout share.
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "P", label: "父", sex: "male" },
       { qid: "elder", label: "兄", sex: "male" },
@@ -401,7 +403,7 @@ test("ego drawn: patrilineal reduction with sibling adoptions dropped", () => {
 test("ego drawn: keeps a cross-generation adoption", () => {
   // 斉彊→家茂 shape: uncle adopts nephew, not siblings — a genuine descent line that
   // must stay in the drawn set.
-  const graph = {
+  const graph: Graph = {
     nodes: [
       { qid: "GF", label: "祖父", sex: "male" },
       { qid: "uncle", label: "叔父", sex: "male" },
