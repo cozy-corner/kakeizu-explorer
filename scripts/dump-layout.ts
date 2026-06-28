@@ -87,10 +87,9 @@ const cy: Core = cytoscape({
   headless: true,
   styleEnabled: true,
   elements,
-  style: [
-    { selector: "node", style: { width: NODE_SIZE, height: NODE_SIZE } },
-    { selector: "node[focus = 1]", style: { width: 30, height: 30 } },
-  ],
+  // Uniform node size for every node including the focus: GraphPane emphasises the
+  // focus with colour only, never size, so the row pitch dagre derives stays even.
+  style: [{ selector: "node", style: { width: NODE_SIZE, height: NODE_SIZE } }],
 });
 
 const dagreLR = (
