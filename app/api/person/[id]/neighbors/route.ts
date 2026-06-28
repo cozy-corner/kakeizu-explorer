@@ -33,20 +33,21 @@ export async function GET(
     // the layout and inflate the apparent generation depth past `hops`.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
-       OPTIONAL MATCH (c)-[:PARENT_OF*1..${hops}]-(m:Person)
-       // Drop a competing blood father: when the focus is itself a father, a
-       // child's OTHER recorded father (落胤説/諸説, e.g. 近藤能成 against 頼朝 over
-       // 大友能直) is a false bridge into an unrelated line. Gate on an explicit
-       // 'male' for BOTH — NOT the patrilineal "not female". There, a wrong guess
-       // only over-draws a father; here it DELETES a node, so the safe default
-       // flips: an unrecorded-sex co-parent must be assumed a mother (kept), and an
-       // unrecorded-sex ego must not be assumed a father. The mother (female) is
-       // kept; adoption is ADOPTIVE_PARENT_OF, not PARENT_OF, so 養父 is untouched.
-       WITH c, m
-       WHERE m IS NULL OR NOT (
-         coalesce(c.sex, '') = 'male' AND coalesce(m.sex, '') = 'male'
-         AND (m)-[:PARENT_OF]->(:Person)<-[:PARENT_OF]-(c)
-       )
+       // Competing blood fathers of the focus's children: a 落胤説/諸説 second
+       // father (e.g. 近藤能成 against 頼朝 over 大友能直) is a false bridge into an
+       // unrelated line. Collect them first so the descent walk can skip the whole
+       // branch — not just the father but everyone reachable only through him
+       // (his ancestors/other kin would otherwise float at hops≥3). Gate on an
+       // explicit 'male' for BOTH — NOT the patrilineal "not female": here a wrong
+       // guess DELETES nodes, so an unrecorded-sex co-parent stays a mother and an
+       // unrecorded-sex ego isn't assumed a father. Adoption is ADOPTIVE_PARENT_OF,
+       // not PARENT_OF, so 養父 is untouched.
+       OPTIONAL MATCH (c)-[:PARENT_OF]->(:Person)<-[:PARENT_OF]-(rival:Person)
+       WHERE rival <> c
+         AND coalesce(c.sex, '') = 'male' AND coalesce(rival.sex, '') = 'male'
+       WITH c, collect(DISTINCT rival) AS blocked
+       OPTIONAL MATCH path = (c)-[:PARENT_OF*1..${hops}]-(m:Person)
+       WHERE m IS NULL OR none(n IN nodes(path) WHERE n IN blocked)
        WITH c, collect(DISTINCT m) AS bio
        OPTIONAL MATCH (c)-[:ADOPTIVE_PARENT_OF]-(ad:Person)
        WITH c, bio, collect(DISTINCT ad) AS adlist
