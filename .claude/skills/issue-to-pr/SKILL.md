@@ -95,6 +95,11 @@ to proceed to a PR; opening it is outward-facing, so confirm if unsure.
 
 ## Phase 6 — Triage the PR review
 
+**First, wait for the bot review to land** (it isn't posted at push time).
+Launch one bounded background waiter — a `gh pr checks <n>` loop that returns
+when the check leaves `pending`, capped at ~15 min — so the harness notifies you
+on completion. If it times out, tell the user; don't re-arm. Then fetch.
+
 Fetch the PR's comments and bot review with the **pr-reviews** skill (handles
 pagination + CodeRabbit nitpicks). Run the **same triage rubric** on every finding.
 Apply the valid ones; for the rejected ones, reply on the PR with the reason so the
