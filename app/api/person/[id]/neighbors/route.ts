@@ -33,7 +33,17 @@ export async function GET(
     // the layout and inflate the apparent generation depth past `hops`.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
-       OPTIONAL MATCH (c)-[:PARENT_OF*1..${hops}]-(m:Person)
+       // Drop the focus's child's competing father (e.g. 近藤能成 vs 頼朝 over
+       // 大友能直, a 落胤説 false bridge to an unrelated line). Exclude the whole
+       // path through him so his kin don't orphan at hops≥3. Gate on explicit
+       // 'male' (not the patrilineal "not female"): a wrong guess here DELETES
+       // nodes. 養父 is ADOPTIVE_PARENT_OF, not PARENT_OF, so untouched.
+       OPTIONAL MATCH (c)-[:PARENT_OF]->(:Person)<-[:PARENT_OF]-(rival:Person)
+       WHERE rival <> c
+         AND coalesce(c.sex, '') = 'male' AND coalesce(rival.sex, '') = 'male'
+       WITH c, collect(DISTINCT rival) AS blocked
+       OPTIONAL MATCH path = (c)-[:PARENT_OF*1..${hops}]-(m:Person)
+       WHERE m IS NULL OR none(n IN nodes(path) WHERE n IN blocked)
        WITH c, collect(DISTINCT m) AS bio
        OPTIONAL MATCH (c)-[:ADOPTIVE_PARENT_OF]-(ad:Person)
        WITH c, bio, collect(DISTINCT ad) AS adlist

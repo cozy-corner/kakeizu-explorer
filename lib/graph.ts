@@ -52,7 +52,11 @@ export const junctionId = (father: PersonId, mother: PersonId): JunctionId =>
 // isn't "female" (male, or unknown so we don't hide a real father). A child with
 // two recorded fathers (e.g. disputed/uncertain parentage) keeps BOTH rather
 // than arbitrarily picking one — avoiding a non-deterministic choice and an
-// orphaned parent. Mother→child edges are dropped; instead the mother is linked
+// orphaned parent. (For a PATERNAL ego graph the neighbors API resolves the
+// dispute upstream: it drops the focus's child's competing father before this
+// reduction runs, since in that view the focus is the chosen father — see
+// app/api/person/[id]/neighbors/route.ts. This function still keeps both when
+// handed both.) Mother→child edges are dropped; instead the mother is linked
 // to the father by SPOUSE_OF so she sits beside him. When no marriage is
 // recorded, sharing a child is treated as one (co-parent ⇒ couple) so a
 // spouse-less mother (e.g. an unrecorded concubine) doesn't float. If no father
