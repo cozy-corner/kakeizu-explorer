@@ -26,7 +26,7 @@ bun run scripts/dump-layout.ts <QID>   # QID optional, default Q319664 (徳川�
 
 Need to aggregate (sort, gap math, filter)? Add `--json` and query with `jq` —
 don't awk the prose (labels carry commas/parens). E.g. the biggest row jog:
-`dump-layout.ts <QID> --json | jq '[.junctions[].children[].dy|fabs]|max'`.
+`dump-layout.ts <QID> --json | jq '[.junctions[].children[].dy|abs]|max'`.
 
 It mirrors `components/GraphPane.tsx`'s layout step exactly: drop sibling adoptions
 (`siblingAdoptiveEdges`) from the edge set → dagre ranking → `placeNodes` →
