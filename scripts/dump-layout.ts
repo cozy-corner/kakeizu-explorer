@@ -13,7 +13,6 @@
 
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
-import type * as cytoscapeDagre from "cytoscape-dagre";
 import {
   buildFamilyGraph,
   egoDrawnEdges,
@@ -35,15 +34,16 @@ import {
   type Pos,
   type Positions,
 } from "../lib/layout";
+import {
+  NODE_SIZE,
+  RANK_SEP,
+  ROW,
+  runEgoLayout,
+  SPOUSE_GUTTER,
+  STYLE,
+} from "../lib/render";
 
 cytoscape.use(dagre);
-
-// Mirror GraphPane's constants and the node-dimension styles dagre reads.
-const NODE_SIZE = 16;
-const NODE_SEP = 30;
-const ROW = NODE_SEP + NODE_SIZE;
-const SPOUSE_GUTTER = 70;
-const RANK_SEP = 220;
 
 const qid = (process.argv[2] ?? "Q319664") as PersonId;
 
@@ -87,29 +87,10 @@ const cy: Core = cytoscape({
   headless: true,
   styleEnabled: true,
   elements,
-  style: [
-    { selector: "node", style: { width: NODE_SIZE, height: NODE_SIZE } },
-    { selector: "node[focus = 1]", style: { width: 30, height: 30 } },
-  ],
+  style: STYLE,
 });
 
-const dagreLR = (
-  extra: Partial<cytoscapeDagre.DagreLayoutOptions> = {},
-): cytoscapeDagre.DagreLayoutOptions => ({
-  name: "dagre",
-  rankDir: "LR",
-  animate: false,
-  ...extra,
-});
-
-cy.nodes()
-  .union(
-    cy.edges(
-      '[type = "PARENT_OF"], [type = "LAYOUT"], [type = "ADOPTIVE_PARENT_OF"]',
-    ),
-  )
-  .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: RANK_SEP, fit: false }))
-  .run();
+runEgoLayout(cy);
 
 const positions: Positions = new Map();
 cy.nodes().forEach((n) => {
