@@ -35,11 +35,12 @@ export const STYLE: cytoscape.StylesheetJson = [
     },
   },
   {
+    // Emphasis is colour + bold label only, never size: dagre sizes a rank's row
+    // pitch by node bounds, so a larger focus node would push its own row off the
+    // uniform sibling ladder (the label is excluded from layout, so font is safe).
     selector: "node[focus = 1]",
     style: {
       "background-color": "#dc2626",
-      width: 30,
-      height: 30,
       "font-size": "13px",
       "font-weight": "bold",
       "z-index": 10,

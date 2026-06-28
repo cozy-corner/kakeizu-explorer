@@ -17,9 +17,9 @@ export type Placement = { col: number; order: number };
 export type Placements = Map<PersonId, Placement>;
 
 // Pixel → structural at the layout boundary. round(x) happens here, once, and the
-// per-column actual x is captured in colX so project reproduces dagre's
-// non-uniform column spacing (the focus column is wider, nudging its neighbours)
-// exactly rather than assuming a uniform stride.
+// per-column actual x is captured in colX so project reproduces dagre's column
+// positions exactly rather than assuming a uniform stride — dagre's per-rank x is
+// not guaranteed to be a fixed multiple.
 export function readPlacement(
   pos: Positions,
   row: number,
