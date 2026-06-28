@@ -33,15 +33,11 @@ export async function GET(
     // the layout and inflate the apparent generation depth past `hops`.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
-       // Competing blood fathers of the focus's children: a 落胤説/諸説 second
-       // father (e.g. 近藤能成 against 頼朝 over 大友能直) is a false bridge into an
-       // unrelated line. Collect them first so the descent walk can skip the whole
-       // branch — not just the father but everyone reachable only through him
-       // (his ancestors/other kin would otherwise float at hops≥3). Gate on an
-       // explicit 'male' for BOTH — NOT the patrilineal "not female": here a wrong
-       // guess DELETES nodes, so an unrecorded-sex co-parent stays a mother and an
-       // unrecorded-sex ego isn't assumed a father. Adoption is ADOPTIVE_PARENT_OF,
-       // not PARENT_OF, so 養父 is untouched.
+       // Drop the focus's child's competing father (e.g. 近藤能成 vs 頼朝 over
+       // 大友能直, a 落胤説 false bridge to an unrelated line). Exclude the whole
+       // path through him so his kin don't orphan at hops≥3. Gate on explicit
+       // 'male' (not the patrilineal "not female"): a wrong guess here DELETES
+       // nodes. 養父 is ADOPTIVE_PARENT_OF, not PARENT_OF, so untouched.
        OPTIONAL MATCH (c)-[:PARENT_OF]->(:Person)<-[:PARENT_OF]-(rival:Person)
        WHERE rival <> c
          AND coalesce(c.sex, '') = 'male' AND coalesce(rival.sex, '') = 'male'
