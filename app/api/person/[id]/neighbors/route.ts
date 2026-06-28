@@ -34,6 +34,19 @@ export async function GET(
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
        OPTIONAL MATCH (c)-[:PARENT_OF*1..${hops}]-(m:Person)
+       // Drop a competing blood father: when the focus is itself a father, a
+       // child's OTHER recorded father (落胤説/諸説, e.g. 近藤能成 against 頼朝 over
+       // 大友能直) is a false bridge into an unrelated line. Gate on an explicit
+       // 'male' for BOTH — NOT the patrilineal "not female". There, a wrong guess
+       // only over-draws a father; here it DELETES a node, so the safe default
+       // flips: an unrecorded-sex co-parent must be assumed a mother (kept), and an
+       // unrecorded-sex ego must not be assumed a father. The mother (female) is
+       // kept; adoption is ADOPTIVE_PARENT_OF, not PARENT_OF, so 養父 is untouched.
+       WITH c, m
+       WHERE m IS NULL OR NOT (
+         coalesce(c.sex, '') = 'male' AND coalesce(m.sex, '') = 'male'
+         AND (m)-[:PARENT_OF]->(:Person)<-[:PARENT_OF]-(c)
+       )
        WITH c, collect(DISTINCT m) AS bio
        OPTIONAL MATCH (c)-[:ADOPTIVE_PARENT_OF]-(ad:Person)
        WITH c, bio, collect(DISTINCT ad) AS adlist
