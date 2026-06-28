@@ -24,6 +24,9 @@ Dev server must be up (`bun run dev`; the script reads `/api/person/:id/neighbor
 bun run scripts/dump-layout.ts <QID>   # QID optional, default Q319664 (徳川吉宗)
 ```
 
+Aggregate the dump with `--json | jq` — e.g. the biggest row jog:
+`dump-layout.ts <QID> --json | jq '[.junctions[].children[].dy|abs]|max'`.
+
 It mirrors `components/GraphPane.tsx`'s layout step exactly: drop sibling adoptions
 (`siblingAdoptiveEdges`) from the edge set → dagre ranking → `placeNodes` →
 `spouseRouting` → `descentJunctions`.

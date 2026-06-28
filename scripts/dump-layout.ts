@@ -8,8 +8,10 @@
 // Mirrors GraphPane's layout step, including dropping sibling adoptions, so the
 // output reflects what the app actually draws.
 //
-// Usage: bun run scripts/dump-layout.ts [QID]   (default: Q319664 徳川吉宗)
+// Usage: bun run scripts/dump-layout.ts [QID] [--json]   (default: Q319664 徳川吉宗)
 //   Requires the dev server running (reads /api/person/:id/neighbors).
+//   --json emits the same data machine-readably so derived quantities (gaps, row
+//   skew) are a `jq` one-liner instead of a brittle awk parse of the prose.
 
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
@@ -45,7 +47,9 @@ import {
 
 cytoscape.use(dagre);
 
-const qid = (process.argv[2] ?? "Q319664") as PersonId;
+const args = process.argv.slice(2);
+const jsonMode = args.includes("--json");
+const qid = (args.find((a) => !a.startsWith("--")) ?? "Q319664") as PersonId;
 
 let graph: Graph;
 try {
@@ -118,54 +122,146 @@ const taxiPoints = (s: Pos, t: Pos): Pos[] => {
 const fmt = (pts: Pos[]) => pts.map((p) => `(${r(p.x)},${r(p.y)})`).join(" → ");
 const COL = NODE_SIZE + RANK_SEP; // one generation's x-stride
 
-console.log(`# ${label(qid)} (${qid})\n`);
+// Build the structured data once; prose and --json render from the same arrays so
+// the two views can't drift. The prose rendering below must stay byte-identical to
+// the previous output (acceptance condition: default format unchanged).
+type NodeOut = { id: string; label: string; x: number; y: number };
+type DroppedAdoption = {
+  source: string;
+  sourceLabel: string;
+  target: string;
+  targetLabel: string;
+};
+type DescentLine = {
+  source: string;
+  sourceLabel: string;
+  target: string;
+  targetLabel: string;
+  adoptive: boolean;
+  path: Pos[];
+  cols: number;
+  bends: number;
+};
+type Junction = {
+  id: string;
+  father: string;
+  mother: string;
+  x: number;
+  y: number;
+  children: { id: string; label: string; x: number; y: number; dy: number }[];
+};
 
-console.log("## Nodes (x, y)");
-for (const [id, p] of placed) {
-  console.log(`  ${r(p.x)}, ${r(p.y)}  ${label(id)} (${id})`);
-}
+const nodesOut: NodeOut[] = [...placed].map(([id, p]) => ({
+  id,
+  label: label(id),
+  x: r(p.x),
+  y: r(p.y),
+}));
 
-if (dropped.length) {
-  console.log(
-    "\n## Dropped non-descent adoptions (kin succession; not drawn/ranked)",
-  );
-  for (const e of dropped)
-    console.log(`  ${label(e.source)} →(養) ${label(e.target)}`);
-}
+const droppedOut: DroppedAdoption[] = dropped.map((e) => ({
+  source: e.source,
+  sourceLabel: label(e.source),
+  target: e.target,
+  targetLabel: label(e.target),
+}));
 
-console.log("\n## Drawn descent lines (taxi path)  [cols=column span, bends]");
+const descentOut: DescentLine[] = [];
 for (const e of edges) {
   if (e.type !== "PARENT_OF" && e.type !== "ADOPTIVE_PARENT_OF") continue;
   const s = placed.get(e.source as PersonId);
   const t = placed.get(e.target as PersonId);
   if (!s || !t) continue;
-  const cols = Math.round((t.x - s.x) / COL);
-  const bends = s.y === t.y ? 0 : 2;
-  console.log(
-    `  ${label(e.source)} →${e.type === "ADOPTIVE_PARENT_OF" ? "(養)" : ""} ${label(e.target)}: ${fmt(taxiPoints(s, t))}  [cols=${cols}, bends=${bends}]`,
-  );
+  descentOut.push({
+    source: e.source,
+    sourceLabel: label(e.source),
+    target: e.target,
+    targetLabel: label(e.target),
+    adoptive: e.type === "ADOPTIVE_PARENT_OF",
+    path: taxiPoints(s, t).map((p) => ({ x: r(p.x), y: r(p.y) })),
+    cols: Math.round((t.x - s.x) / COL),
+    bends: s.y === t.y ? 0 : 2,
+  });
 }
 
-console.log("\n## Spouse detours (bowed lines)");
-const detours = spouseRouting(placed, fam, SPOUSE_GUTTER);
-if (detours.length === 0) console.log("  (none)");
-for (const d of detours)
-  console.log(`  ${d.source}|SPOUSE_OF|${d.target}  bow=${d.bow}`);
+const detoursOut = spouseRouting(placed, fam, SPOUSE_GUTTER);
 
-console.log("\n## Descent junctions (couple midpoint → children)");
+const junctionsOut: Junction[] = [];
 for (const j of descentJunctions(fam, placedStruct)) {
   const jpos = projectOne(j.pos, colX, ROW);
-  const jid = junctionId(j.father, j.mother);
-  console.log(`  junction ${jid}  pos: ${r(jpos.x)}, ${r(jpos.y)}`);
+  const children: Junction["children"] = [];
   for (const c of j.children) {
     const cp = placed.get(c);
     if (!cp) {
       console.error(`    -> ${label(c)} (${c}) MISSING from placed map`);
       continue;
     }
-    const dy = r(cp.y - jpos.y);
+    children.push({
+      id: c,
+      label: label(c),
+      x: r(cp.x),
+      y: r(cp.y),
+      dy: r(cp.y - jpos.y),
+    });
+  }
+  junctionsOut.push({
+    id: junctionId(j.father, j.mother),
+    father: j.father,
+    mother: j.mother,
+    x: r(jpos.x),
+    y: r(jpos.y),
+    children,
+  });
+}
+
+if (jsonMode) {
+  console.log(
+    JSON.stringify(
+      {
+        focus: { id: qid, label: label(qid) },
+        nodes: nodesOut,
+        droppedAdoptions: droppedOut,
+        descentLines: descentOut,
+        spouseDetours: detoursOut,
+        junctions: junctionsOut,
+      },
+      null,
+      2,
+    ),
+  );
+} else {
+  console.log(`# ${label(qid)} (${qid})\n`);
+
+  console.log("## Nodes (x, y)");
+  for (const n of nodesOut)
+    console.log(`  ${n.x}, ${n.y}  ${n.label} (${n.id})`);
+
+  if (droppedOut.length) {
     console.log(
-      `    -> ${label(c)} (${c}) at ${r(cp.x)}, ${r(cp.y)}  dy=${dy}`,
+      "\n## Dropped non-descent adoptions (kin succession; not drawn/ranked)",
     );
+    for (const e of droppedOut)
+      console.log(`  ${e.sourceLabel} →(養) ${e.targetLabel}`);
+  }
+
+  console.log(
+    "\n## Drawn descent lines (taxi path)  [cols=column span, bends]",
+  );
+  for (const e of descentOut) {
+    console.log(
+      `  ${e.sourceLabel} →${e.adoptive ? "(養)" : ""} ${e.targetLabel}: ${fmt(e.path)}  [cols=${e.cols}, bends=${e.bends}]`,
+    );
+  }
+
+  console.log("\n## Spouse detours (bowed lines)");
+  if (detoursOut.length === 0) console.log("  (none)");
+  for (const d of detoursOut)
+    console.log(`  ${d.source}|SPOUSE_OF|${d.target}  bow=${d.bow}`);
+
+  console.log("\n## Descent junctions (couple midpoint → children)");
+  for (const j of junctionsOut) {
+    console.log(`  junction ${j.id}  pos: ${j.x}, ${j.y}`);
+    for (const c of j.children) {
+      console.log(`    -> ${c.label} (${c.id}) at ${c.x}, ${c.y}  dy=${c.dy}`);
+    }
   }
 }
