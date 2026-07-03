@@ -7,7 +7,7 @@
 // deciding which edges exist stays with the callers' truthy queries.
 
 import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
-import { qid, sparql, sparqlValues } from "./wdqs";
+import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 import type { Rank, RawEdge, RawNode, RawParentEdge, Sex } from "./raw";
 
 const NODE_BATCH = 400;
@@ -22,12 +22,6 @@ const RANK_URI: Record<string, Rank> = {
   "http://wikiba.se/ontology#PreferredRank": "preferred",
   "http://wikiba.se/ontology#NormalRank": "normal",
   "http://wikiba.se/ontology#DeprecatedRank": "deprecated",
-};
-
-const chunk = <T>(a: T[], n: number): T[][] => {
-  const out: T[][] = [];
-  for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n));
-  return out;
 };
 
 const pushUniq = (arr: string[], v: string) => {

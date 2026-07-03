@@ -13,7 +13,7 @@
 // attributes captured once via attrs.ts, extending raw-*.json in the same shape
 // fetch.ts wrote. Topology still comes from truthy `wdt:`.
 //
-// Run: ROUNDS=1 bun run scripts/etl-spike/traverse.ts   (then filter-foreign.ts …)
+// Run: ROUNDS=1 bun run scripts/etl-spike/traverse.ts   (then transform.ts …)
 
 import {
   annotateParentEdges,
@@ -33,19 +33,12 @@ import {
   readRaw,
   writeRaw,
 } from "./raw";
-import { qid, sparql } from "./wdqs";
+import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 
 const ROUNDS = Number(process.env.ROUNDS ?? "1");
 const EDGE_BATCH = 120;
 const META_BATCH = 400;
 const SIZE_CAP = 200_000;
-
-const chunk = <T>(a: T[], n: number): T[][] => {
-  const out: T[][] = [];
-  for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n));
-  return out;
-};
-const values = (qids: string[]) => qids.map((q) => `wd:${q}`).join(" ");
 
 // Diagnostic only (issue #44 exempts the ja.wikipedia leak proxy): which of
 // `qids` have a ja.wikipedia article. Logged, never persisted.
@@ -53,7 +46,7 @@ async function jaSweep(qids: string[]): Promise<Set<string>> {
   const hit = new Set<string>();
   for (const b of chunk(qids, META_BATCH)) {
     const rows = await sparql(
-      `SELECT ?item WHERE { VALUES ?item { ${values(b)} }
+      `SELECT ?item WHERE { VALUES ?item { ${sparqlValues(b)} }
        ?art schema:about ?item; schema:isPartOf <https://ja.wikipedia.org/>. }`,
     );
     for (const r of rows) hit.add(qid(r.item!.value));
@@ -111,7 +104,7 @@ async function main() {
       // UNION — far lighter for Blazegraph, which 504s on the UNION form.
       const rows = await sparql(`
         SELECT ?s ?p ?o WHERE {
-          VALUES ?s { ${values(batches[i])} }
+          VALUES ?s { ${sparqlValues(batches[i])} }
           VALUES ?p { wdt:P22 wdt:P25 wdt:P40 wdt:P26 wdt:P3373 }
           ?s ?p ?o.
         }`);

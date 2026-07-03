@@ -14,10 +14,10 @@ async function readJson<T>(name: string): Promise<T> {
   return JSON.parse(await readFile(join(DATA_DIR, name), "utf8")) as T;
 }
 
-// adopted_of.json is produced by the fetch-adoptions stage. A MISSING file is
-// benign (a partial pipeline run that skipped that stage) ⇒ empty; a parse error
-// or I/O fault must surface, or a corrupted adopted_of.json would silently drop
-// every adoption edge.
+// adopted_of.json is produced by transform.ts. A MISSING file is benign (a
+// partial pipeline run before the transform stage) ⇒ empty; a parse error or I/O
+// fault must surface, or a corrupted adopted_of.json would silently drop every
+// adoption edge.
 async function readJsonOpt<T>(name: string, fallback: T): Promise<T> {
   try {
     return await readJson<T>(name);

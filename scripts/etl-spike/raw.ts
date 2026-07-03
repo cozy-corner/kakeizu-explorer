@@ -1,7 +1,7 @@
 // Raw extraction schema (issue #44): the E stage persists every attribute it
 // touches here, ONCE, so the T stages filter locally with zero WDQS re-visits.
-// Node discovery (fetch.ts, traverse.ts) fills these; the transforms
-// (filter-foreign.ts, split-adoptions.ts, load.ts) only read them.
+// Node discovery (fetch.ts, traverse.ts) fills these; the transform
+// (transform.ts) and loader (load.ts) only read them.
 //
 // Design constraint (behavior-preserving refactor): the extraction logic that
 // decides WHICH edges/nodes exist is unchanged — spine/spouse/sibling still come

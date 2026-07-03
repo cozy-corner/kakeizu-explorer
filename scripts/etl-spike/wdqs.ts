@@ -33,6 +33,13 @@ export const qid = (uri: string) =>
 export const sparqlValues = (qids: string[]) =>
   qids.map((q) => `wd:${q}`).join(" ");
 
+// Split into fixed-size batches so a VALUES list stays under the WDQS timeout.
+export const chunk = <T>(a: T[], n: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n));
+  return out;
+};
+
 const MAX_ATTEMPTS = 5;
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 30_000;

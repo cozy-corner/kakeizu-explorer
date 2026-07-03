@@ -37,8 +37,8 @@ import { qid, sparql } from "./wdqs";
 const RELAX = process.env.SPIKE_RELAX === "1";
 
 // Parent → child, normalized from P22 (father) / P25 (mother) / P40 (child).
-// Truthy only — no adoptive exclusion here anymore (split-adoptions.ts does it
-// locally from the reified role captured into raw-parent.json).
+// Truthy only — no adoptive exclusion here anymore. transform.ts removes the
+// adoptive edges locally, using the authoritative raw-adoptions.json set.
 async function fetchParentPairs(): Promise<{ from: string; to: string }[]> {
   const queries = RELAX
     ? [

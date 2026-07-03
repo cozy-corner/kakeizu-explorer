@@ -29,7 +29,6 @@ const SEEDS = [
   "Q171977", // 徳川家康
 ];
 
-const values = (qids: string[]) => qids.map((q) => `wd:${q}`).join(" ");
 const KV = sparqlValues(KINSHIP);
 
 // Seed + 1-hop family neighborhood (bounded), the node set both paths run over.
@@ -37,7 +36,7 @@ async function neighborhood(): Promise<string[]> {
   const nodes = new Set(SEEDS);
   const rows = await sparql(`
     SELECT ?o WHERE {
-      VALUES ?s { ${values(SEEDS)} }
+      VALUES ?s { ${sparqlValues(SEEDS)} }
       VALUES ?p { wdt:P22 wdt:P25 wdt:P40 wdt:P26 wdt:P3373 }
       { ?s ?p ?o. } UNION { ?o ?p ?s. }
     }`);
@@ -60,7 +59,7 @@ async function oldSpine(ids: string[]): Promise<Set<string>> {
     ?st wikibase:rank ?rank. FILTER(?rank != wikibase:DeprecatedRank) }`;
   const rows = await sparql(`
     SELECT ?p ?c WHERE {
-      VALUES ?p { ${values(ids)} } VALUES ?c { ${values(ids)} }
+      VALUES ?p { ${sparqlValues(ids)} } VALUES ?c { ${sparqlValues(ids)} }
       { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c }
       ${excludeAdoptive} }`);
   const out = new Set<string>();
@@ -76,7 +75,7 @@ async function oldAdopted(ids: string[]): Promise<Set<string>> {
   const known = new Set(ids);
   const rows = await sparql(`
     SELECT ?s ?o ?k WHERE {
-      VALUES ?s { ${values(ids)} } VALUES ?k { ${KV} }
+      VALUES ?s { ${sparqlValues(ids)} } VALUES ?k { ${KV} }
       { { ?s p:P1038 ?st. ?st ps:P1038 ?o. }
         UNION { ?s p:P22 ?st. ?st ps:P22 ?o. }
         UNION { ?s p:P25 ?st. ?st ps:P25 ?o. }
@@ -99,7 +98,7 @@ async function oldForeign(ids: string[]): Promise<Set<string>> {
   const sweep = async (pattern: string) => {
     const hit = new Set<string>();
     const rows = await sparql(
-      `SELECT ?item WHERE { VALUES ?item { ${values(ids)} } ${pattern} }`,
+      `SELECT ?item WHERE { VALUES ?item { ${sparqlValues(ids)} } ${pattern} }`,
     );
     for (const r of rows) hit.add(qid(r.item!.value));
     return hit;
@@ -114,7 +113,7 @@ async function oldForeign(ids: string[]): Promise<Set<string>> {
 async function oldSex(ids: string[]): Promise<Map<string, string>> {
   const SEX: Record<string, string> = { Q6581097: "male", Q6581072: "female" };
   const rows = await sparql(
-    `SELECT ?p ?sex WHERE { VALUES ?p { ${values(ids)} } ?p wdt:P21 ?sex. }`,
+    `SELECT ?p ?sex WHERE { VALUES ?p { ${sparqlValues(ids)} } ?p wdt:P21 ?sex. }`,
   );
   const out = new Map<string, string>();
   for (const r of rows) {
@@ -131,7 +130,7 @@ async function newTruthyPairs(
 ): Promise<{ from: string; to: string }[]> {
   const rows = await sparql(`
     SELECT ?p ?c WHERE {
-      VALUES ?p { ${values(ids)} } VALUES ?c { ${values(ids)} }
+      VALUES ?p { ${sparqlValues(ids)} } VALUES ?c { ${sparqlValues(ids)} }
       { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c } }`);
   const out: { from: string; to: string }[] = [];
   const seen = new Set<string>();
