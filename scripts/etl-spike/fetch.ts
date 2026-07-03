@@ -17,11 +17,7 @@
 // per-edge rank/P1039/P1480) is captured once via attrs.ts into raw-*.json. The
 // adoptive split and foreign pruning are now pure-local transforms over that raw.
 
-import {
-  annotateParentEdges,
-  fetchAdoptiveEdges,
-  fetchNodeAttrs,
-} from "./attrs";
+import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
 import {
   RAW_ADOPTIONS,
   RAW_NODES,
@@ -139,8 +135,8 @@ async function main() {
 
   const attrs = await fetchNodeAttrs(ids);
   const rawNodes: RawNode[] = ids.map((q) => rawNodeOr(q, attrs));
-  const rawParent = await annotateParentEdges(parentPairs, ids);
-  const rawAdoptions = await fetchAdoptiveEdges(ids);
+  const { parent: rawParent, adoptions: rawAdoptions } =
+    await fetchParentAndAdoptions(ids, parentPairs);
   console.log(`  adoptive relations: ${rawAdoptions.length}`);
 
   await writeRaw(RAW_NODES, rawNodes);

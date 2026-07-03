@@ -16,11 +16,7 @@
 //    an adoption) now being kept instead of dropped — cannot appear here.
 //    Both are deliberate consequences of handling adoptions consistently.
 
-import {
-  annotateParentEdges,
-  fetchAdoptiveEdges,
-  fetchNodeAttrs,
-} from "./attrs";
+import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
 import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
 import { type RawNode, rawNodeOr } from "./raw";
 import { qid, sparql, sparqlValues } from "./wdqs";
@@ -197,8 +193,7 @@ async function main() {
     rawNodes.filter((n) => !isForeign(n)).map((n) => n.qid),
   );
   const pairs = await newTruthyPairs(ids);
-  await annotateParentEdges(pairs, ids); // exercised for coverage; not diffed
-  const nAdoptRaw = await fetchAdoptiveEdges(ids);
+  const { adoptions: nAdoptRaw } = await fetchParentAndAdoptions(ids, pairs);
   const nAdopted = new Set(
     nAdoptRaw.map((e) => `${e.from}->${e.to}`).filter((e) => keep2(nKept, e)),
   );

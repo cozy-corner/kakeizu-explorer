@@ -15,11 +15,7 @@
 //
 // Run: ROUNDS=1 bun run scripts/etl-spike/traverse.ts   (then transform.ts …)
 
-import {
-  annotateParentEdges,
-  fetchAdoptiveEdges,
-  fetchNodeAttrs,
-} from "./attrs";
+import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
 import {
   RAW_ADOPTIONS,
   RAW_NODES,
@@ -153,21 +149,21 @@ async function main() {
     if (known.size > SIZE_CAP) break;
   }
 
-  // Annotate the newly found parent edges with reified rank/P1039/P1480. Sweep
-  // both endpoints so child-side (P22/P25) and parent-side (P40) statements are
-  // both captured, matching how fetch.ts annotated its edges.
-  const subjects = new Set<string>();
+  // One reified sweep over the union of (a) all new nodes — so every new node's
+  // adoptive statements are derived — and (b) both endpoints of the new parent
+  // pairs — so parent-side (P40, on the possibly-old parent) rank is annotated.
+  const subjects = new Set<string>(allNewNodes);
   for (const e of newParentPairs) {
     subjects.add(e.from);
     subjects.add(e.to);
   }
-  const newRawParent = await annotateParentEdges(newParentPairs, [...subjects]);
+  const { parent: newRawParent, adoptions: sweptAdoptions } =
+    await fetchParentAndAdoptions([...subjects], newParentPairs);
 
-  // Adoptive relations for the new nodes as subjects. fetch.ts already swept its
-  // own nodes, so every final node is swept exactly once; merge + dedup.
+  // fetch.ts already swept its own nodes, so dedup against the existing set.
   const adoptionKeys = new Set(rawAdoptions.map((e) => `${e.from}->${e.to}`));
   const newAdoptions: RawAdoptiveEdge[] = [];
-  for (const e of await fetchAdoptiveEdges(allNewNodes)) {
+  for (const e of sweptAdoptions) {
     const key = `${e.from}->${e.to}`;
     if (adoptionKeys.has(key)) continue;
     adoptionKeys.add(key);

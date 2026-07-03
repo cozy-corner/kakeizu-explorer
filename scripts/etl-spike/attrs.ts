@@ -30,6 +30,8 @@ const RANK_ORDER: Record<Rank, number> = {
   deprecated: 0,
 };
 
+const KINSHIP_SET = new Set(KINSHIP);
+
 const pushUniq = (arr: string[], v: string) => {
   if (!arr.includes(v)) arr.push(v);
 };
@@ -145,21 +147,43 @@ async function fetchParentStatements(
   return byStatement;
 }
 
-// Annotate truthy parent→child edges with the reified attributes of their
-// statements. Truthy decides which edges exist (unchanged); the statements only
-// supply rank/role/sourcing. `role` is the first P1039 seen on either side's
-// statement — matching how the old EXCLUDE_ADOPTIVE looked for P1039 across
-// P22/P25 (child-side) and P40 (parent-side) alike.
-export async function annotateParentEdges(
-  edges: { from: string; to: string }[],
+// Split truthy parent→child edges into biological + adoptive, and annotate the
+// biological ones — all from ONE reified P22/P25/P40 sweep (issue #44: extract
+// each statement once, don't re-query the same reified form). Adoption recorded
+// via P1038 (generic "relative") can't come from parent statements, so it's the
+// lone extra sweep. Replaces the former annotateParentEdges + fetchAdoptiveEdges,
+// which swept P22/P25/P40 reified twice.
+export async function fetchParentAndAdoptions(
   subjects: string[],
-): Promise<RawParentEdge[]> {
-  const statements = await fetchParentStatements(subjects);
+  truthyEdges: { from: string; to: string }[],
+): Promise<{ parent: RawParentEdge[]; adoptions: RawAdoptiveEdge[] }> {
+  const statements = [...(await fetchParentStatements(subjects)).values()];
+  const adoptionKeys = new Set<string>(); // `from->to`, deduped
+  for (const e of adoptiveFromStatements(statements)) adoptionKeys.add(e);
+  for (const e of await fetchP1038Adoptions(subjects)) adoptionKeys.add(e);
+  return {
+    parent: annotateFromStatements(truthyEdges, statements),
+    adoptions: [...adoptionKeys].map((e) => {
+      const [from, to] = e.split("->");
+      return { from, to };
+    }),
+  };
+}
+
+// Attach each truthy edge's reified rank/role/sourcing. Truthy decides which
+// edges exist (unchanged); statements only supply attributes. role/sourcing come
+// only from non-deprecated statements so this metadata can't disagree with the
+// authoritative adoptive set. NOTE: the split uses `adoptions`, not this `role` —
+// role is per-edge annotation for later #43/presumed work.
+function annotateFromStatements(
+  edges: { from: string; to: string }[],
+  statements: ParentStatement[],
+): RawParentEdge[] {
   const childSide = new Map<string, ParentStatement>();
   const parentSide = new Map<string, ParentStatement>();
-  // When a pair has several statements on the same side, keep the best-rank one
-  // so the recorded *SideRank matches the truthy edge (which is best-rank) and
-  // doesn't flip with SPARQL result order across runs.
+  // On several same-side statements for a pair, keep the best-rank one so the
+  // recorded *SideRank matches the truthy (best-rank) edge and doesn't flip with
+  // SPARQL result order.
   const keepBest = (
     m: Map<string, ParentStatement>,
     key: string,
@@ -168,7 +192,7 @@ export async function annotateParentEdges(
     const cur = m.get(key);
     if (!cur || RANK_ORDER[s.rank] > RANK_ORDER[cur.rank]) m.set(key, s);
   };
-  for (const s of statements.values()) {
+  for (const s of statements) {
     const key = `${s.parent}->${s.child}`;
     keepBest(s.side === "child" ? childSide : parentSide, key, s);
   }
@@ -176,10 +200,6 @@ export async function annotateParentEdges(
     const key = `${from}->${to}`;
     const c = childSide.get(key);
     const p = parentSide.get(key);
-    // role/sourcing are drawn only from non-deprecated statements, so this
-    // metadata can't disagree with the authoritative adoptive set (raw-adoptions,
-    // which also drops DeprecatedRank). NOTE: the adoptive split uses that set,
-    // not this `role` — this is per-edge annotation for later #43/presumed work.
     const live = [c, p].filter(
       (s): s is ParentStatement => !!s && s.rank !== "deprecated",
     );
@@ -197,28 +217,41 @@ export async function annotateParentEdges(
   });
 }
 
-// Every ADOPTIVE relation among `subjects`, oriented adoptiveParent→child. A
-// verbatim port of the former fetch-adoptions.ts query: reified P1038/P22/P25/P40
-// qualified by P1039 ∈ KINSHIP, non-deprecated. The `known.has(o)` in-graph
-// filter moves to the local split (which keeps only edges between final nodes).
-// `wikibase:rank` sits after the UNION because `pq:P1039 ?k` (VALUES ?k) already
-// binds ?st to a small set — the 504 risk is only an unrestricted ?st.
-export async function fetchAdoptiveEdges(
-  subjects: string[],
-): Promise<RawAdoptiveEdge[]> {
+// Adoptive edges recorded inside the P22/P25/P40 statements we already fetched
+// (P1039 ∈ KINSHIP, non-deprecated), oriented adoptiveParent→child by role — the
+// same orientation the former fetch-adoptions.ts used. Derived in-memory; no
+// extra WDQS. Returns `from->to` keys.
+function adoptiveFromStatements(statements: ParentStatement[]): string[] {
+  const out: string[] = [];
+  for (const s of statements) {
+    if (s.rank === "deprecated") continue;
+    // Recover the reified subject/object: P22/P25 assert on the child, P40 on the
+    // parent. P1039 gives the OBJECT's kinship TO the SUBJECT, so 養父/養母
+    // (PARENT_ROLE) ⇒ object is the adoptive parent (obj→subj); else subj→obj.
+    const subj = s.side === "child" ? s.child : s.parent;
+    const obj = s.side === "child" ? s.parent : s.child;
+    for (const k of s.roles) {
+      if (!KINSHIP_SET.has(k)) continue;
+      const [from, to] = PARENT_ROLE.has(k) ? [obj, subj] : [subj, obj];
+      if (from !== to) out.push(`${from}->${to}`);
+    }
+  }
+  return out;
+}
+
+// Adoptions recorded via P1038 (generic "relative" + P1039) — the only adoptive
+// source not reachable from the parent statements, so the lone extra sweep.
+// `wikibase:rank` sits after the pattern because `pq:P1039 ?k` (VALUES ?k) binds
+// ?st to a small set — the 504 risk is only an unrestricted ?st. Returns keys.
+async function fetchP1038Adoptions(subjects: string[]): Promise<string[]> {
   const kinshipValues = sparqlValues(KINSHIP);
-  const edges = new Set<string>(); // `from->to`, deduped
+  const out: string[] = [];
   for (const b of chunk(subjects, EDGE_BATCH)) {
     const rows = await sparql(`
       SELECT ?s ?o ?k WHERE {
         VALUES ?s { ${sparqlValues(b)} }
         VALUES ?k { ${kinshipValues} }
-        {
-          { ?s p:P1038 ?st. ?st ps:P1038 ?o. }
-          UNION { ?s p:P22 ?st. ?st ps:P22 ?o. }
-          UNION { ?s p:P25 ?st. ?st ps:P25 ?o. }
-          UNION { ?s p:P40 ?st. ?st ps:P40 ?o. }
-        }
+        ?s p:P1038 ?st. ?st ps:P1038 ?o.
         ?st pq:P1039 ?k.
         ?st wikibase:rank ?rank.
         FILTER(?rank != wikibase:DeprecatedRank)
@@ -229,11 +262,8 @@ export async function fetchAdoptiveEdges(
       const k = qid(r.k!.value);
       if (s === o || !/^Q\d+$/.test(o)) continue;
       const [from, to] = PARENT_ROLE.has(k) ? [o, s] : [s, o];
-      edges.add(`${from}->${to}`);
+      out.push(`${from}->${to}`);
     }
   }
-  return [...edges].map((e) => {
-    const [from, to] = e.split("->");
-    return { from, to };
-  });
+  return out;
 }
