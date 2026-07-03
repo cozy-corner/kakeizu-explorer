@@ -1,5 +1,5 @@
-// Disposable ETL spike (PR2): fetch real family relations from Wikidata and
-// dump them to JSON. The goal is to validate data viability (connectivity +
+// Disposable ETL spike (PR2): fetch real family relations from Wikidata and dump
+// them to raw-*.json. The goal is to validate data viability (connectivity +
 // path quality), NOT production quality — see docs/specs/mvp-tasks.md (PR2).
 //
 // Run (strict, design-faithful population):  bun run scripts/etl-spike/fetch.ts
@@ -12,62 +12,50 @@
 //    other may be any human. This pulls in non-JP-tagged relatives as bridge
 //    nodes — a candidate fix if the strict graph turns out too fragmented.
 //
-// Scope (both modes, deliberately minimal): per node only { qid, label };
-// birth/death/image and the birthplace rescue are deferred to PR6.
+// Extraction (issue #44): topology comes from truthy `wdt:` (unchanged — it
+// decides which edges exist); every persisted attribute (label, sex, nationality,
+// per-edge rank/P1039/P1480) is captured once via attrs.ts into raw-*.json. The
+// adoptive split and foreign pruning are now pure-local transforms over that raw.
 
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { KINSHIP } from "./adoption-roles";
-import { sparql, sparqlValues } from "./wdqs";
+import {
+  annotateParentEdges,
+  fetchAdoptiveEdges,
+  fetchNodeAttrs,
+} from "./attrs";
+import {
+  RAW_ADOPTIONS,
+  RAW_NODES,
+  RAW_PARENT,
+  RAW_SIBLING,
+  RAW_SPOUSE,
+  type RawNode,
+  type RawPair,
+  writeRaw,
+} from "./raw";
+import { qid, sparql } from "./wdqs";
 
-const DATA_DIR = join(import.meta.dirname, "data");
 const RELAX = process.env.SPIKE_RELAX === "1";
 
-const LABEL_SERVICE =
-  'SERVICE wikibase:label { bd:serviceParam wikibase:language "ja,en". }';
-
-// Drop parent→child pairs whose P22/P25/P40 statement is qualified ADOPTIVE
-// (P1039 ∈ KINSHIP) so adoption never enters the biological PARENT_OF spine —
-// fetch-adoptions.ts re-captures them as ADOPTIVE_PARENT_OF. Biological P1039
-// clarifications (息子/実父/非嫡出子…) aren't in KINSHIP and stay. The DeprecatedRank
-// skip mirrors truthy `wdt:` (candidates already exclude deprecated), so a
-// known-wrong adoptive statement can't drop a valid blood edge.
-const EXCLUDE_ADOPTIVE = `FILTER NOT EXISTS {
-             VALUES ?k { ${sparqlValues(KINSHIP)} }
-             { ?c p:P22 ?st. ?st ps:P22 ?p. ?st pq:P1039 ?k. }
-             UNION { ?c p:P25 ?st. ?st ps:P25 ?p. ?st pq:P1039 ?k. }
-             UNION { ?p p:P40 ?st. ?st ps:P40 ?c. ?st pq:P1039 ?k. }
-             ?st wikibase:rank ?rank. FILTER(?rank != wikibase:DeprecatedRank) }`;
-
-// Entity URI (http://www.wikidata.org/entity/Q123) → bare Q-id.
-const qid = (uri: string) => uri.replace("http://www.wikidata.org/entity/", "");
-
-const nodes = new Map<string, string>(); // qid → label
-function remember(id: string, label: string | undefined) {
-  if (!nodes.has(id)) nodes.set(id, label ?? id);
-}
-
 // Parent → child, normalized from P22 (father) / P25 (mother) / P40 (child).
-async function fetchParentOf(): Promise<{ from: string; to: string }[]> {
-  // STRICT: both endpoints JP. RELAXED: union of (child JP, any parent) and
-  // (parent JP, any child) — each anchored on the JP node to stay under the
-  // WDQS 60s timeout.
+// Truthy only — no adoptive exclusion here anymore (split-adoptions.ts does it
+// locally from the reified role captured into raw-parent.json).
+async function fetchParentPairs(): Promise<{ from: string; to: string }[]> {
   const queries = RELAX
     ? [
-        `SELECT ?p ?pLabel ?c ?cLabel WHERE {
+        `SELECT ?p ?c WHERE {
            ?c wdt:P31 wd:Q5; wdt:P27 wd:Q17.
            { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c }
-           ?p wdt:P31 wd:Q5. ${EXCLUDE_ADOPTIVE} ${LABEL_SERVICE} }`,
-        `SELECT ?p ?pLabel ?c ?cLabel WHERE {
+           ?p wdt:P31 wd:Q5. }`,
+        `SELECT ?p ?c WHERE {
            ?p wdt:P31 wd:Q5; wdt:P27 wd:Q17.
            { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c }
-           ?c wdt:P31 wd:Q5. ${EXCLUDE_ADOPTIVE} ${LABEL_SERVICE} }`,
+           ?c wdt:P31 wd:Q5. }`,
       ]
     : [
-        `SELECT ?p ?pLabel ?c ?cLabel WHERE {
+        `SELECT ?p ?c WHERE {
            { ?c (wdt:P22|wdt:P25) ?p. } UNION { ?p wdt:P40 ?c. }
            ?c wdt:P31 wd:Q5; wdt:P27 wd:Q17.
-           ?p wdt:P31 wd:Q5; wdt:P27 wd:Q17. ${EXCLUDE_ADOPTIVE} ${LABEL_SERVICE} }`,
+           ?p wdt:P31 wd:Q5; wdt:P27 wd:Q17. }`,
       ];
   const seen = new Set<string>();
   const edges: { from: string; to: string }[] = [];
@@ -75,8 +63,6 @@ async function fetchParentOf(): Promise<{ from: string; to: string }[]> {
     for (const b of await sparql(q)) {
       const from = qid(b.p!.value);
       const to = qid(b.c!.value);
-      remember(from, b.pLabel?.value);
-      remember(to, b.cLabel?.value);
       const key = `${from}->${to}`;
       if (from !== to && !seen.has(key)) {
         seen.add(key);
@@ -88,33 +74,29 @@ async function fetchParentOf(): Promise<{ from: string; to: string }[]> {
 }
 
 // Symmetric relation (spouse / sibling): canonicalize the pair (sorted) so
-// A-B and B-A collapse to one edge.
-async function fetchSymmetric(
-  property: string,
-): Promise<{ a: string; b: string }[]> {
+// A-B and B-A collapse to one edge. Truthy — rank/qualifiers not needed here.
+async function fetchSymmetricPairs(property: string): Promise<RawPair[]> {
   const queries = RELAX
     ? [
-        `SELECT ?a ?aLabel ?b ?bLabel WHERE {
+        `SELECT ?a ?b WHERE {
            ?a wdt:P31 wd:Q5; wdt:P27 wd:Q17. ?a wdt:${property} ?b.
-           ?b wdt:P31 wd:Q5. ${LABEL_SERVICE} }`,
-        `SELECT ?a ?aLabel ?b ?bLabel WHERE {
+           ?b wdt:P31 wd:Q5. }`,
+        `SELECT ?a ?b WHERE {
            ?b wdt:P31 wd:Q5; wdt:P27 wd:Q17. ?a wdt:${property} ?b.
-           ?a wdt:P31 wd:Q5. ${LABEL_SERVICE} }`,
+           ?a wdt:P31 wd:Q5. }`,
       ]
     : [
-        `SELECT ?a ?aLabel ?b ?bLabel WHERE {
+        `SELECT ?a ?b WHERE {
            ?a wdt:${property} ?b.
            ?a wdt:P31 wd:Q5; wdt:P27 wd:Q17.
-           ?b wdt:P31 wd:Q5; wdt:P27 wd:Q17. ${LABEL_SERVICE} }`,
+           ?b wdt:P31 wd:Q5; wdt:P27 wd:Q17. }`,
       ];
   const seen = new Set<string>();
-  const edges: { a: string; b: string }[] = [];
+  const edges: RawPair[] = [];
   for (const q of queries) {
     for (const r of await sparql(q)) {
       const x = qid(r.a!.value);
       const y = qid(r.b!.value);
-      remember(x, r.aLabel?.value);
-      remember(y, r.bLabel?.value);
       if (x === y) continue;
       const [a, b] = x < y ? [x, y] : [y, x];
       const key = `${a}|${b}`;
@@ -131,21 +113,49 @@ async function main() {
   console.log(
     `Fetching from Wikidata (WDQS) — mode: ${RELAX ? "RELAXED" : "STRICT"}`,
   );
-  const parentOf = await fetchParentOf();
-  console.log(`  PARENT_OF: ${parentOf.length}`);
-  const spouseOf = await fetchSymmetric("P26");
-  console.log(`  SPOUSE_OF: ${spouseOf.length}`);
-  const siblingOf = await fetchSymmetric("P3373");
-  console.log(`  SIBLING_OF: ${siblingOf.length}`);
-  console.log(`  nodes (in some edge): ${nodes.size}`);
+  const parentPairs = await fetchParentPairs();
+  console.log(`  PARENT_OF (truthy): ${parentPairs.length}`);
+  const spouse = await fetchSymmetricPairs("P26");
+  console.log(`  SPOUSE_OF: ${spouse.length}`);
+  const sibling = await fetchSymmetricPairs("P3373");
+  console.log(`  SIBLING_OF: ${sibling.length}`);
 
-  await mkdir(DATA_DIR, { recursive: true });
-  const nodeRows = [...nodes].map(([id, label]) => ({ qid: id, label }));
-  await writeFile(join(DATA_DIR, "nodes.json"), JSON.stringify(nodeRows));
-  await writeFile(join(DATA_DIR, "parent_of.json"), JSON.stringify(parentOf));
-  await writeFile(join(DATA_DIR, "spouse_of.json"), JSON.stringify(spouseOf));
-  await writeFile(join(DATA_DIR, "sibling_of.json"), JSON.stringify(siblingOf));
-  console.log(`Wrote JSON to ${DATA_DIR}`);
+  const nodeIds = new Set<string>();
+  for (const e of parentPairs) {
+    nodeIds.add(e.from);
+    nodeIds.add(e.to);
+  }
+  for (const e of spouse) {
+    nodeIds.add(e.a);
+    nodeIds.add(e.b);
+  }
+  for (const e of sibling) {
+    nodeIds.add(e.a);
+    nodeIds.add(e.b);
+  }
+  const ids = [...nodeIds];
+  console.log(`  nodes (in some edge): ${ids.length}`);
+
+  const attrs = await fetchNodeAttrs(ids);
+  const rawNodes: RawNode[] = ids.map(
+    (q) =>
+      attrs.get(q) ?? {
+        qid: q,
+        label: q,
+        nationalities: [],
+        nationalityCountries: [],
+      },
+  );
+  const rawParent = await annotateParentEdges(parentPairs, ids);
+  const rawAdoptions = await fetchAdoptiveEdges(ids);
+  console.log(`  adoptive relations: ${rawAdoptions.length}`);
+
+  await writeRaw(RAW_NODES, rawNodes);
+  await writeRaw(RAW_PARENT, rawParent);
+  await writeRaw(RAW_SPOUSE, spouse);
+  await writeRaw(RAW_SIBLING, sibling);
+  await writeRaw(RAW_ADOPTIONS, rawAdoptions);
+  console.log("Wrote raw-*.json");
 }
 
 await main();
