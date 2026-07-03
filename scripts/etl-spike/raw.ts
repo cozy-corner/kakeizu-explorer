@@ -54,10 +54,21 @@ export interface RawPair {
 // its own raw stream because adoption is recorded in ways the truthy parent
 // spine can't reach: via P1038 (generic "relative") and via non-best-rank
 // P22/P25/P40 statements. The local split filters these to in-graph nodes.
-export interface RawEdge {
+export interface RawAdoptiveEdge {
   from: string;
   to: string;
 }
+
+// A node's captured attributes, or an empty-attribute default keyed by qid (for
+// a node Wikidata returned nothing for). One place for the default shape so it
+// stays correct if RawNode grows fields.
+export const rawNodeOr = (q: string, attrs: Map<string, RawNode>): RawNode =>
+  attrs.get(q) ?? {
+    qid: q,
+    label: q,
+    nationalities: [],
+    nationalityCountries: [],
+  };
 
 export async function readRaw<T>(name: string): Promise<T> {
   return JSON.parse(await readFile(join(DATA_DIR, name), "utf8")) as T;

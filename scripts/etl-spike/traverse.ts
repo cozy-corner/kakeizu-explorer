@@ -26,10 +26,11 @@ import {
   RAW_PARENT,
   RAW_SIBLING,
   RAW_SPOUSE,
-  type RawEdge,
+  type RawAdoptiveEdge,
   type RawNode,
   type RawPair,
   type RawParentEdge,
+  rawNodeOr,
   readRaw,
   writeRaw,
 } from "./raw";
@@ -59,7 +60,7 @@ async function main() {
   const rawParent = await readRaw<RawParentEdge[]>(RAW_PARENT);
   const rawSpouse = await readRaw<RawPair[]>(RAW_SPOUSE);
   const rawSibling = await readRaw<RawPair[]>(RAW_SIBLING);
-  const rawAdoptions = await readRaw<RawEdge[]>(RAW_ADOPTIONS);
+  const rawAdoptions = await readRaw<RawAdoptiveEdge[]>(RAW_ADOPTIONS);
 
   const nodeById = new Map(rawNodes.map((n) => [n.qid, n]));
   const known = new Set(nodeById.keys());
@@ -132,15 +133,7 @@ async function main() {
     // for the next frontier's narrow rule and for local foreign-pruning later.
     const attrs = await fetchNodeAttrs(roundNewNodes);
     for (const q of roundNewNodes) {
-      nodeById.set(
-        q,
-        attrs.get(q) ?? {
-          qid: q,
-          label: q,
-          nationalities: [],
-          nationalityCountries: [],
-        },
-      );
+      nodeById.set(q, rawNodeOr(q, attrs));
       allNewNodes.push(q);
     }
 
@@ -173,7 +166,7 @@ async function main() {
   // Adoptive relations for the new nodes as subjects. fetch.ts already swept its
   // own nodes, so every final node is swept exactly once; merge + dedup.
   const adoptionKeys = new Set(rawAdoptions.map((e) => `${e.from}->${e.to}`));
-  const newAdoptions: RawEdge[] = [];
+  const newAdoptions: RawAdoptiveEdge[] = [];
   for (const e of await fetchAdoptiveEdges(allNewNodes)) {
     const key = `${e.from}->${e.to}`;
     if (adoptionKeys.has(key)) continue;

@@ -30,6 +30,7 @@ import {
   RAW_SPOUSE,
   type RawNode,
   type RawPair,
+  rawNodeOr,
   writeRaw,
 } from "./raw";
 import { qid, sparql } from "./wdqs";
@@ -137,15 +138,7 @@ async function main() {
   console.log(`  nodes (in some edge): ${ids.length}`);
 
   const attrs = await fetchNodeAttrs(ids);
-  const rawNodes: RawNode[] = ids.map(
-    (q) =>
-      attrs.get(q) ?? {
-        qid: q,
-        label: q,
-        nationalities: [],
-        nationalityCountries: [],
-      },
-  );
+  const rawNodes: RawNode[] = ids.map((q) => rawNodeOr(q, attrs));
   const rawParent = await annotateParentEdges(parentPairs, ids);
   const rawAdoptions = await fetchAdoptiveEdges(ids);
   console.log(`  adoptive relations: ${rawAdoptions.length}`);

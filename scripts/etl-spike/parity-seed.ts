@@ -22,7 +22,7 @@ import {
   fetchNodeAttrs,
 } from "./attrs";
 import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
-import type { RawNode } from "./raw";
+import { type RawNode, rawNodeOr } from "./raw";
 import { qid, sparql, sparqlValues } from "./wdqs";
 
 // Seeds chosen to exercise the risky paths: disputed/deprecated fathers
@@ -192,15 +192,7 @@ async function main() {
 
   // NEW
   const attrs = await fetchNodeAttrs(ids);
-  const rawNodes = ids.map(
-    (q) =>
-      attrs.get(q) ?? {
-        qid: q,
-        label: q,
-        nationalities: [],
-        nationalityCountries: [],
-      },
-  );
+  const rawNodes = ids.map((q) => rawNodeOr(q, attrs));
   const nKept = new Set(
     rawNodes.filter((n) => !isForeign(n)).map((n) => n.qid),
   );

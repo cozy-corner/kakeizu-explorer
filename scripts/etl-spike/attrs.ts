@@ -8,7 +8,7 @@
 
 import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
 import { chunk, qid, sparql, sparqlValues } from "./wdqs";
-import type { Rank, RawEdge, RawNode, RawParentEdge, Sex } from "./raw";
+import type { Rank, RawAdoptiveEdge, RawNode, RawParentEdge, Sex } from "./raw";
 
 const NODE_BATCH = 400;
 const EDGE_BATCH = 120; // reified form is heavier — keep the VALUES list small
@@ -22,6 +22,12 @@ const RANK_URI: Record<string, Rank> = {
   "http://wikiba.se/ontology#PreferredRank": "preferred",
   "http://wikiba.se/ontology#NormalRank": "normal",
   "http://wikiba.se/ontology#DeprecatedRank": "deprecated",
+};
+
+const RANK_ORDER: Record<Rank, number> = {
+  preferred: 2,
+  normal: 1,
+  deprecated: 0,
 };
 
 const pushUniq = (arr: string[], v: string) => {
@@ -151,9 +157,20 @@ export async function annotateParentEdges(
   const statements = await fetchParentStatements(subjects);
   const childSide = new Map<string, ParentStatement>();
   const parentSide = new Map<string, ParentStatement>();
+  // When a pair has several statements on the same side, keep the best-rank one
+  // so the recorded *SideRank matches the truthy edge (which is best-rank) and
+  // doesn't flip with SPARQL result order across runs.
+  const keepBest = (
+    m: Map<string, ParentStatement>,
+    key: string,
+    s: ParentStatement,
+  ) => {
+    const cur = m.get(key);
+    if (!cur || RANK_ORDER[s.rank] > RANK_ORDER[cur.rank]) m.set(key, s);
+  };
   for (const s of statements.values()) {
     const key = `${s.parent}->${s.child}`;
-    (s.side === "child" ? childSide : parentSide).set(key, s);
+    keepBest(s.side === "child" ? childSide : parentSide, key, s);
   }
   return edges.map(({ from, to }) => {
     const key = `${from}->${to}`;
@@ -188,7 +205,7 @@ export async function annotateParentEdges(
 // binds ?st to a small set — the 504 risk is only an unrestricted ?st.
 export async function fetchAdoptiveEdges(
   subjects: string[],
-): Promise<RawEdge[]> {
+): Promise<RawAdoptiveEdge[]> {
   const kinshipValues = sparqlValues(KINSHIP);
   const edges = new Set<string>(); // `from->to`, deduped
   for (const b of chunk(subjects, EDGE_BATCH)) {

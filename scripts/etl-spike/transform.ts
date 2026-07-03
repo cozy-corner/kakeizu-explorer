@@ -16,7 +16,7 @@ import {
   RAW_PARENT,
   RAW_SIBLING,
   RAW_SPOUSE,
-  type RawEdge,
+  type RawAdoptiveEdge,
   type RawNode,
   type RawPair,
   type RawParentEdge,
@@ -30,7 +30,7 @@ async function main() {
   const parent = await readRaw<RawParentEdge[]>(RAW_PARENT);
   const spouse = await readRaw<RawPair[]>(RAW_SPOUSE);
   const sibling = await readRaw<RawPair[]>(RAW_SIBLING);
-  const adoptions = await readRaw<RawEdge[]>(RAW_ADOPTIONS);
+  const adoptions = await readRaw<RawAdoptiveEdge[]>(RAW_ADOPTIONS);
 
   // Foreign pruning (broad rule): a node is foreign — and removed — iff it has a
   // nationality (P27) but none of its citizenships is Japanese, where Japanese =
