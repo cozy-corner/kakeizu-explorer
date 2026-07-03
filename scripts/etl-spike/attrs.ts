@@ -159,10 +159,16 @@ export async function annotateParentEdges(
     const key = `${from}->${to}`;
     const c = childSide.get(key);
     const p = parentSide.get(key);
-    const roles = [...(c?.roles ?? []), ...(p?.roles ?? [])];
+    // role/sourcing are drawn only from non-deprecated statements, so this
+    // metadata can't disagree with the authoritative adoptive set (raw-adoptions,
+    // which also drops DeprecatedRank). NOTE: the adoptive split uses that set,
+    // not this `role` — this is per-edge annotation for later #43/presumed work.
+    const live = [c, p].filter(
+      (s): s is ParentStatement => !!s && s.rank !== "deprecated",
+    );
+    const roles = live.flatMap((s) => s.roles);
     const sourcing: string[] = [];
-    for (const v of [...(c?.sourcing ?? []), ...(p?.sourcing ?? [])])
-      pushUniq(sourcing, v);
+    for (const v of live.flatMap((s) => s.sourcing)) pushUniq(sourcing, v);
     return {
       from,
       to,
