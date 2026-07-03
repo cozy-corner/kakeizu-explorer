@@ -7,9 +7,14 @@
 //
 // Run: bun run scripts/etl-spike/parity-seed.ts
 //
-// The one intended difference (traverse-discovered adoptions no longer leaking
-// into the spine) cannot appear here: this check is fetch-shaped (no frontier
-// expansion), where old and new both drop adoptions from the spine.
+// Scope — what this proves and what it does NOT:
+//  - PROVES data-path equivalence on a FIXED node set: given the same nodes,
+//    old and new agree on foreign-pruning, the spine, the adoptive set, and sex.
+//  - Does NOT certify node MEMBERSHIP: both paths run over the same `ids`, so the
+//    two intended #44 divergences — traverse-discovered adoptions no longer
+//    leaking into the spine, and adoptive-only nodes (whose sole family link is
+//    an adoption) now being kept instead of dropped — cannot appear here.
+//    Both are deliberate consequences of handling adoptions consistently.
 
 import {
   annotateParentEdges,
