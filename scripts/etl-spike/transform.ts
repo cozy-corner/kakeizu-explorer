@@ -90,8 +90,14 @@ async function main() {
   await out("adopted_of.json", keptAdoptions);
 
   const foreign = nodes.length - keptNodes.length;
+  // Mirror the spine gate so this counts only edges dropped FOR deprecation, not
+  // ones the adoptive split already removed (kept exact even though the two sets
+  // don't overlap in practice: an adoptive key implies a non-deprecated statement).
   const deprecated = parent.filter(
-    (e) => keep2(e.from, e.to) && isDeprecatedParent(e),
+    (e) =>
+      keep2(e.from, e.to) &&
+      !adoptiveKeys.has(`${e.from}->${e.to}`) &&
+      isDeprecatedParent(e),
   ).length;
   console.log(
     `Kept ${keptNodes.length} nodes (pruned ${foreign} foreign), ` +
