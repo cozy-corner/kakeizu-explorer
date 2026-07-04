@@ -7,9 +7,9 @@ export type PersonId = string & { readonly __brand: "PersonId" };
 export type JunctionId = string & { readonly __brand: "JunctionId" };
 
 // Wikidata P21 as the ETL stores it: male/female, with anything else (intersex,
-// trans, …) collapsed to "other" — see scripts/etl-spike/add-sex.ts. Absent ⇒
-// undefined. The patrilineal reduction tests `!== "female"`, so male/other/unknown
-// are all father candidates.
+// trans, …) collapsed to "other" — see scripts/etl-spike/attrs.ts (SEX_QID).
+// Absent ⇒ undefined. The patrilineal reduction tests `!== "female"`, so
+// male/other/unknown are all father candidates.
 export type Sex = "male" | "female" | "other";
 
 // A recorded blood/marriage/adoption relationship (a Neo4j relationship type).

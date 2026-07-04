@@ -14,10 +14,10 @@ async function readJson<T>(name: string): Promise<T> {
   return JSON.parse(await readFile(join(DATA_DIR, name), "utf8")) as T;
 }
 
-// adopted_of.json is produced by the fetch-adoptions stage. A MISSING file is
-// benign (a partial pipeline run that skipped that stage) ⇒ empty; a parse error
-// or I/O fault must surface, or a corrupted adopted_of.json would silently drop
-// every adoption edge.
+// adopted_of.json is produced by transform.ts. A MISSING file is benign (a
+// partial pipeline run before the transform stage) ⇒ empty; a parse error or I/O
+// fault must surface, or a corrupted adopted_of.json would silently drop every
+// adoption edge.
 async function readJsonOpt<T>(name: string, fallback: T): Promise<T> {
   try {
     return await readJson<T>(name);
@@ -45,7 +45,10 @@ async function count(session: Session, cypher: string): Promise<number> {
 }
 
 async function main() {
-  const nodes = await readJson<{ qid: string; label: string }[]>("nodes.json");
+  const nodes =
+    await readJson<{ qid: string; label: string; sex?: string }[]>(
+      "nodes.json",
+    );
   const parentOf =
     await readJson<{ from: string; to: string }[]>("parent_of.json");
   const spouseOf = await readJson<{ a: string; b: string }[]>("spouse_of.json");
@@ -66,10 +69,13 @@ async function main() {
     );
 
     console.log(`Loading ${nodes.length} nodes…`);
+    // sex comes from raw now (issue #44); r.sex is null for nodes Wikidata has no
+    // P21 for, and SET …= null leaves the property unset — same as the old
+    // add-sex.ts, which only tagged nodes that had a sex.
     await batched(
       session,
       nodes,
-      "UNWIND $rows AS r MERGE (p:Person {qid: r.qid}) SET p.label = r.label",
+      "UNWIND $rows AS r MERGE (p:Person {qid: r.qid}) SET p.label = r.label, p.sex = r.sex",
     );
 
     console.log(`Loading ${parentOf.length} PARENT_OF…`);

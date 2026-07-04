@@ -12,14 +12,18 @@ PR3 以降に進む価値があるか、そして本番 ETL(PR6) の方式を判
 
 ```bash
 docker compose up -d                                   # Neo4j
-SPIKE_RELAX=1 bun run scripts/etl-spike/fetch.ts       # 種＋1ホップ(片端が日本人の辺)
-bun run scripts/etl-spike/traverse.ts                  # 非日本人フロンティアを1段外へ展開
-bun run scripts/etl-spike/filter-foreign.ts            # 外国人ノードを剪定
-bun run scripts/etl-spike/fetch-adoptions.ts           # 養子(P1038+P1039)を adopted_of.json に
-bun run scripts/etl-spike/load.ts                      # JSON → Neo4j(:Person を毎回リセット)
+SPIKE_RELAX=1 bun run scripts/etl-spike/fetch.ts       # E: 種＋1ホップ。全属性を raw-*.json へ
+bun run scripts/etl-spike/traverse.ts                  # E: 非日本人フロンティアを1段外へ展開
+bun run scripts/etl-spike/transform.ts                 # T: 外国人剪定＋養子分離（WDQS ゼロ・ローカル）
+bun run scripts/etl-spike/load.ts                      # L: JSON → Neo4j(:Person を毎回リセット)
 bun run scripts/etl-spike/verify.ts                    # WCC 連結性 + 既知ペアの shortestPath
 bun run scripts/etl-spike/check-wiki.ts                # ja.wikipedia 記事の被覆率
 ```
+
+> #44 で抽出(E)を一元化した。属性（性別 P21・国籍 P27/P27→P17・辺の rank/P1039/P1480・
+> 養子 P1038+P1039）は fetch/traverse が発見時に一度だけ取り `raw-*.json` へ永続化し、
+> 外国人剪定・養子分離は `transform.ts` が raw をローカル変換するだけ（WDQS 再訪ゼロ）。
+> 旧 `filter-foreign.ts` / `fetch-adoptions.ts` / `add-sex.ts` は廃止。
 
 > verify.ts の WCC は GDS を使う。計測時のみ docker-compose の neo4j に `NEO4J_PLUGINS: '["graph-data-science"]'` を足して `docker compose up -d` で再生成する（本番アプリは GDS 不要なので既定では入れない）。
 
