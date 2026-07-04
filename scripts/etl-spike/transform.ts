@@ -52,12 +52,13 @@ async function main() {
   // known.has(o) guard).
   const keptAdoptions = adoptions.filter((e) => keep2(e.from, e.to));
 
-  // Drop deprecated父辺 (issue #43): Wikidata records a parent link as two
-  // unsynced statements (child-side P22/P25, parent-side P40); truthy keeps the
-  // edge if EITHER side's best rank is non-deprecated, so a normal parent-side
-  // P40 leaks a father the child-side deprecated as wrong (諸説・落胤説). Exclude
-  // the pair when either side's rank is deprecated. undefined ≠ deprecated (a
-  // missing statement didn't deprecate anything), so those stay.
+  // Drop deprecated parent edges (issue #43): Wikidata records a parent link as
+  // two unsynced statements (child-side P22/P25, parent-side P40); truthy keeps
+  // the edge if EITHER side's best rank is non-deprecated, so a normal
+  // parent-side P40 leaks a father the child side deprecated as wrong (disputed
+  // parentage / rumored-illegitimate-child claims). Exclude the pair when either
+  // side's rank is deprecated. undefined != deprecated (a missing statement
+  // didn't deprecate anything), so those stay.
   const isDeprecatedParent = (e: RawParentEdge) =>
     e.childSideRank === "deprecated" || e.parentSideRank === "deprecated";
 
