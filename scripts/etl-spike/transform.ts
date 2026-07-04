@@ -52,13 +52,26 @@ async function main() {
   // known.has(o) guard).
   const keptAdoptions = adoptions.filter((e) => keep2(e.from, e.to));
 
+  // Drop deprecated parent edges (issue #43): Wikidata records a parent link as
+  // two unsynced statements (child-side P22/P25, parent-side P40); truthy keeps
+  // the edge if EITHER side's best rank is non-deprecated, so a normal
+  // parent-side P40 leaks a father the child side deprecated as wrong (disputed
+  // parentage / rumored-illegitimate-child claims). Exclude the pair when either
+  // side's rank is deprecated. undefined != deprecated (a missing statement
+  // didn't deprecate anything), so those stay.
+  const isDeprecatedParent = (e: RawParentEdge) =>
+    e.childSideRank === "deprecated" || e.parentSideRank === "deprecated";
+
   // Adoptive split (consistent orientation): every adoptive parent→child edge is
   // an ADOPTIVE_PARENT_OF and is removed from the biological PARENT_OF spine —
   // both fetch- and traverse-discovered alike (see PR notes: this drops the old
   // asymmetry where traverse-found adoptions leaked into the spine).
   const adoptiveKeys = new Set(keptAdoptions.map((e) => `${e.from}->${e.to}`));
   const spine = parent.filter(
-    (e) => keep2(e.from, e.to) && !adoptiveKeys.has(`${e.from}->${e.to}`),
+    (e) =>
+      keep2(e.from, e.to) &&
+      !adoptiveKeys.has(`${e.from}->${e.to}`) &&
+      !isDeprecatedParent(e),
   );
 
   const nodeRows = keptNodes.map((n) => ({
@@ -77,9 +90,19 @@ async function main() {
   await out("adopted_of.json", keptAdoptions);
 
   const foreign = nodes.length - keptNodes.length;
+  // Mirror the spine gate so this counts only edges dropped FOR deprecation, not
+  // ones the adoptive split already removed (kept exact even though the two sets
+  // don't overlap in practice: an adoptive key implies a non-deprecated statement).
+  const deprecated = parent.filter(
+    (e) =>
+      keep2(e.from, e.to) &&
+      !adoptiveKeys.has(`${e.from}->${e.to}`) &&
+      isDeprecatedParent(e),
+  ).length;
   console.log(
     `Kept ${keptNodes.length} nodes (pruned ${foreign} foreign), ` +
-      `${parentRows.length} PARENT_OF, ${keptSpouse.length} SPOUSE_OF, ` +
+      `${parentRows.length} PARENT_OF (dropped ${deprecated} deprecated), ` +
+      `${keptSpouse.length} SPOUSE_OF, ` +
       `${keptSibling.length} SIBLING_OF, ${keptAdoptions.length} ADOPTIVE_PARENT_OF`,
   );
 }
