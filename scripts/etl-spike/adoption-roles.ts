@@ -1,7 +1,8 @@
 // P1039 (kinship to subject) values that mark an ADOPTIVE parent/child relation.
-// attrs.ts's fetchAdoptiveEdges uses these to capture ADOPTIVE_PARENT_OF edges
-// into raw; transform.ts then removes those same edges from the biological
-// PARENT_OF spine — one shared definition so capture and split can't drift.
+// attrs.ts (adoptiveFromStatements / fetchP1038Adoptions) uses these to capture
+// ADOPTIVE_PARENT_OF edges into raw; transform.ts then removes those same edges
+// from the biological PARENT_OF spine — one shared definition so capture and
+// split can't drift.
 
 // The object is the subject's adoptive PARENT.
 export const PARENT_ROLE = new Set([

@@ -103,7 +103,7 @@ interface ParentStatement {
 // EXCLUDE_ADOPTIVE subquery and fetch-adoptions.ts's separate reified fetch.
 async function fetchParentStatements(
   subjects: string[],
-): Promise<Map<string, ParentStatement>> {
+): Promise<ParentStatement[]> {
   const byStatement = new Map<string, ParentStatement>();
   for (const b of chunk(subjects, EDGE_BATCH)) {
     const rows = await sparql(`
@@ -144,7 +144,16 @@ async function fetchParentStatements(
       if (r.circ) pushUniq(s.sourcing, qid(r.circ.value));
     }
   }
-  return byStatement;
+  return [...byStatement.values()];
+}
+
+// Orient one adoptive relation to adoptiveParent→child and return its `from->to`
+// key (null for a self-loop). P1039 gives the OBJECT's kinship TO the SUBJECT, so
+// 養父/養母 (PARENT_ROLE) ⇒ the object is the adoptive parent (obj→subj); every
+// other kinship ⇒ the object is the adoptive child (subj→obj).
+function adoptiveKey(subj: string, obj: string, role: string): string | null {
+  const [from, to] = PARENT_ROLE.has(role) ? [obj, subj] : [subj, obj];
+  return from === to ? null : `${from}->${to}`;
 }
 
 // Split truthy parent→child edges into biological + adoptive, and annotate the
@@ -157,7 +166,7 @@ export async function fetchParentAndAdoptions(
   subjects: string[],
   truthyEdges: { from: string; to: string }[],
 ): Promise<{ parent: RawParentEdge[]; adoptions: RawAdoptiveEdge[] }> {
-  const statements = [...(await fetchParentStatements(subjects)).values()];
+  const statements = await fetchParentStatements(subjects);
   const adoptionKeys = new Set<string>(); // `from->to`, deduped
   for (const e of adoptiveFromStatements(statements)) adoptionKeys.add(e);
   for (const e of await fetchP1038Adoptions(subjects)) adoptionKeys.add(e);
@@ -226,14 +235,13 @@ function adoptiveFromStatements(statements: ParentStatement[]): string[] {
   for (const s of statements) {
     if (s.rank === "deprecated") continue;
     // Recover the reified subject/object: P22/P25 assert on the child, P40 on the
-    // parent. P1039 gives the OBJECT's kinship TO the SUBJECT, so 養父/養母
-    // (PARENT_ROLE) ⇒ object is the adoptive parent (obj→subj); else subj→obj.
+    // parent.
     const subj = s.side === "child" ? s.child : s.parent;
     const obj = s.side === "child" ? s.parent : s.child;
     for (const k of s.roles) {
       if (!KINSHIP_SET.has(k)) continue;
-      const [from, to] = PARENT_ROLE.has(k) ? [obj, subj] : [subj, obj];
-      if (from !== to) out.push(`${from}->${to}`);
+      const key = adoptiveKey(subj, obj, k);
+      if (key) out.push(key);
     }
   }
   return out;
@@ -260,9 +268,9 @@ async function fetchP1038Adoptions(subjects: string[]): Promise<string[]> {
       const s = qid(r.s!.value);
       const o = qid(r.o!.value);
       const k = qid(r.k!.value);
-      if (s === o || !/^Q\d+$/.test(o)) continue;
-      const [from, to] = PARENT_ROLE.has(k) ? [o, s] : [s, o];
-      out.push(`${from}->${to}`);
+      if (!/^Q\d+$/.test(o)) continue;
+      const key = adoptiveKey(s, o, k);
+      if (key) out.push(key);
     }
   }
   return out;
