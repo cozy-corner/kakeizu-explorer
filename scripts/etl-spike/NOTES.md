@@ -15,9 +15,34 @@ docker compose up -d                                   # Neo4j
 SPIKE_RELAX=1 bun run scripts/etl-spike/fetch.ts       # E: 種＋1ホップ。全属性を raw-*.json へ
 bun run scripts/etl-spike/traverse.ts                  # E: 非日本人フロンティアを1段外へ展開
 bun run scripts/etl-spike/transform.ts                 # T: 外国人剪定＋養子分離（WDQS ゼロ・ローカル）
+bash scripts/etl-spike/backup-neo4j.sh                  # L の前に現行グラフを .dump へ退避（下記）
 bun run scripts/etl-spike/load.ts                      # L: JSON → Neo4j(:Person を毎回リセット)
 bun run scripts/etl-spike/verify.ts                    # WCC 連結性 + 既知ペアの shortestPath
 bun run scripts/etl-spike/check-wiki.ts                # ja.wikipedia 記事の被覆率
+```
+
+## load 前のバックアップ（必須）
+
+`data/` は `.gitignore` 済みで中間 JSON はコミットされない＝**いまの Neo4j グラフを再現できる元データはローカルにしか無い**。`load.ts` は冒頭で `:Person` を `DETACH DELETE` するため、取り込み結果が不正でも戻す手段が無い。Wikidata は日々変わるので同じ入力の再生成も保証できない。よって **load の直前に必ずダンプを取る**。
+
+Neo4j 5 Community は稼働中DBのダンプ不可なので、コンテナを止めて同じボリュームをマウントしたワンオフコンテナで `neo4j-admin database dump` する（`backup-neo4j.sh` がこれを行う）。出力は `scripts/etl-spike/data/backups/`（`data/` ごと gitignore 済み）。
+
+```bash
+# バックアップ（backup-neo4j.sh の中身）
+docker compose stop neo4j
+docker run --rm \
+  -v kakeizu_neo4j-data:/data \
+  -v "$PWD/scripts/etl-spike/data/backups:/backups" \
+  neo4j:5 neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true
+docker compose up -d neo4j
+
+# 復元（新 ETL の結果が不正だったとき）
+docker compose stop neo4j
+docker run --rm \
+  -v kakeizu_neo4j-data:/data \
+  -v "$PWD/scripts/etl-spike/data/backups:/backups" \
+  neo4j:5 neo4j-admin database load neo4j --from-path=/backups --overwrite-destination=true
+docker compose up -d neo4j
 ```
 
 > #44 で抽出(E)を一元化した。属性（性別 P21・国籍 P27/P27→P17・辺の rank/P1039/P1480・
