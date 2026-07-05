@@ -7,8 +7,10 @@ import {
   neighborsToGraph,
   patrilinealEdges,
   pathToGraph,
+  type PersonId,
   personsToGraph,
   siblingAdoptiveEdges,
+  withoutAdoptions,
 } from "./graph";
 
 test("maps person rows into graph nodes, preserving qid and label", () => {
@@ -423,4 +425,89 @@ test("ego drawn: keeps a cross-generation adoption", () => {
     target: "nephew",
     type: "ADOPTIVE_PARENT_OF",
   });
+});
+
+test("withoutAdoptions: drops the adoptive edge and the now-orphaned 養父", () => {
+  const graph: Graph = {
+    nodes: [
+      { qid: "ego", label: "養子", sex: "male" },
+      { qid: "father", label: "実父", sex: "male" },
+      { qid: "adopter", label: "養父", sex: "male" },
+    ],
+    edges: [
+      { source: "father", target: "ego", type: "PARENT_OF" },
+      { source: "adopter", target: "ego", type: "ADOPTIVE_PARENT_OF" },
+    ],
+  };
+
+  expect(withoutAdoptions(graph, "ego" as PersonId)).toEqual({
+    nodes: [
+      { qid: "ego", label: "養子", sex: "male" },
+      { qid: "father", label: "実父", sex: "male" },
+    ],
+    edges: [{ source: "father", target: "ego", type: "PARENT_OF" }],
+  });
+});
+
+test("withoutAdoptions: drops a floating 養父+養母 couple unreachable from focus", () => {
+  const graph: Graph = {
+    nodes: [
+      { qid: "ego", label: "養子", sex: "male" },
+      { qid: "father", label: "実父", sex: "male" },
+      { qid: "adopter", label: "養父", sex: "male" },
+      { qid: "adoptMother", label: "養母", sex: "female" },
+    ],
+    edges: [
+      { source: "father", target: "ego", type: "PARENT_OF" },
+      { source: "adopter", target: "ego", type: "ADOPTIVE_PARENT_OF" },
+      // 養父 hangs onto 養母 by marriage; neither reaches the blood tree once the
+      // adoptive edge is gone, so both must fall away rather than float.
+      { source: "adopter", target: "adoptMother", type: "SPOUSE_OF" },
+    ],
+  };
+
+  expect(
+    withoutAdoptions(graph, "ego" as PersonId).nodes.map((n) => n.qid),
+  ).toEqual(["ego", "father"]);
+});
+
+test("withoutAdoptions: keeps an adoptive parent who is also blood-connected", () => {
+  // Uncle adopts nephew (家督 succession), but both descend from the grandfather,
+  // so the uncle stays on the blood tree; only the adoptive edge is stripped.
+  const graph: Graph = {
+    nodes: [
+      { qid: "GF", label: "祖父", sex: "male" },
+      { qid: "uncle", label: "叔父", sex: "male" },
+      { qid: "parent", label: "親", sex: "male" },
+      { qid: "nephew", label: "甥", sex: "male" },
+    ],
+    edges: [
+      { source: "GF", target: "uncle", type: "PARENT_OF" },
+      { source: "GF", target: "parent", type: "PARENT_OF" },
+      { source: "parent", target: "nephew", type: "PARENT_OF" },
+      { source: "uncle", target: "nephew", type: "ADOPTIVE_PARENT_OF" },
+    ],
+  };
+
+  const result = withoutAdoptions(graph, "nephew" as PersonId);
+  expect(result.nodes.map((n) => n.qid).sort()).toEqual([
+    "GF",
+    "nephew",
+    "parent",
+    "uncle",
+  ]);
+  expect(result.edges).not.toContainEqual({
+    source: "uncle",
+    target: "nephew",
+    type: "ADOPTIVE_PARENT_OF",
+  });
+});
+
+test("withoutAdoptions: keeps an isolated focus with no edges", () => {
+  const graph: Graph = {
+    nodes: [{ qid: "ego", label: "本人", sex: "male" }],
+    edges: [],
+  };
+
+  expect(withoutAdoptions(graph, "ego" as PersonId)).toEqual(graph);
 });
