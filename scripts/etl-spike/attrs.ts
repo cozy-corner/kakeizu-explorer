@@ -37,10 +37,12 @@ const pushUniq = (arr: string[], v: string) => {
 };
 
 // label (ja,en) + sex (P21) + nationalities (P27) + nationality countries
-// (P27→P17) for a set of qids. Same values the old separate stages fetched, now
-// captured once. Nodes with no label fall back to their qid (matches the old
-// `label ?? id` / `l || q`); nodes with no P27 get empty arrays (kept as bridge
-// relatives by foreign-pruning, which only removes nodes that HAVE a nationality).
+// (P27→P17) + ja.wikipedia title (sitelink schema:name) for a set of qids. Same
+// values the old separate stages fetched, now captured once. Nodes with no label
+// fall back to their qid (matches the old `label ?? id` / `l || q`); nodes with
+// no P27 get empty arrays (kept as bridge relatives by foreign-pruning, which
+// only removes nodes that HAVE a nationality); nodes with no ja.wikipedia article
+// get no wikipediaTitle (the article pane falls back to label).
 export async function fetchNodeAttrs(
   qids: string[],
 ): Promise<Map<string, RawNode>> {
@@ -79,6 +81,16 @@ export async function fetchNodeAttrs(
       `SELECT ?item ?c WHERE { VALUES ?item { ${values} } ?item wdt:P27/wdt:P17 ?c. }`,
     )) {
       pushUniq(ensure(r.item!.value).nationalityCountries, qid(r.c!.value));
+    }
+    // schema:name on the ja.wikipedia sitelink is the canonical article title
+    // (only present for items that have such an article). First title wins.
+    for (const r of await sparql(
+      `SELECT ?item ?title WHERE { VALUES ?item { ${values} }
+       ?art schema:about ?item; schema:isPartOf <https://ja.wikipedia.org/>;
+            schema:name ?title. }`,
+    )) {
+      const n = ensure(r.item!.value);
+      if (n.wikipediaTitle === undefined) n.wikipediaTitle = r.title!.value;
     }
   }
   return out;

@@ -24,9 +24,20 @@ export type Kinship =
 // midpoint. Neither is a relationship.
 export type SyntheticEdge = "LAYOUT" | "DESCENT";
 
-export type PersonRow = { qid: string; label: string };
+export type PersonRow = {
+  qid: string;
+  label: string;
+  wikipediaTitle: string | null;
+};
 
-export type GraphNode = { qid: string; label: string; sex?: Sex };
+// `wikipediaTitle` is the ja.wikipedia article title (Wikidata sitelink); the
+// article pane opens it directly and falls back to `label` when absent.
+export type GraphNode = {
+  qid: string;
+  label: string;
+  sex?: Sex;
+  wikipediaTitle?: string;
+};
 // A domain edge carries a kinship type, or the hidden LAYOUT type when fed to dagre.
 // DESCENT (the other SyntheticEdge) is built straight into cytoscape by the view and
 // never exists as a GraphEdge. source/target are raw QIDs — branded only once they
@@ -299,7 +310,11 @@ export function buildFamilyGraph(
 // edges is always empty: search returns people, not relationships.
 export function personsToGraph(rows: PersonRow[]): Graph {
   return {
-    nodes: rows.map((r) => ({ qid: r.qid, label: r.label })),
+    nodes: rows.map((r) => ({
+      qid: r.qid,
+      label: r.label,
+      wikipediaTitle: r.wikipediaTitle ?? undefined,
+    })),
     edges: [],
   };
 }
@@ -310,10 +325,12 @@ export type NeighborRow = {
   aQid: string;
   aLabel: string;
   aSex: string | null;
+  aWikipediaTitle: string | null;
   type: string | null;
   bQid: string | null;
   bLabel: string | null;
   bSex: string | null;
+  bWikipediaTitle: string | null;
 };
 
 export function neighborsToGraph(rows: NeighborRow[]): Graph {
@@ -324,12 +341,14 @@ export function neighborsToGraph(rows: NeighborRow[]): Graph {
       qid: row.aQid,
       label: row.aLabel,
       sex: (row.aSex ?? undefined) as Sex | undefined,
+      wikipediaTitle: row.aWikipediaTitle ?? undefined,
     });
     if (row.type && row.bQid && row.bLabel) {
       nodes.set(row.bQid, {
         qid: row.bQid,
         label: row.bLabel,
         sex: (row.bSex ?? undefined) as Sex | undefined,
+        wikipediaTitle: row.bWikipediaTitle ?? undefined,
       });
       const key = `${row.aQid}|${row.type}|${row.bQid}`;
       edges.set(key, {
@@ -364,8 +383,10 @@ export function mergeGraph(a: Graph, b: Graph): Graph {
 export type PathRow = {
   sourceQid: string;
   sourceLabel: string;
+  sourceWikipediaTitle: string | null;
   targetQid: string;
   targetLabel: string;
+  targetWikipediaTitle: string | null;
   type: string;
 };
 
@@ -373,8 +394,16 @@ export function pathToGraph(rows: PathRow[]): Graph {
   const nodes = new Map<string, GraphNode>();
   const edges: GraphEdge[] = [];
   for (const row of rows) {
-    nodes.set(row.sourceQid, { qid: row.sourceQid, label: row.sourceLabel });
-    nodes.set(row.targetQid, { qid: row.targetQid, label: row.targetLabel });
+    nodes.set(row.sourceQid, {
+      qid: row.sourceQid,
+      label: row.sourceLabel,
+      wikipediaTitle: row.sourceWikipediaTitle ?? undefined,
+    });
+    nodes.set(row.targetQid, {
+      qid: row.targetQid,
+      label: row.targetLabel,
+      wikipediaTitle: row.targetWikipediaTitle ?? undefined,
+    });
     edges.push({
       source: row.sourceQid,
       target: row.targetQid,

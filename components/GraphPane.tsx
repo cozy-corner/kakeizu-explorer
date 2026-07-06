@@ -39,7 +39,14 @@ import {
 
 cytoscape.use(dagre);
 
-export type FocusPerson = { qid: string; label: string };
+// `wikipediaTitle` (the ja.wikipedia sitelink) rides along so the article pane can
+// open the canonical page when this person becomes the focus; absent ⇒ pane falls
+// back to `label`.
+export type FocusPerson = {
+  qid: string;
+  label: string;
+  wikipediaTitle?: string;
+};
 
 // One generation's x-stride (a column). A node whose x differs by less than half
 // this sits in the same generation column; more, a neighbouring one.
@@ -117,6 +124,8 @@ function PathPane({
         data: {
           id: n.qid,
           label: n.label,
+          // Carried so a tap can re-focus with the canonical article title (below).
+          wikipediaTitle: n.wikipediaTitle,
           focus: n.qid === focus.qid || n.qid === pathTo.qid ? 1 : 0,
         },
       })),
@@ -137,7 +146,7 @@ function PathPane({
     cy.layout(dagreLR()).run(); // small graph: default fit is fine
     cy.on("tap", "node", (evt) => {
       const d = evt.target.data();
-      onSelect({ qid: d.id, label: d.label });
+      onSelect({ qid: d.id, label: d.label, wikipediaTitle: d.wikipediaTitle });
     });
     return () => cy.destroy();
   }, [graph, focus.qid, pathTo.qid, onSelect]);
@@ -181,6 +190,8 @@ function PathPane({
 type EgoPlan = {
   personIds: string[];
   labels: Map<string, string>;
+  // ja.wikipedia sitelink per person, so a fired node can open the canonical article.
+  wikipediaTitles: Map<string, string | undefined>;
   positions: Map<string, Pos>; // person + junction id → pixels
   // Drawn person edges; the ones in `hiddenEdgeIds` are kept but hidden (replaced
   // by a midpoint junction line), matching the previous renderer.
@@ -261,6 +272,7 @@ function computeEgoPlan(
   return {
     personIds: g.nodes.map((n) => n.qid),
     labels: new Map(g.nodes.map((n) => [n.qid, n.label])),
+    wikipediaTitles: new Map(g.nodes.map((n) => [n.qid, n.wikipediaTitle])),
     positions,
     personEdges: edges.map((e) => ({
       id: edgeId(e),
@@ -436,7 +448,11 @@ function EgoPane({
         currentRef.current = id;
         cursorRef.current = id;
         paint(cy);
-        onCurrent({ qid: id, label: plan.labels.get(id) ?? id });
+        onCurrent({
+          qid: id,
+          label: plan.labels.get(id) ?? id,
+          wikipediaTitle: plan.wikipediaTitles.get(id),
+        });
         // Open on the anchor once; later fires keep the camera where the user left it.
         if (firstRender) {
           cy.zoom(0.8);

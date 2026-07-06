@@ -26,6 +26,10 @@ export interface RawNode {
   qid: string;
   label: string;
   sex?: Sex; // P21; omitted when Wikidata records none
+  // ja.wikipedia article title from the Wikidata sitelink (schema:name), so the
+  // article pane opens the canonical page instead of guessing from `label`.
+  // Omitted when the person has no ja.wikipedia article.
+  wikipediaTitle?: string;
   nationalities: string[];
   nationalityCountries: string[];
 }

@@ -169,8 +169,8 @@ export default function Home() {
             <section className="w-1/2 overflow-auto">
               {/* Path mode reads the destination; ego mode reads the current
                   (last-fired) person, falling back to the anchor before the first
-                  fire. Stateless iframe: changing title navigates it in place. */}
-              <ArticlePane title={(pathTarget ?? current ?? focus).label} />
+                  fire. Stateless iframe: changing person navigates it in place. */}
+              <ArticlePane person={pathTarget ?? current ?? focus} />
             </section>
           </>
         ) : (
