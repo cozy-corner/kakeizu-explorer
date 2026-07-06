@@ -156,8 +156,8 @@ export default function Home() {
             </section>
             <section className="w-1/2 overflow-auto">
               {/* In path mode the right pane reads the destination's article.
-                  Stateless iframe: changing title navigates it in place — no key/remount. */}
-              <ArticlePane title={(pathTarget ?? focus).label} />
+                  Stateless iframe: changing person navigates it in place — no key/remount. */}
+              <ArticlePane person={pathTarget ?? focus} />
             </section>
           </>
         ) : (

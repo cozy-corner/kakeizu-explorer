@@ -54,16 +54,20 @@ export async function GET(
        WHERE b IN nodes
          AND (type(r) <> 'ADOPTIVE_PARENT_OF' OR a.qid = $id OR b.qid = $id)
        RETURN a.qid AS aQid, a.label AS aLabel, a.sex AS aSex,
-              type(r) AS type, b.qid AS bQid, b.label AS bLabel, b.sex AS bSex`,
+              a.wikipediaTitle AS aWikipediaTitle,
+              type(r) AS type, b.qid AS bQid, b.label AS bLabel, b.sex AS bSex,
+              b.wikipediaTitle AS bWikipediaTitle`,
       { id },
       (r) => ({
         aQid: r.get("aQid"),
         aLabel: r.get("aLabel"),
         aSex: r.get("aSex"),
+        aWikipediaTitle: r.get("aWikipediaTitle"),
         type: r.get("type"),
         bQid: r.get("bQid"),
         bLabel: r.get("bLabel"),
         bSex: r.get("bSex"),
+        bWikipediaTitle: r.get("bWikipediaTitle"),
       }),
     );
 
