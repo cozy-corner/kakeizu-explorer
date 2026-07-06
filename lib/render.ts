@@ -38,12 +38,25 @@ export const STYLE: cytoscape.StylesheetJson = [
     // Emphasis is colour + bold label only, never size: dagre sizes a rank's row
     // pitch by node bounds, so a larger focus node would push its own row off the
     // uniform sibling ladder (the label is excluded from layout, so font is safe).
-    selector: "node[focus = 1]",
+    // `focus=1` marks the path-view endpoints; `.current` is the ego view's read
+    // target (last fired) — both get the same red emphasis.
+    selector: "node[focus = 1], node.current",
     style: {
       "background-color": "#dc2626",
       "font-size": "13px",
       "font-weight": "bold",
       "z-index": 10,
+    },
+  },
+  {
+    // The keyboard cursor in the ego view: a blue ring that moves with hjkl/arrows
+    // and carries no side effect until Enter fires it. Drawn as a border so it can
+    // coexist with `.current` red (cursor and current start on the same node).
+    selector: "node.cursor",
+    style: {
+      "border-width": 3,
+      "border-color": "#2563eb",
+      "border-opacity": 1,
     },
   },
   {
