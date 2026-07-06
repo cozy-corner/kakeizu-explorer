@@ -10,7 +10,11 @@ export default function Home() {
   const [results, setResults] = useState<Graph | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The ego view's anchor: the layout root, fixed until a new search selection.
   const [focus, setFocus] = useState<FocusPerson | null>(null);
+  // The read target: the last-fired person in the ego view (drives the article).
+  // Separate from the anchor so moving/firing changes the article without re-rooting.
+  const [current, setCurrent] = useState<FocusPerson | null>(null);
   // When set, the left pane shows the shortest path from `focus` to this person.
   const [pathTarget, setPathTarget] = useState<FocusPerson | null>(null);
   // Overlay the adoption layer (養子・養父) on the ego graph. Default off = blood
@@ -46,12 +50,19 @@ export default function Home() {
   }
 
   // Stable identity so GraphPane's cytoscape effect doesn't rebuild on every
-  // parent render (it lists onSelect as a dependency).
-  // Re-centering (incl. tapping a node in a path) leaves path mode.
+  // parent render (it lists these callbacks as dependencies).
+  // Choosing a person re-roots the ego view: new anchor and, until it fires, its
+  // own current. Also leaves path mode (a path node tap re-anchors the same way).
   const selectPerson = useCallback((person: FocusPerson) => {
     setFocus(person);
+    setCurrent(person);
     setPathTarget(null);
     setResults(null);
+  }, []);
+
+  // The ego view reports its read target (last fired) here; it never re-anchors.
+  const showCurrent = useCallback((person: FocusPerson) => {
+    setCurrent(person);
   }, []);
 
   const choosePathTarget = useCallback((person: FocusPerson) => {
@@ -151,13 +162,15 @@ export default function Home() {
                   pathTo={pathTarget}
                   showAdoptions={showAdoptions}
                   onSelect={selectPerson}
+                  onCurrent={showCurrent}
                 />
               </div>
             </section>
             <section className="w-1/2 overflow-auto">
-              {/* In path mode the right pane reads the destination's article.
-                  Stateless iframe: changing title navigates it in place — no key/remount. */}
-              <ArticlePane title={(pathTarget ?? focus).label} />
+              {/* Path mode reads the destination; ego mode reads the current
+                  (last-fired) person, falling back to the anchor before the first
+                  fire. Stateless iframe: changing title navigates it in place. */}
+              <ArticlePane title={(pathTarget ?? current ?? focus).label} />
             </section>
           </>
         ) : (
