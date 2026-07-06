@@ -255,6 +255,9 @@ function computeEgoPlan(
     }
   }
 
+  // Release the throwaway instance: styleEnabled headless cytoscape starts an
+  // animation loop that leaks across the per-fire/per-toggle recomputes otherwise.
+  cy.destroy();
   return {
     personIds: g.nodes.map((n) => n.qid),
     labels: new Map(g.nodes.map((n) => [n.qid, n.label])),
