@@ -8,6 +8,7 @@ import {
   egoDrawnEdges,
   junctionId,
   layoutOnlyEdges,
+  withoutAdoptions,
   type Graph,
   type PersonId,
   type SyntheticEdge,
@@ -54,10 +55,12 @@ function writePositions(cy: Core, pos: Positions): void {
 export function GraphPane({
   focus,
   pathTo,
+  showAdoptions = false,
   onSelect,
 }: {
   focus: FocusPerson;
   pathTo?: FocusPerson | null;
+  showAdoptions?: boolean;
   onSelect: (person: FocusPerson) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -93,15 +96,23 @@ export function GraphPane({
 
   useEffect(() => {
     if (!containerRef.current || !graph) return;
+    // Default ego view strips the adoption layer to a blood-only tree; the toggle
+    // (or path view, which needs every edge) keeps it. Dropping the adoptive edges
+    // upstream makes egoDrawnEdges / layoutOnlyEdges / buildFamilyGraph below see no
+    // adoption, so the adoption-specific passes become no-ops automatically.
+    const g =
+      pathTo || showAdoptions
+        ? graph
+        : withoutAdoptions(graph, focus.qid as PersonId);
     // Ego view: collapse to the drawn patrilineal tree (see egoDrawnEdges). Path
     // view keeps every edge so the chain between the two people reads end to end.
-    const edges = pathTo ? graph.edges : egoDrawnEdges(graph);
+    const edges = pathTo ? g.edges : egoDrawnEdges(g);
     // Hidden edges that only steer dagre's ranking, so a married-in spouse sits in
     // their partner's generation column instead of drifting into their own family's.
     // Reuse the patrilineal reduction already in `edges` rather than recomputing it.
-    const layoutEdges = pathTo ? [] : layoutOnlyEdges(graph, edges);
+    const layoutEdges = pathTo ? [] : layoutOnlyEdges(g, edges);
     const elements: ElementDefinition[] = [
-      ...graph.nodes.map((n) => ({
+      ...g.nodes.map((n) => ({
         data: {
           id: n.qid,
           label: n.label,
@@ -132,7 +143,7 @@ export function GraphPane({
       // write them, then apply the spouse-line detours as style. ROW is injected
       // only at the read/project boundary; the passes themselves carry no pixels.
       // Resolve kinship once and hand the same FamilyGraph to every pass.
-      const fam = buildFamilyGraph(graph, edges);
+      const fam = buildFamilyGraph(g, edges);
       const focusId = focus.qid as PersonId;
       const { placements, colX } = readPlacement(readPositions(cy), ROW);
       const placed = centerOnlyChildren(
@@ -187,7 +198,7 @@ export function GraphPane({
       onSelect({ qid: d.id, label: d.label });
     });
     return () => cy.destroy();
-  }, [graph, focus.qid, pathTo, onSelect]);
+  }, [graph, focus.qid, pathTo, showAdoptions, onSelect]);
 
   const loading = !graph && !error;
   // A path request that finds nothing returns an empty graph (vs. a missing-person

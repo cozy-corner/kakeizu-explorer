@@ -179,6 +179,37 @@ export function egoDrawnEdges(graph: Graph): GraphEdge[] {
   return drawn.filter((e) => !skip.has(key(e)));
 }
 
+// Strip the adoption layer for the default blood-only ego view: drop every
+// ADOPTIVE_PARENT_OF edge, then keep only nodes still reachable from `focus`
+// through the surviving edges (traversed undirected). A 養父 reachable only via the
+// dropped adoptive edge falls away, and so does an adoptive couple hanging off it
+// by a spouse edge — leaving a clean blood tree. `focus` is always kept, even when
+// the reduction isolates it. An uncle→nephew adoption whose parties are also blood
+// linked survives on those blood edges (correct — they're the same tree).
+export function withoutAdoptions(graph: Graph, focus: PersonId): Graph {
+  const edges = graph.edges.filter((e) => e.type !== "ADOPTIVE_PARENT_OF");
+  const adj = new Map<string, string[]>();
+  for (const e of edges) {
+    pushInto(adj, e.source, e.target);
+    pushInto(adj, e.target, e.source);
+  }
+  const keep = new Set<string>([focus]);
+  const stack: string[] = [focus];
+  while (stack.length) {
+    const id = stack.pop()!;
+    for (const next of adj.get(id) ?? []) {
+      if (!keep.has(next)) {
+        keep.add(next);
+        stack.push(next);
+      }
+    }
+  }
+  return {
+    nodes: graph.nodes.filter((n) => keep.has(n.qid)),
+    edges: edges.filter((e) => keep.has(e.source) && keep.has(e.target)),
+  };
+}
+
 // Resolved kinship indices for one ego view, built once at the layout boundary so
 // the placement passes read father/spouse/adoptive lookups instead of each
 // re-scanning edges (coLocatedCouples alone used to re-derive them on every call).

@@ -13,6 +13,9 @@ export default function Home() {
   const [focus, setFocus] = useState<FocusPerson | null>(null);
   // When set, the left pane shows the shortest path from `focus` to this person.
   const [pathTarget, setPathTarget] = useState<FocusPerson | null>(null);
+  // Overlay the adoption layer (養子・養父) on the ego graph. Default off = blood
+  // only. Held here, not in GraphPane, so it survives GraphPane's focus/path remount.
+  const [showAdoptions, setShowAdoptions] = useState(false);
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
 
@@ -131,11 +134,22 @@ export default function Home() {
                   </button>
                 </div>
               )}
+              {!pathTarget && (
+                <label className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+                  <input
+                    type="checkbox"
+                    checked={showAdoptions}
+                    onChange={(e) => setShowAdoptions(e.target.checked)}
+                  />
+                  養子・養父を表示
+                </label>
+              )}
               <div className="relative min-h-0 flex-1">
                 <GraphPane
                   key={`${focus.qid}:${pathTarget?.qid ?? ""}`}
                   focus={focus}
                   pathTo={pathTarget}
+                  showAdoptions={showAdoptions}
                   onSelect={selectPerson}
                 />
               </div>
