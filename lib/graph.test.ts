@@ -13,20 +13,26 @@ import {
   withoutAdoptions,
 } from "./graph";
 
-test("maps person rows into graph nodes, preserving qid and label", () => {
+test("maps person rows into graph nodes, preserving qid, label and wikipediaTitle", () => {
   const graph = personsToGraph([
-    { qid: "Q171411", label: "織田信長" },
-    { qid: "Q171977", label: "徳川家康" },
+    // wikipediaTitle differs from label (disambiguation) — the article pane must
+    // open the canonical title, not the label.
+    { qid: "Q171411", label: "織田信長", wikipediaTitle: "織田信長 (人物)" },
+    // No ja.wikipedia article → null from the DB → undefined so the pane falls
+    // back to label.
+    { qid: "Q171977", label: "徳川家康", wikipediaTitle: null },
   ]);
 
   expect(graph.nodes).toEqual([
-    { qid: "Q171411", label: "織田信長" },
-    { qid: "Q171977", label: "徳川家康" },
+    { qid: "Q171411", label: "織田信長", wikipediaTitle: "織田信長 (人物)" },
+    { qid: "Q171977", label: "徳川家康", wikipediaTitle: undefined },
   ]);
 });
 
 test("search returns no edges (people only)", () => {
-  const graph = personsToGraph([{ qid: "Q171411", label: "織田信長" }]);
+  const graph = personsToGraph([
+    { qid: "Q171411", label: "織田信長", wikipediaTitle: null },
+  ]);
 
   expect(graph.edges).toEqual([]);
 });
@@ -35,23 +41,25 @@ test("returns an empty graph for no matches", () => {
   expect(personsToGraph([])).toEqual({ nodes: [], edges: [] });
 });
 
-test("neighbors: builds nodes and edges, mapping the relationship type", () => {
+test("neighbors: builds nodes and edges, mapping the relationship type and wikipediaTitle", () => {
   const graph = neighborsToGraph([
     {
       aQid: "Q171411",
       aLabel: "織田信長",
       aSex: null,
+      aWikipediaTitle: "織田信長 (人物)", // differs from label
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
       bSex: null,
+      bWikipediaTitle: null, // no ja.wikipedia article → falls back to label
     },
   ]);
 
   expect(graph).toEqual({
     nodes: [
-      { qid: "Q171411", label: "織田信長" },
-      { qid: "Q1234", label: "織田信忠" },
+      { qid: "Q171411", label: "織田信長", wikipediaTitle: "織田信長 (人物)" },
+      { qid: "Q1234", label: "織田信忠", wikipediaTitle: undefined },
     ],
     edges: [{ source: "Q171411", target: "Q1234", type: "PARENT_OF" }],
   });
@@ -64,10 +72,12 @@ test("neighbors: an isolated focus person yields one node and no edges", () => {
       aQid: "Q171411",
       aLabel: "織田信長",
       aSex: null,
+      aWikipediaTitle: null,
       type: null,
       bQid: null,
       bLabel: null,
       bSex: null,
+      bWikipediaTitle: null,
     },
   ]);
 
@@ -83,29 +93,35 @@ test("neighbors: dedupes repeated nodes and edges", () => {
       aQid: "Q171411",
       aLabel: "織田信長",
       aSex: null,
+      aWikipediaTitle: null,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
       bSex: null,
+      bWikipediaTitle: null,
     },
     // Same node reached again via a different walk, plus the same edge repeated.
     {
       aQid: "Q171411",
       aLabel: "織田信長",
       aSex: null,
+      aWikipediaTitle: null,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
       bSex: null,
+      bWikipediaTitle: null,
     },
     {
       aQid: "Q1234",
       aLabel: "織田信忠",
       aSex: null,
+      aWikipediaTitle: null,
       type: null,
       bQid: null,
       bLabel: null,
       bSex: null,
+      bWikipediaTitle: null,
     },
   ]);
 
@@ -128,24 +144,28 @@ test("path: builds an ordered node chain and edges from hop rows", () => {
     {
       sourceQid: "Q171411",
       sourceLabel: "織田信長",
+      sourceWikipediaTitle: "織田信長 (人物)", // differs from label
       targetQid: "Q231562",
       targetLabel: "濃姫",
+      targetWikipediaTitle: null, // no article → falls back to label
       type: "SPOUSE_OF",
     },
     {
       sourceQid: "Q231562",
       sourceLabel: "濃姫",
+      sourceWikipediaTitle: null,
       targetQid: "Q171977",
       targetLabel: "徳川家康",
+      targetWikipediaTitle: null,
       type: "PARENT_OF",
     },
   ]);
 
   expect(graph).toEqual({
     nodes: [
-      { qid: "Q171411", label: "織田信長" },
-      { qid: "Q231562", label: "濃姫" },
-      { qid: "Q171977", label: "徳川家康" },
+      { qid: "Q171411", label: "織田信長", wikipediaTitle: "織田信長 (人物)" },
+      { qid: "Q231562", label: "濃姫", wikipediaTitle: undefined },
+      { qid: "Q171977", label: "徳川家康", wikipediaTitle: undefined },
     ],
     edges: [
       { source: "Q171411", target: "Q231562", type: "SPOUSE_OF" },
@@ -164,10 +184,12 @@ test("neighbors: carries each node's sex through", () => {
       aQid: "Q171411",
       aLabel: "織田信長",
       aSex: "male",
+      aWikipediaTitle: null,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "徳姫",
       bSex: "female",
+      bWikipediaTitle: null,
     },
   ]);
 

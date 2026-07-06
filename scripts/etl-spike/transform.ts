@@ -78,6 +78,7 @@ async function main() {
     qid: n.qid,
     label: n.label,
     sex: n.sex,
+    wikipediaTitle: n.wikipediaTitle,
   }));
   const parentRows = spine.map((e) => ({ from: e.from, to: e.to }));
 

@@ -27,7 +27,14 @@ import { dagreLR, ROW, runEgoLayout, SPOUSE_GUTTER, STYLE } from "@/lib/render";
 
 cytoscape.use(dagre);
 
-export type FocusPerson = { qid: string; label: string };
+// `wikipediaTitle` (the ja.wikipedia sitelink) rides along so the article pane can
+// open the canonical page when this person becomes the focus; absent ⇒ pane falls
+// back to `label`.
+export type FocusPerson = {
+  qid: string;
+  label: string;
+  wikipediaTitle?: string;
+};
 
 const HOPS = 2;
 
@@ -116,6 +123,8 @@ export function GraphPane({
         data: {
           id: n.qid,
           label: n.label,
+          // Carried so a tap can re-focus with the canonical article title (below).
+          wikipediaTitle: n.wikipediaTitle,
           focus: n.qid === focus.qid || n.qid === pathTo?.qid ? 1 : 0,
         },
       })),
@@ -195,7 +204,7 @@ export function GraphPane({
     }
     cy.on("tap", "node", (evt) => {
       const d = evt.target.data();
-      onSelect({ qid: d.id, label: d.label });
+      onSelect({ qid: d.id, label: d.label, wikipediaTitle: d.wikipediaTitle });
     });
     return () => cy.destroy();
   }, [graph, focus.qid, pathTo, showAdoptions, onSelect]);

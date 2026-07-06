@@ -1,9 +1,17 @@
+import type { GraphNode } from "@/lib/graph";
+
 // Embed the live ja.wikipedia article so it reads directly in the pane, with no
-// click-through to a separate tab. `title` is the person's Wikidata label;
-// /wiki/{title} resolves redirects/normalization itself and renders Wikipedia's
-// own "no article" page on a miss (acceptable for MVP).
-// TODO: use the wikipediaTitle property as the title once ETL populates it.
-export function ArticlePane({ title }: { title: string }) {
+// click-through to a separate tab. The article title is the Wikidata sitelink
+// (`wikipediaTitle`, the canonical page title), falling back to the person's
+// `label` when Wikidata records no ja.wikipedia article for them — /wiki/{title}
+// resolves redirects/normalization itself and renders Wikipedia's own "no
+// article" page on a miss.
+export function ArticlePane({
+  person,
+}: {
+  person: Pick<GraphNode, "label" | "wikipediaTitle">;
+}) {
+  const title = person.wikipediaTitle ?? person.label;
   return (
     <iframe
       title={`${title} の Wikipedia 記事`}

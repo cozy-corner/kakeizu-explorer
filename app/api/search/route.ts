@@ -21,11 +21,16 @@ export async function GET(request: Request) {
       // neo4j.int: a plain JS number binds as a Cypher Float, which LIMIT rejects.
       `MATCH (p:Person)
        WHERE toLower(p.label) CONTAINS toLower($q)
-       RETURN p.qid AS qid, p.label AS label
+       RETURN p.qid AS qid, p.label AS label,
+              p.wikipediaTitle AS wikipediaTitle
        ORDER BY p.label
        LIMIT $limit`,
       { q, limit: neo4j.int(LIMIT) },
-      (r) => ({ qid: r.get("qid"), label: r.get("label") }),
+      (r) => ({
+        qid: r.get("qid"),
+        label: r.get("label"),
+        wikipediaTitle: r.get("wikipediaTitle"),
+      }),
     );
     return NextResponse.json(personsToGraph(rows));
   } catch (err) {

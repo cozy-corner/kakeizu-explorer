@@ -29,14 +29,18 @@ export async function GET(request: Request) {
        MATCH p = shortestPath((a)-[:PARENT_OF|SPOUSE_OF|SIBLING_OF*..${MAX_HOPS}]-(b))
        UNWIND relationships(p) AS r
        RETURN startNode(r).qid AS sourceQid, startNode(r).label AS sourceLabel,
+              startNode(r).wikipediaTitle AS sourceWikipediaTitle,
               endNode(r).qid AS targetQid, endNode(r).label AS targetLabel,
+              endNode(r).wikipediaTitle AS targetWikipediaTitle,
               type(r) AS type`,
       { from, to },
       (r) => ({
         sourceQid: r.get("sourceQid"),
         sourceLabel: r.get("sourceLabel"),
+        sourceWikipediaTitle: r.get("sourceWikipediaTitle"),
         targetQid: r.get("targetQid"),
         targetLabel: r.get("targetLabel"),
+        targetWikipediaTitle: r.get("targetWikipediaTitle"),
         type: r.get("type"),
       }),
     );
