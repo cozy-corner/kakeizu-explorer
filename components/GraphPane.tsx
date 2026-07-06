@@ -398,10 +398,12 @@ function EgoPane({
     cursorRef.current = focus.qid as PersonId;
 
     const controller = new AbortController();
-    const seq = ++fireSeqRef.current;
     let destroyed = false;
 
     async function fire(id: PersonId) {
+      // Per-fire token (not per-mount): rapid taps/Enters each bump it, so only
+      // the latest-issued fire applies its result below.
+      const seq = ++fireSeqRef.current;
       try {
         // Seed the initial auto-fire with 2 hops for a richer first view; every
         // later fire adds just the fired person's direct neighbours (1 hop).
