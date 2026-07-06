@@ -4,6 +4,7 @@ import {
   type Graph,
   type GraphEdge,
   layoutOnlyEdges,
+  mergeGraph,
   neighborsToGraph,
   patrilinealEdges,
   pathToGraph,
@@ -156,6 +157,56 @@ test("path: builds an ordered node chain and edges from hop rows", () => {
 
 test("path: returns an empty graph when there is no path", () => {
   expect(pathToGraph([])).toEqual({ nodes: [], edges: [] });
+});
+
+test("merge: unions nodes and edges, deduping the overlap", () => {
+  // Two hops-1 fires that share the middle person and the A→B edge.
+  const a: Graph = {
+    nodes: [
+      { qid: "A", label: "甲" },
+      { qid: "B", label: "乙" },
+    ],
+    edges: [{ source: "A", target: "B", type: "PARENT_OF" }],
+  };
+  const b: Graph = {
+    nodes: [
+      { qid: "B", label: "乙" },
+      { qid: "C", label: "丙" },
+    ],
+    edges: [
+      { source: "A", target: "B", type: "PARENT_OF" },
+      { source: "B", target: "C", type: "PARENT_OF" },
+    ],
+  };
+
+  expect(mergeGraph(a, b)).toEqual({
+    nodes: [
+      { qid: "A", label: "甲" },
+      { qid: "B", label: "乙" },
+      { qid: "C", label: "丙" },
+    ],
+    edges: [
+      { source: "A", target: "B", type: "PARENT_OF" },
+      { source: "B", target: "C", type: "PARENT_OF" },
+    ],
+  });
+});
+
+test("merge: same pair with different edge types stays as two edges", () => {
+  // Adoption and blood between the same two people are distinct edges (key includes type).
+  const a: Graph = {
+    nodes: [{ qid: "A", label: "甲" }],
+    edges: [{ source: "A", target: "B", type: "PARENT_OF" }],
+  };
+  const b: Graph = {
+    nodes: [{ qid: "A", label: "甲" }],
+    edges: [{ source: "A", target: "B", type: "ADOPTIVE_PARENT_OF" }],
+  };
+
+  expect(mergeGraph(a, b).edges).toEqual([
+    { source: "A", target: "B", type: "PARENT_OF" },
+    { source: "A", target: "B", type: "ADOPTIVE_PARENT_OF" },
+  ]);
 });
 
 test("neighbors: carries each node's sex through", () => {
