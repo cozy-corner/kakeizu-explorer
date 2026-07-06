@@ -2,14 +2,17 @@
 
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildFamilyGraph,
+  edgeId,
   egoDrawnEdges,
   junctionId,
   layoutOnlyEdges,
+  mergeGraph,
   withoutAdoptions,
   type Graph,
+  type JunctionId,
   type PersonId,
   type SyntheticEdge,
 } from "@/lib/graph";
@@ -21,9 +24,18 @@ import {
   projectOne,
   readPlacement,
   spouseRouting,
+  type Pos,
   type Positions,
 } from "@/lib/layout";
-import { dagreLR, ROW, runEgoLayout, SPOUSE_GUTTER, STYLE } from "@/lib/render";
+import {
+  dagreLR,
+  NODE_SIZE,
+  RANK_SEP,
+  ROW,
+  runEgoLayout,
+  SPOUSE_GUTTER,
+  STYLE,
+} from "@/lib/render";
 
 cytoscape.use(dagre);
 
@@ -36,38 +48,47 @@ export type FocusPerson = {
   wikipediaTitle?: string;
 };
 
-const HOPS = 2;
+// One generation's x-stride (a column). A node whose x differs by less than half
+// this sits in the same generation column; more, a neighbouring one.
+const COL = NODE_SIZE + RANK_SEP;
+const ANIM_MS = 300;
 
-// Read dagre's coordinates into plain data for the layout domain, and write the
-// domain's result back. cytoscape is only the graph + coordinate store here; the
-// placement/priority rules live in lib/layout.
-function readPositions(cy: Core): Positions {
-  const pos: Positions = new Map();
-  cy.nodes().forEach((n) => {
-    // Every layout node is a person here (junctions are added after this read), so
-    // brand the cytoscape id as a PersonId at this single boundary.
-    pos.set(n.id() as PersonId, { x: n.position("x"), y: n.position("y") });
-  });
-  return pos;
-}
-
-function writePositions(cy: Core, pos: Positions): void {
-  for (const [id, p] of pos) cy.getElementById(id).position(p);
-}
-
-// Mounted with a key derived from focus + pathTo: changing either remounts this,
-// so state resets to its initial (loading) value without a synchronous setState
-// in an effect. With `pathTo` set, it renders the shortest path between the two
-// people instead of the ego graph, highlighting both endpoints.
-export function GraphPane({
-  focus,
-  pathTo,
-  showAdoptions = false,
-  onSelect,
-}: {
+export function GraphPane(props: {
   focus: FocusPerson;
   pathTo?: FocusPerson | null;
   showAdoptions?: boolean;
+  onSelect: (person: FocusPerson) => void;
+  onCurrent: (person: FocusPerson) => void;
+}) {
+  // Mounted with a key derived from focus + pathTo (see page.tsx), so each instance
+  // is single-mode: path view (one-shot shortest path) or ego view (accretion). The
+  // two diverged enough — persistent, growing cytoscape vs. rebuilt-per-fetch — that
+  // they're separate components rather than one branchy effect.
+  return props.pathTo ? (
+    <PathPane
+      focus={props.focus}
+      pathTo={props.pathTo}
+      onSelect={props.onSelect}
+    />
+  ) : (
+    <EgoPane
+      focus={props.focus}
+      showAdoptions={props.showAdoptions ?? false}
+      onCurrent={props.onCurrent}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Path view: unchanged one-shot render of the shortest path between two people.
+// ---------------------------------------------------------------------------
+function PathPane({
+  focus,
+  pathTo,
+  onSelect,
+}: {
+  focus: FocusPerson;
+  pathTo: FocusPerson;
   onSelect: (person: FocusPerson) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -76,59 +97,39 @@ export function GraphPane({
 
   useEffect(() => {
     const controller = new AbortController();
-    const url = pathTo
-      ? `/api/path?from=${encodeURIComponent(focus.qid)}&to=${encodeURIComponent(pathTo.qid)}`
-      : `/api/person/${encodeURIComponent(focus.qid)}/neighbors?hops=${HOPS}`;
-    const failMsg = pathTo
-      ? "経路の取得に失敗しました"
-      : "グラフの取得に失敗しました";
+    const url = `/api/path?from=${encodeURIComponent(focus.qid)}&to=${encodeURIComponent(pathTo.qid)}`;
     fetch(url, { signal: controller.signal })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`${failMsg} (${res.status})`);
+        if (!res.ok)
+          throw new Error(`経路の取得に失敗しました (${res.status})`);
         return (await res.json()) as Graph;
       })
       .then((g) => {
-        // Clear a prior failure: re-selecting the same path target re-fires this
-        // without a remount (the key is qid-based), so a stale error overlay must
-        // not outlive a successful retry.
         setGraph(g);
         setError(null);
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : failMsg);
+        setError(
+          err instanceof Error ? err.message : "経路の取得に失敗しました",
+        );
       });
     return () => controller.abort();
-  }, [focus.qid, pathTo]);
+  }, [focus.qid, pathTo.qid]);
 
   useEffect(() => {
     if (!containerRef.current || !graph) return;
-    // Default ego view strips the adoption layer to a blood-only tree; the toggle
-    // (or path view, which needs every edge) keeps it. Dropping the adoptive edges
-    // upstream makes egoDrawnEdges / layoutOnlyEdges / buildFamilyGraph below see no
-    // adoption, so the adoption-specific passes become no-ops automatically.
-    const g =
-      pathTo || showAdoptions
-        ? graph
-        : withoutAdoptions(graph, focus.qid as PersonId);
-    // Ego view: collapse to the drawn patrilineal tree (see egoDrawnEdges). Path
-    // view keeps every edge so the chain between the two people reads end to end.
-    const edges = pathTo ? g.edges : egoDrawnEdges(g);
-    // Hidden edges that only steer dagre's ranking, so a married-in spouse sits in
-    // their partner's generation column instead of drifting into their own family's.
-    // Reuse the patrilineal reduction already in `edges` rather than recomputing it.
-    const layoutEdges = pathTo ? [] : layoutOnlyEdges(g, edges);
     const elements: ElementDefinition[] = [
-      ...g.nodes.map((n) => ({
+      ...graph.nodes.map((n) => ({
         data: {
           id: n.qid,
           label: n.label,
           // Carried so a tap can re-focus with the canonical article title (below).
           wikipediaTitle: n.wikipediaTitle,
-          focus: n.qid === focus.qid || n.qid === pathTo?.qid ? 1 : 0,
+          focus: n.qid === focus.qid || n.qid === pathTo.qid ? 1 : 0,
         },
       })),
-      ...[...edges, ...layoutEdges].map((e) => ({
+      ...graph.edges.map((e) => ({
         data: {
           id: `${e.source}|${e.type}|${e.target}`,
           source: e.source,
@@ -142,83 +143,24 @@ export function GraphPane({
       elements,
       style: STYLE,
     });
-    if (pathTo) {
-      cy.layout(dagreLR()).run(); // small graph: default fit is fine
-    } else {
-      runEgoLayout(cy);
-      // The placement/priority rules live in lib/layout as pure functions; this
-      // effect is just the cytoscape adapter — read dagre's coordinates into the
-      // structural {col, order} space, run the rules, project back to pixels and
-      // write them, then apply the spouse-line detours as style. ROW is injected
-      // only at the read/project boundary; the passes themselves carry no pixels.
-      // Resolve kinship once and hand the same FamilyGraph to every pass.
-      const fam = buildFamilyGraph(g, edges);
-      const focusId = focus.qid as PersonId;
-      const { placements, colX } = readPlacement(readPositions(cy), ROW);
-      const placed = centerOnlyChildren(
-        placeNodes(placements, fam, focusId),
-        fam,
-        focusId,
-      );
-      const positions = project(placed, colX, ROW);
-      writePositions(cy, positions);
-      for (const { source, target, bow } of spouseRouting(
-        positions,
-        fam,
-        SPOUSE_GUTTER,
-      )) {
-        const e = cy.getElementById(`${source}|SPOUSE_OF|${target}`);
-        e.style("curve-style", "segments");
-        e.style("segment-weights", "0.08 0.92");
-        e.style("segment-distances", `${bow} ${bow}`);
-      }
-      // Re-root each couple's descent lines at the parents' midpoint: add an
-      // invisible junction node there, draw junction→child DESCENT edges (a
-      // distinct type, styled like PARENT_OF, that never aliases a real person
-      // edge), and hide the original father→child edges — which stay in the graph
-      // for the layout pass above, just unseen.
-      for (const j of descentJunctions(fam, placed)) {
-        const jid = junctionId(j.father, j.mother);
-        cy.add({ data: { id: jid, junction: 1 } }).position(
-          projectOne(j.pos, colX, ROW),
-        );
-        for (const child of j.children) {
-          cy.add({
-            data: {
-              id: `${jid}->${child}`,
-              source: jid,
-              target: child,
-              type: "DESCENT" satisfies SyntheticEdge,
-            },
-          });
-          // Hide the father→child edge this junction replaces (its cytoscape id is
-          // the same `source|type|target` the elements were built with above).
-          cy.getElementById(`${j.father}|PARENT_OF|${child}`).style(
-            "visibility",
-            "hidden",
-          );
-        }
-      }
-      cy.zoom(0.8);
-      cy.center(cy.getElementById(focus.qid));
-    }
+    cy.layout(dagreLR()).run(); // small graph: default fit is fine
     cy.on("tap", "node", (evt) => {
       const d = evt.target.data();
       onSelect({ qid: d.id, label: d.label, wikipediaTitle: d.wikipediaTitle });
     });
     return () => cy.destroy();
-  }, [graph, focus.qid, pathTo, showAdoptions, onSelect]);
+  }, [graph, focus.qid, pathTo.qid, onSelect]);
 
   const loading = !graph && !error;
   // A path request that finds nothing returns an empty graph (vs. a missing-person
   // 404, which throws above); distinguish it so the user sees a clear message.
-  const noPath = !!pathTo && !!graph && graph.nodes.length === 0;
+  const noPath = !!graph && graph.nodes.length === 0;
 
   return (
     <div className="relative h-full w-full bg-zinc-50 dark:bg-zinc-900">
       {loading && (
         <p className="absolute top-3 left-3 z-10 text-sm text-zinc-500">
-          {pathTo ? "経路を探索中…" : "グラフを読み込み中…"}
+          経路を探索中…
         </p>
       )}
       {error && (
@@ -232,6 +174,439 @@ export function GraphPane({
         </p>
       )}
       <div ref={containerRef} className="h-full w-full" />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ego view: accretion navigation (issue #49). The anchor (`focus`) is the fixed
+// layout root; firing a node (tap / Enter) fetches its direct neighbours, merges
+// them into a growing graph, and re-runs the existing layout pipeline with the
+// anchor as focusId — animating positions instead of rebuilding, never recentering.
+// ---------------------------------------------------------------------------
+
+// Everything the live cytoscape needs to draw one layout state, computed on a
+// throwaway headless cy so the live one's current positions survive for animation.
+type EgoPlan = {
+  personIds: string[];
+  labels: Map<string, string>;
+  // ja.wikipedia sitelink per person, so a fired node can open the canonical article.
+  wikipediaTitles: Map<string, string | undefined>;
+  positions: Map<string, Pos>; // person + junction id → pixels
+  // Drawn person edges; the ones in `hiddenEdgeIds` are kept but hidden (replaced
+  // by a midpoint junction line), matching the previous renderer.
+  personEdges: { id: string; source: string; target: string; type: string }[];
+  hiddenEdgeIds: Set<string>;
+  junctions: { id: JunctionId; pos: Pos }[];
+  descentEdges: { id: string; source: JunctionId; target: PersonId }[];
+  spouseBows: Map<string, number>; // spouse edge id → bow distance
+};
+
+// Deterministic reproduction of the ego layout (mirrors GraphPane's original inline
+// pass and scripts/dump-layout.ts): run dagre + the placement passes on a headless
+// cy, then hand back positions and the draw plan. Pure over (graph, focus).
+function computeEgoPlan(
+  graph: Graph,
+  focus: PersonId,
+  showAdoptions: boolean,
+): EgoPlan {
+  const g = showAdoptions ? graph : withoutAdoptions(graph, focus);
+  const edges = egoDrawnEdges(g);
+  const layoutEdges = layoutOnlyEdges(g, edges);
+  const elements: ElementDefinition[] = [
+    ...g.nodes.map((n) => ({ data: { id: n.qid, label: n.label } })),
+    ...[...edges, ...layoutEdges].map((e) => ({
+      data: {
+        id: edgeId(e),
+        source: e.source,
+        target: e.target,
+        type: e.type,
+      },
+    })),
+  ];
+  const cy = cytoscape({
+    headless: true,
+    styleEnabled: true,
+    elements,
+    style: STYLE,
+  });
+  runEgoLayout(cy);
+  const raw: Positions = new Map();
+  cy.nodes().forEach((n) => {
+    raw.set(n.id() as PersonId, { x: n.position("x"), y: n.position("y") });
+  });
+  const fam = buildFamilyGraph(g, edges);
+  const { placements, colX } = readPlacement(raw, ROW);
+  const placed = centerOnlyChildren(
+    placeNodes(placements, fam, focus),
+    fam,
+    focus,
+  );
+  const px = project(placed, colX, ROW);
+  const positions: Map<string, Pos> = new Map(px);
+
+  const spouseBows = new Map<string, number>();
+  for (const { source, target, bow } of spouseRouting(px, fam, SPOUSE_GUTTER)) {
+    spouseBows.set(edgeId({ source, type: "SPOUSE_OF", target }), bow);
+  }
+
+  const junctions: EgoPlan["junctions"] = [];
+  const descentEdges: EgoPlan["descentEdges"] = [];
+  const hiddenEdgeIds = new Set<string>();
+  for (const j of descentJunctions(fam, placed)) {
+    const jid = junctionId(j.father, j.mother);
+    const jpos = projectOne(j.pos, colX, ROW);
+    junctions.push({ id: jid, pos: jpos });
+    positions.set(jid, jpos);
+    for (const child of j.children) {
+      descentEdges.push({ id: `${jid}->${child}`, source: jid, target: child });
+      hiddenEdgeIds.add(
+        edgeId({ source: j.father, type: "PARENT_OF", target: child }),
+      );
+    }
+  }
+
+  // Release the throwaway instance: styleEnabled headless cytoscape starts an
+  // animation loop that leaks across the per-fire/per-toggle recomputes otherwise.
+  cy.destroy();
+  return {
+    personIds: g.nodes.map((n) => n.qid),
+    labels: new Map(g.nodes.map((n) => [n.qid, n.label])),
+    wikipediaTitles: new Map(g.nodes.map((n) => [n.qid, n.wikipediaTitle])),
+    positions,
+    personEdges: edges.map((e) => ({
+      id: edgeId(e),
+      source: e.source,
+      target: e.target,
+      type: e.type,
+    })),
+    hiddenEdgeIds,
+    junctions,
+    descentEdges,
+    spouseBows,
+  };
+}
+
+// Apply a plan to the live cytoscape: reconcile elements (add new, drop stale),
+// animate existing nodes to their new positions, and sprout new nodes out of
+// `emergeFrom` (the fired node) so a branch reads as growing. No dagre runs here.
+function renderEgoPlan(
+  cy: Core,
+  plan: EgoPlan,
+  opts: { animate: boolean; emergeFrom?: Pos },
+): void {
+  const wantNodes = new Set<string>([
+    ...plan.personIds,
+    ...plan.junctions.map((j) => j.id),
+  ]);
+  const wantEdges = new Set<string>([
+    ...plan.personEdges.map((e) => e.id),
+    ...plan.descentEdges.map((e) => e.id),
+  ]);
+  cy.edges().forEach((e) => {
+    if (!wantEdges.has(e.id())) e.remove();
+  });
+  cy.nodes().forEach((n) => {
+    if (!wantNodes.has(n.id())) n.remove();
+  });
+
+  for (const id of plan.personIds) {
+    const pos = plan.positions.get(id);
+    if (!pos) continue;
+    const existing = cy.getElementById(id);
+    if (existing.empty()) {
+      const n = cy.add({ data: { id, label: plan.labels.get(id) } });
+      n.position(opts.emergeFrom ?? pos);
+      if (opts.animate && opts.emergeFrom)
+        n.animate({ position: pos }, { duration: ANIM_MS });
+      else n.position(pos);
+    } else if (opts.animate) {
+      existing
+        .stop(true, false)
+        .animate({ position: pos }, { duration: ANIM_MS });
+    } else {
+      existing.position(pos);
+    }
+  }
+
+  // Junctions are invisible anchors for the descent lines; snap them (no animation
+  // to a point nobody sees) so the child edges route from the right midpoint.
+  for (const j of plan.junctions) {
+    const existing = cy.getElementById(j.id);
+    if (existing.empty())
+      cy.add({ data: { id: j.id, junction: 1 } }).position(j.pos);
+    else existing.position(j.pos);
+  }
+
+  for (const e of plan.personEdges) {
+    if (cy.getElementById(e.id).empty()) {
+      cy.add({
+        data: { id: e.id, source: e.source, target: e.target, type: e.type },
+      });
+    }
+    const ed = cy.getElementById(e.id);
+    ed.style("visibility", plan.hiddenEdgeIds.has(e.id) ? "hidden" : "visible");
+    if (e.type === "SPOUSE_OF") {
+      const bow = plan.spouseBows.get(e.id);
+      if (bow === undefined) {
+        ed.removeStyle("segment-weights segment-distances");
+        ed.style("curve-style", "straight");
+      } else {
+        ed.style("curve-style", "segments");
+        ed.style("segment-weights", "0.08 0.92");
+        ed.style("segment-distances", `${bow} ${bow}`);
+      }
+    }
+  }
+
+  for (const e of plan.descentEdges) {
+    if (cy.getElementById(e.id).empty()) {
+      cy.add({
+        data: {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: "DESCENT" satisfies SyntheticEdge,
+        },
+      });
+    }
+  }
+}
+
+function EgoPane({
+  focus,
+  showAdoptions,
+  onCurrent,
+}: {
+  focus: FocusPerson;
+  showAdoptions: boolean;
+  onCurrent: (person: FocusPerson) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const cyRef = useRef<Core | null>(null);
+  const graphRef = useRef<Graph>({ nodes: [], edges: [] });
+  // Monotonic id so only the latest-issued fire applies: rapid taps/Enters race,
+  // and without this the last-*resolved* fetch would win over the last-*issued* one.
+  const fireSeqRef = useRef(0);
+  const currentRef = useRef<PersonId>(focus.qid as PersonId);
+  const cursorRef = useRef<PersonId>(focus.qid as PersonId);
+  const showAdoptionsRef = useRef(showAdoptions);
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  const paint = useCallback((cy: Core) => {
+    cy.nodes().removeClass("current cursor");
+    cy.getElementById(currentRef.current).addClass("current");
+    cy.getElementById(cursorRef.current).addClass("cursor");
+  }, []);
+
+  // Set up the persistent cytoscape once per anchor, wire input, and auto-fire the
+  // anchor. Deliberately excludes showAdoptions from deps — toggling it re-renders
+  // the accumulated graph (separate effect below) without tearing down accretion.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const cy = cytoscape({ container, style: STYLE });
+    cyRef.current = cy;
+    graphRef.current = { nodes: [], edges: [] };
+    currentRef.current = focus.qid as PersonId;
+    cursorRef.current = focus.qid as PersonId;
+
+    const controller = new AbortController();
+    let destroyed = false;
+
+    async function fire(id: PersonId) {
+      // Per-fire token (not per-mount): rapid taps/Enters each bump it, so only
+      // the latest-issued fire applies its result below.
+      const seq = ++fireSeqRef.current;
+      try {
+        // Seed the initial auto-fire with 2 hops for a richer first view; every
+        // later fire adds just the fired person's direct neighbours (1 hop).
+        const firstRender = graphRef.current.nodes.length === 0;
+        const hops = firstRender ? 2 : 1;
+        const res = await fetch(
+          `/api/person/${encodeURIComponent(id)}/neighbors?hops=${hops}`,
+          { signal: controller.signal },
+        );
+        if (!res.ok)
+          throw new Error(`グラフの取得に失敗しました (${res.status})`);
+        const g = (await res.json()) as Graph;
+        // Superseded by a newer fire (or unmounted): drop this one so a slow
+        // response can't clobber the current node, camera, or render.
+        if (destroyed || seq !== fireSeqRef.current) return;
+        graphRef.current = mergeGraph(graphRef.current, g);
+        const firedEl = cy.getElementById(id);
+        const emergeFrom = firedEl.nonempty()
+          ? { ...firedEl.position() }
+          : undefined;
+        const plan = computeEgoPlan(
+          graphRef.current,
+          focus.qid as PersonId,
+          showAdoptionsRef.current,
+        );
+        renderEgoPlan(cy, plan, { animate: !firstRender, emergeFrom });
+        currentRef.current = id;
+        cursorRef.current = id;
+        paint(cy);
+        onCurrent({
+          qid: id,
+          label: plan.labels.get(id) ?? id,
+          wikipediaTitle: plan.wikipediaTitles.get(id),
+        });
+        // Open on the anchor once; later fires keep the camera where the user left it.
+        if (firstRender) {
+          cy.zoom(0.8);
+          cy.center(cy.getElementById(focus.qid));
+        }
+        setError(null);
+        setReady(true);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(
+          err instanceof Error ? err.message : "グラフの取得に失敗しました",
+        );
+      }
+    }
+
+    // Returns whether the cursor actually moved; the caller expands (fires) the
+    // current node when there is nothing further in that direction (an edge node).
+    function moveCursor(dir: "h" | "j" | "k" | "l"): boolean {
+      const cur = cy.getElementById(cursorRef.current);
+      if (cur.empty()) return false;
+      const { x, y } = cur.position();
+      let best: string | null = null;
+      let bestDist = Infinity;
+      cy.nodes().forEach((n) => {
+        if (n.data("junction") || n.id() === cursorRef.current) return;
+        const p = n.position();
+        const dx = p.x - x;
+        const dy = p.y - y;
+        const sameCol = Math.abs(dx) < COL / 2;
+        const ok =
+          dir === "h"
+            ? dx < -COL / 2
+            : dir === "l"
+              ? dx > COL / 2
+              : dir === "j"
+                ? sameCol && dy > 1
+                : sameCol && dy < -1;
+        if (!ok) return;
+        const d = dx * dx + dy * dy;
+        if (d < bestDist) {
+          bestDist = d;
+          best = n.id();
+        }
+      });
+      if (best) {
+        cursorRef.current = best as PersonId;
+        paint(cy);
+        return true;
+      }
+      return false;
+    }
+
+    function onKey(e: KeyboardEvent) {
+      // App-level shortcut on window (not the container) so it works regardless of
+      // where focus landed — but never while the user is typing in the search box.
+      const t = e.target;
+      if (
+        t instanceof HTMLElement &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.tagName === "BUTTON" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      // At an edge (no node further in this direction) the move fails, so expand
+      // the current node instead — walking into the void grows the tree.
+      switch (e.key) {
+        case "h":
+        case "ArrowLeft":
+          e.preventDefault();
+          if (!moveCursor("h")) fire(cursorRef.current);
+          break;
+        case "l":
+        case "ArrowRight":
+          e.preventDefault();
+          if (!moveCursor("l")) fire(cursorRef.current);
+          break;
+        case "j":
+        case "ArrowDown":
+          e.preventDefault();
+          if (!moveCursor("j")) fire(cursorRef.current);
+          break;
+        case "k":
+        case "ArrowUp":
+          e.preventDefault();
+          if (!moveCursor("k")) fire(cursorRef.current);
+          break;
+        case "Enter":
+        case " ": // Space fires, same as Enter
+          e.preventDefault();
+          fire(cursorRef.current);
+          break;
+      }
+    }
+
+    cy.on("tap", "node", (evt) => {
+      const d = evt.target.data();
+      if (d.junction) return;
+      cursorRef.current = d.id as PersonId;
+      fire(d.id as PersonId);
+    });
+    window.addEventListener("keydown", onKey);
+
+    fire(focus.qid as PersonId);
+
+    return () => {
+      destroyed = true;
+      controller.abort();
+      window.removeEventListener("keydown", onKey);
+      cy.destroy();
+      cyRef.current = null;
+    };
+  }, [focus.qid, onCurrent, paint]);
+
+  // Re-render the accumulated graph when the adoption toggle flips, without
+  // refetching or resetting accretion.
+  useEffect(() => {
+    showAdoptionsRef.current = showAdoptions;
+    const cy = cyRef.current;
+    if (!cy || graphRef.current.nodes.length === 0) return;
+    const plan = computeEgoPlan(
+      graphRef.current,
+      focus.qid as PersonId,
+      showAdoptions,
+    );
+    renderEgoPlan(cy, plan, { animate: false });
+    // Turning the toggle off can drop the node the cursor/current sat on (an
+    // adoptive-only relative). Snap both back to the anchor so keyboard nav keeps
+    // working and the highlight/article don't reference a vanished node.
+    if (cy.getElementById(currentRef.current).empty()) {
+      currentRef.current = focus.qid as PersonId;
+      onCurrent(focus);
+    }
+    if (cy.getElementById(cursorRef.current).empty()) {
+      cursorRef.current = focus.qid as PersonId;
+    }
+    paint(cy);
+  }, [showAdoptions, focus, onCurrent, paint]);
+
+  return (
+    <div className="relative h-full w-full bg-zinc-50 dark:bg-zinc-900">
+      {!ready && !error && (
+        <p className="absolute top-3 left-3 z-10 text-sm text-zinc-500">
+          グラフを読み込み中…
+        </p>
+      )}
+      {error && (
+        <p className="absolute top-3 left-3 z-10 text-sm text-red-600">
+          {error}
+        </p>
+      )}
+      <div ref={containerRef} className="h-full w-full outline-none" />
     </div>
   );
 }

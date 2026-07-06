@@ -57,6 +57,15 @@ export const JUNCTION_PREFIX = "__junction__";
 export const junctionId = (father: PersonId, mother: PersonId): JunctionId =>
   `${JUNCTION_PREFIX}|${father}|${mother}` as JunctionId;
 
+// The single source of truth for a person-edge's id. It's load-bearing: cytoscape
+// reconciliation, hidden-edge and spouse-bow lookups, and mergeGraph dedup all key
+// off this exact string, so every producer must go through here.
+export const edgeId = (e: {
+  source: string;
+  type: string;
+  target: string;
+}): string => `${e.source}|${e.type}|${e.target}`;
+
 // Reduce a neighbourhood toward a patrilineal tree: the line of descent runs
 // through fathers, mothers are shown as the father's spouse (not as a second
 // descent line). For each child keep every father edge — a parent whose sex
@@ -349,6 +358,20 @@ export function neighborsToGraph(rows: NeighborRow[]): Graph {
       });
     }
   }
+  return { nodes: [...nodes.values()], edges: [...edges.values()] };
+}
+
+// Accretion merge for the growing ego graph (issue #49): union of two graphs,
+// deduped by the same keys neighborsToGraph uses — node=qid, edge=source|type|target
+// — so a person or edge returned by several fires collapses to one. `b` wins on key
+// collision, but labels/sex are stable per qid so which wins doesn't matter.
+export function mergeGraph(a: Graph, b: Graph): Graph {
+  const nodes = new Map<string, GraphNode>();
+  for (const n of a.nodes) nodes.set(n.qid, n);
+  for (const n of b.nodes) nodes.set(n.qid, n);
+  const edges = new Map<string, GraphEdge>();
+  for (const e of a.edges) edges.set(edgeId(e), e);
+  for (const e of b.edges) edges.set(edgeId(e), e);
   return { nodes: [...nodes.values()], edges: [...edges.values()] };
 }
 
