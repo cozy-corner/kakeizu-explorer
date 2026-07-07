@@ -33,9 +33,28 @@ import {
 import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 
 const ROUNDS = Number(process.env.ROUNDS ?? "1");
+// Diagnostic (issue #16): cap the starting frontier to time a representative
+// slice without a full cold run. 0 = no cap (normal behavior).
+const FRONTIER_CAP = Number(process.env.FRONTIER_CAP ?? "0");
 const EDGE_BATCH = 120;
 const META_BATCH = 400;
 const SIZE_CAP = 200_000;
+
+// Wall-clock accounting per stage (issue #16, diagnostic): a cold run
+// (WDQS_NOCACHE=1) reveals which stage dominates — the Amdahl fraction that
+// bounds any parallelization win. Warm cache makes every stage instant, so the
+// numbers only mean anything with the cache disabled. Never touches the output.
+const timings = new Map<string, number>();
+const addTiming = (stage: string, ms: number) =>
+  timings.set(stage, (timings.get(stage) ?? 0) + ms);
+async function timed<T>(stage: string, fn: () => Promise<T>): Promise<T> {
+  const t0 = performance.now();
+  try {
+    return await fn();
+  } finally {
+    addTiming(stage, performance.now() - t0);
+  }
+}
 
 // Diagnostic only (issue #44 exempts the ja.wikipedia leak proxy): which of
 // `qids` have a ja.wikipedia article. Logged, never persisted.
@@ -88,6 +107,7 @@ async function main() {
   const isJp = (q: string) =>
     (nodeById.get(q)?.nationalities ?? []).includes("Q17");
   let frontier = [...known].filter((q) => !isJp(q));
+  if (FRONTIER_CAP > 0) frontier = frontier.slice(0, FRONTIER_CAP);
   console.log(
     `  total ${known.size}, JP ${known.size - frontier.length}, frontier(non-JP) ${frontier.length}`,
   );
@@ -96,6 +116,7 @@ async function main() {
   for (let round = 1; round <= ROUNDS && frontier.length > 0; round++) {
     const roundNewNodes: string[] = [];
     const batches = chunk(frontier, EDGE_BATCH);
+    const tEdge = performance.now();
     for (let i = 0; i < batches.length; i++) {
       // Enumerate the 5 family predicates with VALUES ?p instead of a 5-way
       // UNION — far lighter for Blazegraph, which 504s on the UNION form.
@@ -124,16 +145,17 @@ async function main() {
         console.log(`    round ${round}: batch ${i + 1}/${batches.length}`);
       if (known.size > SIZE_CAP) break;
     }
+    addTiming("edge-loop", performance.now() - tEdge);
 
     // Capture attributes for the new nodes (label/sex/nationality) — needed both
     // for the next frontier's narrow rule and for local foreign-pruning later.
-    const attrs = await fetchNodeAttrs(roundNewNodes);
+    const attrs = await timed("attrs", () => fetchNodeAttrs(roundNewNodes));
     for (const q of roundNewNodes) {
       nodeById.set(q, rawNodeOr(q, attrs));
       allNewNodes.push(q);
     }
 
-    const jaSet = await jaSweep(roundNewNodes);
+    const jaSet = await timed("jaSweep", () => jaSweep(roundNewNodes));
     const ratio = roundNewNodes.length
       ? ((jaSet.size / roundNewNodes.length) * 100).toFixed(1)
       : "—";
@@ -157,8 +179,10 @@ async function main() {
     subjects.add(e.from);
     subjects.add(e.to);
   }
-  const { parent: newRawParent, adoptions: sweptAdoptions } =
-    await fetchParentAndAdoptions([...subjects], newParentPairs);
+  const { parent: newRawParent, adoptions: sweptAdoptions } = await timed(
+    "final-sweep",
+    () => fetchParentAndAdoptions([...subjects], newParentPairs),
+  );
 
   // fetch.ts already swept its own nodes, so dedup against the existing set.
   const adoptionKeys = new Set(rawAdoptions.map((e) => `${e.from}->${e.to}`));
@@ -178,6 +202,13 @@ async function main() {
   console.log(
     `Wrote: ${nodeById.size} nodes, ${rawParent.length + newRawParent.length} PARENT_OF, ${rawSpouse.length} SPOUSE_OF, ${rawSibling.length} SIBLING_OF, ${rawAdoptions.length + newAdoptions.length} adoptive`,
   );
+
+  const total = [...timings.values()].reduce((a, b) => a + b, 0);
+  console.log("=== stage timings (cold run; run with WDQS_NOCACHE=1) ===");
+  for (const [stage, ms] of [...timings].sort((a, b) => b[1] - a[1])) {
+    const pct = total ? ((ms / total) * 100).toFixed(1) : "—";
+    console.log(`  ${stage.padEnd(12)} ${(ms / 1000).toFixed(1)}s  ${pct}%`);
+  }
 }
 
 await main();
