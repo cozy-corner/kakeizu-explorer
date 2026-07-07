@@ -56,43 +56,61 @@ export async function fetchNodeAttrs(
     }
     return n;
   };
-  for (const b of chunk(qids, NODE_BATCH)) {
-    const values = sparqlValues(b);
-    for (const r of await sparql(
-      `SELECT ?item ?itemLabel WHERE { VALUES ?item { ${values} }
+  // The 5 per-batch queries are independent, and distinct batches touch disjoint
+  // qids, so all fetches run concurrently (issue #16). Rows are still processed
+  // in the fixed order below (not fetch-completion order), so the "first wins"
+  // merges (sex, wikipediaTitle) stay deterministic; the global gate in wdqs.ts
+  // caps total in-flight requests.
+  await Promise.all(
+    chunk(qids, NODE_BATCH).map(async (b) => {
+      const values = sparqlValues(b);
+      const [labels, sexes, nats, countries, titles] = await Promise.all([
+        // NOTE: keep the exact whitespace of every query string below — the WDQS
+        // result cache is keyed by sha1(query), so re-indenting silently
+        // invalidates the whole cache and forces a full cold refetch.
+        sparql(
+          `SELECT ?item ?itemLabel WHERE { VALUES ?item { ${values} }
        SERVICE wikibase:label { bd:serviceParam wikibase:language "ja,en". } }`,
-    )) {
-      const n = ensure(r.item!.value);
-      n.label = r.itemLabel?.value || n.qid;
-    }
-    for (const r of await sparql(
-      `SELECT ?item ?sex WHERE { VALUES ?item { ${values} } ?item wdt:P21 ?sex. }`,
-    )) {
-      const n = ensure(r.item!.value);
-      // First P21 wins; non male/female (intersex, trans, …) → "other".
-      if (n.sex === undefined) n.sex = SEX_QID[qid(r.sex!.value)] ?? "other";
-    }
-    for (const r of await sparql(
-      `SELECT ?item ?nat WHERE { VALUES ?item { ${values} } ?item wdt:P27 ?nat. }`,
-    )) {
-      pushUniq(ensure(r.item!.value).nationalities, qid(r.nat!.value));
-    }
-    for (const r of await sparql(
-      `SELECT ?item ?c WHERE { VALUES ?item { ${values} } ?item wdt:P27/wdt:P17 ?c. }`,
-    )) {
-      pushUniq(ensure(r.item!.value).nationalityCountries, qid(r.c!.value));
-    }
-    // schema:name on the ja.wikipedia sitelink is the canonical article title
-    // (only present for items that have such an article). First title wins.
-    for (const r of await sparql(
-      `SELECT ?item ?title WHERE { VALUES ?item { ${values} }
+        ),
+        sparql(
+          `SELECT ?item ?sex WHERE { VALUES ?item { ${values} } ?item wdt:P21 ?sex. }`,
+        ),
+        sparql(
+          `SELECT ?item ?nat WHERE { VALUES ?item { ${values} } ?item wdt:P27 ?nat. }`,
+        ),
+        sparql(
+          `SELECT ?item ?c WHERE { VALUES ?item { ${values} } ?item wdt:P27/wdt:P17 ?c. }`,
+        ),
+        // schema:name on the ja.wikipedia sitelink is the canonical article title
+        // (only present for items that have such an article).
+        sparql(
+          `SELECT ?item ?title WHERE { VALUES ?item { ${values} }
        ?art schema:about ?item; schema:isPartOf <https://ja.wikipedia.org/>;
             schema:name ?title. }`,
-    )) {
-      const n = ensure(r.item!.value);
-      if (n.wikipediaTitle === undefined) n.wikipediaTitle = r.title!.value;
-    }
-  }
+        ),
+      ]);
+      for (const r of labels) {
+        const n = ensure(r.item!.value);
+        n.label = r.itemLabel?.value || n.qid;
+      }
+      for (const r of sexes) {
+        const n = ensure(r.item!.value);
+        // First P21 wins; non male/female (intersex, trans, …) → "other".
+        if (n.sex === undefined) n.sex = SEX_QID[qid(r.sex!.value)] ?? "other";
+      }
+      for (const r of nats) {
+        pushUniq(ensure(r.item!.value).nationalities, qid(r.nat!.value));
+      }
+      for (const r of countries) {
+        pushUniq(ensure(r.item!.value).nationalityCountries, qid(r.c!.value));
+      }
+      // First title wins.
+      for (const r of titles) {
+        const n = ensure(r.item!.value);
+        if (n.wikipediaTitle === undefined) n.wikipediaTitle = r.title!.value;
+      }
+    }),
+  );
   return out;
 }
 
@@ -117,8 +135,12 @@ async function fetchParentStatements(
   subjects: string[],
 ): Promise<ParentStatement[]> {
   const byStatement = new Map<string, ParentStatement>();
-  for (const b of chunk(subjects, EDGE_BATCH)) {
-    const rows = await sparql(`
+  // Batches touch disjoint subjects → disjoint statements, so fetch them
+  // concurrently (issue #16) but fold rows in batch order to keep byStatement
+  // deterministic. The global gate in wdqs.ts caps total in-flight requests.
+  const rowsByBatch = await Promise.all(
+    chunk(subjects, EDGE_BATCH).map((b) =>
+      sparql(`
       SELECT ?st ?child ?parent ?side ?rank ?role ?circ WHERE {
         VALUES ?s { ${sparqlValues(b)} }
         {
@@ -133,7 +155,10 @@ async function fetchParentStatements(
         }
         OPTIONAL { ?st pq:P1039 ?role. }
         OPTIONAL { ?st pq:P1480 ?circ. }
-      }`);
+      }`),
+    ),
+  );
+  for (const rows of rowsByBatch) {
     for (const r of rows) {
       const child = qid(r.child!.value);
       const parent = qid(r.parent!.value);
@@ -178,10 +203,15 @@ export async function fetchParentAndAdoptions(
   subjects: string[],
   truthyEdges: { from: string; to: string }[],
 ): Promise<{ parent: RawParentEdge[]; adoptions: RawAdoptiveEdge[] }> {
-  const statements = await fetchParentStatements(subjects);
+  // The reified parent sweep and the P1038 sweep are independent — run them
+  // concurrently (issue #16); the global gate in wdqs.ts bounds total in-flight.
+  const [statements, p1038] = await Promise.all([
+    fetchParentStatements(subjects),
+    fetchP1038Adoptions(subjects),
+  ]);
   const adoptionKeys = new Set<string>(); // `from->to`, deduped
   for (const e of adoptiveFromStatements(statements)) adoptionKeys.add(e);
-  for (const e of await fetchP1038Adoptions(subjects)) adoptionKeys.add(e);
+  for (const e of p1038) adoptionKeys.add(e);
   return {
     parent: annotateFromStatements(truthyEdges, statements),
     adoptions: [...adoptionKeys].map((e) => {
@@ -266,8 +296,10 @@ function adoptiveFromStatements(statements: ParentStatement[]): string[] {
 async function fetchP1038Adoptions(subjects: string[]): Promise<string[]> {
   const kinshipValues = sparqlValues(KINSHIP);
   const out: string[] = [];
-  for (const b of chunk(subjects, EDGE_BATCH)) {
-    const rows = await sparql(`
+  // Batches are independent; fetch concurrently (issue #16), fold in batch order.
+  const rowsByBatch = await Promise.all(
+    chunk(subjects, EDGE_BATCH).map((b) =>
+      sparql(`
       SELECT ?s ?o ?k WHERE {
         VALUES ?s { ${sparqlValues(b)} }
         VALUES ?k { ${kinshipValues} }
@@ -275,7 +307,10 @@ async function fetchP1038Adoptions(subjects: string[]): Promise<string[]> {
         ?st pq:P1039 ?k.
         ?st wikibase:rank ?rank.
         FILTER(?rank != wikibase:DeprecatedRank)
-      }`);
+      }`),
+    ),
+  );
+  for (const rows of rowsByBatch) {
     for (const r of rows) {
       const s = qid(r.s!.value);
       const o = qid(r.o!.value);
