@@ -49,6 +49,10 @@ export type GraphEdge = {
 };
 export type Graph = { nodes: GraphNode[]; edges: GraphEdge[] };
 
+// A Graph plus the pre-LIMIT hit count. `total > nodes.length` ⇒ truncated, which
+// the UI surfaces to prompt narrowing.
+export type SearchResult = Graph & { total: number };
+
 // The sole constructor for a JunctionId — the cytoscape id of the invisible anchor
 // at a couple's midpoint. Single-sourced (it was an exported const, then briefly an
 // inline build in two files) so the live view and the offline dump-layout tool emit
@@ -317,6 +321,14 @@ export function personsToGraph(rows: PersonRow[]): Graph {
     })),
     edges: [],
   };
+}
+
+// Beside the other row→Graph builders so the route doesn't assemble SearchResult inline.
+export function personsToSearchResult(
+  rows: PersonRow[],
+  total: number,
+): SearchResult {
+  return { ...personsToGraph(rows), total };
 }
 
 // Every node appears at least once in the `a` columns, so building nodes from

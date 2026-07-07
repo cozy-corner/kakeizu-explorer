@@ -3,11 +3,11 @@
 import { useCallback, useRef, useState } from "react";
 import { ArticlePane } from "@/components/ArticlePane";
 import { GraphPane, type FocusPerson } from "@/components/GraphPane";
-import type { Graph } from "@/lib/graph";
+import type { SearchResult } from "@/lib/graph";
 
 export default function Home() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Graph | null>(null);
+  const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The ego view's anchor: the layout root, fixed until a new search selection.
@@ -39,7 +39,7 @@ export default function Home() {
         signal: controller.signal,
       });
       if (!res.ok) throw new Error(`検索に失敗しました (${res.status})`);
-      setResults((await res.json()) as Graph);
+      setResults((await res.json()) as SearchResult);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "検索に失敗しました");
@@ -102,6 +102,12 @@ export default function Home() {
           {results.nodes.length === 0 && (
             <li className="px-4 py-2 text-sm text-zinc-500">
               該当する人物が見つかりません
+            </li>
+          )}
+          {results.total > results.nodes.length && (
+            <li className="border-b border-zinc-100 bg-zinc-50 px-4 py-2 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+              {results.total} 件ヒット。関連度の高い上位 {results.nodes.length}{" "}
+              件を表示中。名前を絞り込んでください。
             </li>
           )}
           {results.nodes.map((node) => (
