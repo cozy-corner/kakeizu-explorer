@@ -49,6 +49,11 @@ export type GraphEdge = {
 };
 export type Graph = { nodes: GraphNode[]; edges: GraphEdge[] };
 
+// Search response: the matched people plus `total`, the full CONTAINS hit count
+// before the LIMIT. `total > nodes.length` means results were truncated, which the
+// UI surfaces so the user knows to narrow the query. See app/api/search/route.ts.
+export type SearchResult = Graph & { total: number };
+
 // The sole constructor for a JunctionId — the cytoscape id of the invisible anchor
 // at a couple's midpoint. Single-sourced (it was an exported const, then briefly an
 // inline build in two files) so the live view and the offline dump-layout tool emit
