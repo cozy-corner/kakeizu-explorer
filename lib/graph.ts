@@ -49,9 +49,8 @@ export type GraphEdge = {
 };
 export type Graph = { nodes: GraphNode[]; edges: GraphEdge[] };
 
-// Search response: the matched people plus `total`, the full CONTAINS hit count
-// before the LIMIT. `total > nodes.length` means results were truncated, which the
-// UI surfaces so the user knows to narrow the query. See app/api/search/route.ts.
+// A Graph plus the pre-LIMIT hit count. `total > nodes.length` ⇒ truncated, which
+// the UI surfaces to prompt narrowing.
 export type SearchResult = Graph & { total: number };
 
 // The sole constructor for a JunctionId — the cytoscape id of the invisible anchor
@@ -324,9 +323,7 @@ export function personsToGraph(rows: PersonRow[]): Graph {
   };
 }
 
-// The search response constructor: the matched-people graph plus the pre-LIMIT
-// `total` hit count. Kept here beside the other row→Graph builders so the route
-// doesn't assemble the SearchResult shape inline in each branch.
+// Beside the other row→Graph builders so the route doesn't assemble SearchResult inline.
 export function personsToSearchResult(
   rows: PersonRow[],
   total: number,

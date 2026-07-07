@@ -17,10 +17,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Rank by degree (COUNT { (p)--() } = directly-linked kin) so the notable
-    // people surface first — a good popularity proxy in this data — instead of
-    // the top 20 by alphabetical label. `total` is the full CONTAINS hit count
-    // (before LIMIT), collected in the same scan and carried on every row.
+    // Rank by degree (COUNT { (p)--() }) — a good popularity proxy in this data
+    // — so notable people surface first.
     const rows = await runQuery<PersonRow & { total: number }>(
       // neo4j.int: a plain JS number binds as a Cypher Float, which LIMIT rejects.
       `MATCH (p:Person)
@@ -40,7 +38,7 @@ export async function GET(request: Request) {
         total: r.get("total").toNumber(),
       }),
     );
-    // No rows ⇒ no match ⇒ total 0 (the count row only exists alongside results).
+    // total rides on every row (same scan); no rows ⇒ no match ⇒ 0.
     const total = rows[0]?.total ?? 0;
     return NextResponse.json(personsToSearchResult(rows, total));
   } catch (err) {
