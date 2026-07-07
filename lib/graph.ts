@@ -324,6 +324,16 @@ export function personsToGraph(rows: PersonRow[]): Graph {
   };
 }
 
+// The search response constructor: the matched-people graph plus the pre-LIMIT
+// `total` hit count. Kept here beside the other row→Graph builders so the route
+// doesn't assemble the SearchResult shape inline in each branch.
+export function personsToSearchResult(
+  rows: PersonRow[],
+  total: number,
+): SearchResult {
+  return { ...personsToGraph(rows), total };
+}
+
 // Every node appears at least once in the `a` columns, so building nodes from
 // `a` alone is complete; `b`/type are null when `a` has no in-subgraph edge.
 export type NeighborRow = {

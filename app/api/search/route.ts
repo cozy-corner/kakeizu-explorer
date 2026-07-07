@@ -1,7 +1,7 @@
 import neo4j from "neo4j-driver";
 import { NextResponse } from "next/server";
 import { runQuery, serviceUnavailable } from "@/lib/api";
-import { personsToGraph, type PersonRow, type SearchResult } from "@/lib/graph";
+import { personsToSearchResult, type PersonRow } from "@/lib/graph";
 
 // Reads the query string and hits the DB at request time, so opt out of static
 // optimization (build-time execution).
@@ -13,10 +13,7 @@ export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
   // Skip the DB scan when there's nothing to match.
   if (!q) {
-    return NextResponse.json({
-      ...personsToGraph([]),
-      total: 0,
-    } satisfies SearchResult);
+    return NextResponse.json(personsToSearchResult([], 0));
   }
 
   try {
@@ -45,10 +42,7 @@ export async function GET(request: Request) {
     );
     // No rows ⇒ no match ⇒ total 0 (the count row only exists alongside results).
     const total = rows[0]?.total ?? 0;
-    return NextResponse.json({
-      ...personsToGraph(rows),
-      total,
-    } satisfies SearchResult);
+    return NextResponse.json(personsToSearchResult(rows, total));
   } catch (err) {
     return serviceUnavailable("Search failed", err);
   }
