@@ -47,8 +47,14 @@ const CACHE_DIR = join(import.meta.dirname, "data", ".cache");
 const CACHE_ENABLED = process.env.WDQS_NOCACHE !== "1";
 // Cap in-flight WDQS requests (issue #16): callers Promise.all freely and this
 // gate, not the call sites, keeps us polite to the shared endpoint. Modest to
-// avoid inducing 429/504.
+// avoid inducing 429/504. Fail fast on a non-positive-integer override —
+// NaN/0/negative would make acquire() wait forever and silently hang the ETL.
 const MAX_CONCURRENCY = Number(process.env.WDQS_CONCURRENCY ?? "3");
+if (!Number.isInteger(MAX_CONCURRENCY) || MAX_CONCURRENCY < 1) {
+  throw new Error(
+    `WDQS_CONCURRENCY must be a positive integer (got ${JSON.stringify(process.env.WDQS_CONCURRENCY)})`,
+  );
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
