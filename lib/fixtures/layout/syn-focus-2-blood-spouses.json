@@ -1,0 +1,89 @@
+{
+  "qid": "FO",
+  "label": "syn: focus 2 blood spouses",
+  "graph": {
+    "nodes": [
+      {
+        "qid": "S2",
+        "label": "S2"
+      },
+      {
+        "qid": "S1",
+        "label": "S1"
+      },
+      {
+        "qid": "PA",
+        "label": "PA"
+      },
+      {
+        "qid": "PB1",
+        "label": "PB1"
+      },
+      {
+        "qid": "PB2",
+        "label": "PB2"
+      },
+      {
+        "qid": "FO",
+        "label": "FO"
+      },
+      {
+        "qid": "sib",
+        "label": "sib"
+      }
+    ],
+    "edges": [
+      {
+        "source": "FO",
+        "target": "S1",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "FO",
+        "target": "S2",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "PA",
+        "target": "FO",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "PA",
+        "target": "sib",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "PB1",
+        "target": "S1",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "PB2",
+        "target": "S2",
+        "type": "PARENT_OF"
+      }
+    ]
+  },
+  "dagre": {
+    "S2": [244, 146],
+    "S1": [244, 100],
+    "PA": [8, 31],
+    "PB1": [8, 100],
+    "PB2": [8, 146],
+    "FO": [244, 54],
+    "sib": [244, 8]
+  },
+  "expected": {
+    "positions": {
+      "S2": [244, 146],
+      "S1": [244, 100],
+      "PA": [8, 31],
+      "PB1": [8, 100],
+      "PB2": [8, 146],
+      "FO": [244, 54.00000000000001],
+      "sib": [244, 8]
+    },
+    "routing": []
+  }
+}

@@ -41,4 +41,4 @@ bun run scripts/dump-layout.ts Q319664
 - **Descent junctions** — 夫婦の中点から子へ伸びる線の起点と `dy`
 - **Spouse detours** — 迂回（bow）するマリッジ線
 
-純粋なレイアウト関数の挙動が変わっていないかの非回帰チェックは `bun run scripts/layout-parity.ts`。
+純粋なレイアウト関数（`lib/layout`）の非回帰チェックは `bun test lib/layout.test.ts`。実 ego グラフの dagre 出力を `lib/fixtures/layout/*.json` に凍結した golden テストで、DB・dev サーバー不要・CI 実行可。フィクスチャは dev サーバー起動中に `bun run scripts/gen-layout-fixtures.ts` で再生成する。
