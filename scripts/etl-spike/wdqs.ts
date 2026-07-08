@@ -45,9 +45,9 @@ const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 30_000;
 const CACHE_DIR = join(import.meta.dirname, "data", ".cache");
 const CACHE_ENABLED = process.env.WDQS_NOCACHE !== "1";
-// Cap concurrent in-flight WDQS requests (issue #16). Callers may Promise.all
-// freely; this gate — not the call sites — bounds how hard we hit the shared
-// public endpoint. Kept modest (2–4) to avoid inducing 429/504.
+// Cap in-flight WDQS requests (issue #16): callers Promise.all freely and this
+// gate, not the call sites, keeps us polite to the shared endpoint. Modest to
+// avoid inducing 429/504.
 const MAX_CONCURRENCY = Number(process.env.WDQS_CONCURRENCY ?? "3");
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -76,11 +76,9 @@ function release(): void {
   else active--;
 }
 
-// Shared cooperative backoff (issue #16): when one request hits 429/5xx, every
-// other in-flight worker must also stand down — otherwise the pool keeps
-// hammering a throttling server. A request records how long to pause here; all
-// workers await it before their next attempt, so N parallel workers behave like
-// one polite client under throttling.
+// Shared cooperative backoff (issue #16): on a 429/5xx one worker records a
+// pause here and every worker awaits it before its next attempt, so the pool
+// behaves like one polite client instead of N racing retries.
 let pausedUntil = 0;
 async function respectSharedPause(): Promise<void> {
   const wait = pausedUntil - Date.now();
@@ -120,8 +118,6 @@ async function cachePut(path: string, data: Binding[]): Promise<void> {
 async function request(query: string): Promise<Binding[]> {
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    // Stand down if a sibling worker hit throttling — parallel workers must
-    // pause together, not race ahead while WDQS is asking us to wait.
     await respectSharedPause();
 
     let res: Response;
@@ -145,9 +141,8 @@ async function request(query: string): Promise<Binding[]> {
       break;
     }
 
-    // 4xx other than 429: permanent, fail fast. (A 2xx/3xx is `res.ok` here for
-    // 2xx and falls through to the parse below; the `!res.ok` guard keeps this
-    // from throwing on a successful response.)
+    // 4xx other than 429: permanent, fail fast. `!res.ok` so a 2xx falls through
+    // to the parse below instead of throwing.
     if (!res.ok && res.status < 500 && res.status !== 429) {
       throw new Error(
         `WDQS ${res.status}: ${(await res.text()).slice(0, 160)}`,
@@ -166,11 +161,9 @@ async function request(query: string): Promise<Binding[]> {
       continue;
     }
 
-    // Read + parse INSIDE a try: a 200 with a truncated/broken body (WDQS
-    // truncation under load, or a mid-stream disconnect) makes JSON.parse throw.
-    // Formerly this sat outside the retry loop, so one bad body killed the whole
-    // ETL — and parallelism makes large concurrent responses (the fragile ones)
-    // more frequent, so it would drop every in-flight sibling too. Now transient.
+    // Parse INSIDE the try: a truncated/broken 200 body makes JSON.parse throw,
+    // and this used to sit outside the retry loop where one bad body killed the
+    // whole ETL. Parallelism makes such large fragile responses more likely.
     try {
       const text = await res.text();
       return (JSON.parse(text) as { results: { bindings: Binding[] } }).results

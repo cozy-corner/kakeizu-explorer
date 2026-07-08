@@ -102,11 +102,10 @@ async function main() {
     const roundNewNodes: string[] = [];
     const batches = chunk(frontier, EDGE_BATCH);
     const tEdge = performance.now();
-    // Fetch every batch concurrently (issue #16); the global gate in wdqs.ts
-    // caps in-flight requests. Rows are folded in batch order, so aggregation —
-    // and the SIZE_CAP cutoff — stays deterministic regardless of which batch
-    // returns first. Enumerate the 5 family predicates with VALUES ?p instead of
-    // a 5-way UNION — far lighter for Blazegraph, which 504s on the UNION form.
+    // Fetch every batch concurrently (issue #16), fold in batch order so
+    // aggregation stays deterministic. Enumerate the 5 family predicates with
+    // VALUES ?p instead of a 5-way UNION — far lighter for Blazegraph, which
+    // 504s on the UNION form.
     const rowsByBatch = await Promise.all(
       batches.map((b) =>
         sparql(`
@@ -145,10 +144,10 @@ async function main() {
       allNewNodes.push(q);
     }
 
-    // ja-article ratio (leak proxy) computed locally: fetchNodeAttrs above set
-    // wikipediaTitle from the SAME ja.wikipedia sitelink the old jaSweep queried,
-    // and every ja article carries a schema:name (verified), so
-    // `wikipediaTitle !== undefined` ⟺ "has a ja article". No WDQS round-trip.
+    // ja-article ratio (leak proxy), now local instead of a WDQS sweep:
+    // fetchNodeAttrs set wikipediaTitle from the same ja.wikipedia sitelink, and
+    // every ja article carries a schema:name (verified), so `wikipediaTitle !==
+    // undefined` ⟺ "has a ja article".
     const jaCount = roundNewNodes.filter(
       (q) => nodeById.get(q)?.wikipediaTitle !== undefined,
     ).length;

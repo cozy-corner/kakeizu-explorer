@@ -56,18 +56,16 @@ export async function fetchNodeAttrs(
     }
     return n;
   };
-  // The 5 per-batch queries are independent, and distinct batches touch disjoint
-  // qids, so all fetches run concurrently (issue #16). Rows are still processed
-  // in the fixed order below (not fetch-completion order), so the "first wins"
-  // merges (sex, wikipediaTitle) stay deterministic; the global gate in wdqs.ts
-  // caps total in-flight requests.
+  // The 5 per-batch queries are independent and distinct batches touch disjoint
+  // qids, so fetch concurrently (issue #16). Rows are still folded in the fixed
+  // order below, so the "first wins" merges (sex, wikipediaTitle) stay
+  // deterministic regardless of completion order.
   await Promise.all(
     chunk(qids, NODE_BATCH).map(async (b) => {
       const values = sparqlValues(b);
       const [labels, sexes, nats, countries, titles] = await Promise.all([
-        // NOTE: keep the exact whitespace of every query string below — the WDQS
-        // result cache is keyed by sha1(query), so re-indenting silently
-        // invalidates the whole cache and forces a full cold refetch.
+        // Keep the exact whitespace of every query string below: the result
+        // cache is keyed by sha1(query), so re-indenting invalidates it.
         sparql(
           `SELECT ?item ?itemLabel WHERE { VALUES ?item { ${values} }
        SERVICE wikibase:label { bd:serviceParam wikibase:language "ja,en". } }`,
@@ -135,9 +133,8 @@ async function fetchParentStatements(
   subjects: string[],
 ): Promise<ParentStatement[]> {
   const byStatement = new Map<string, ParentStatement>();
-  // Batches touch disjoint subjects → disjoint statements, so fetch them
-  // concurrently (issue #16) but fold rows in batch order to keep byStatement
-  // deterministic. The global gate in wdqs.ts caps total in-flight requests.
+  // Disjoint subjects → disjoint statements, so fetch concurrently (issue #16)
+  // but fold in batch order to keep byStatement deterministic.
   const rowsByBatch = await Promise.all(
     chunk(subjects, EDGE_BATCH).map((b) =>
       sparql(`
@@ -203,8 +200,7 @@ export async function fetchParentAndAdoptions(
   subjects: string[],
   truthyEdges: { from: string; to: string }[],
 ): Promise<{ parent: RawParentEdge[]; adoptions: RawAdoptiveEdge[] }> {
-  // The reified parent sweep and the P1038 sweep are independent — run them
-  // concurrently (issue #16); the global gate in wdqs.ts bounds total in-flight.
+  // The reified parent sweep and the P1038 sweep are independent (issue #16).
   const [statements, p1038] = await Promise.all([
     fetchParentStatements(subjects),
     fetchP1038Adoptions(subjects),
