@@ -37,7 +37,6 @@ const ROUNDS = Number(process.env.ROUNDS ?? "1");
 // slice without a full cold run. 0 = no cap (normal behavior).
 const FRONTIER_CAP = Number(process.env.FRONTIER_CAP ?? "0");
 const EDGE_BATCH = 120;
-const META_BATCH = 400;
 const SIZE_CAP = 200_000;
 
 // Wall-clock accounting per stage (issue #16, diagnostic): a cold run
@@ -54,20 +53,6 @@ async function timed<T>(stage: string, fn: () => Promise<T>): Promise<T> {
   } finally {
     addTiming(stage, performance.now() - t0);
   }
-}
-
-// Diagnostic only (issue #44 exempts the ja.wikipedia leak proxy): which of
-// `qids` have a ja.wikipedia article. Logged, never persisted.
-async function jaSweep(qids: string[]): Promise<Set<string>> {
-  const hit = new Set<string>();
-  for (const b of chunk(qids, META_BATCH)) {
-    const rows = await sparql(
-      `SELECT ?item WHERE { VALUES ?item { ${sparqlValues(b)} }
-       ?art schema:about ?item; schema:isPartOf <https://ja.wikipedia.org/>. }`,
-    );
-    for (const r of rows) hit.add(qid(r.item!.value));
-  }
-  return hit;
 }
 
 async function main() {
@@ -117,15 +102,21 @@ async function main() {
     const roundNewNodes: string[] = [];
     const batches = chunk(frontier, EDGE_BATCH);
     const tEdge = performance.now();
-    for (let i = 0; i < batches.length; i++) {
-      // Enumerate the 5 family predicates with VALUES ?p instead of a 5-way
-      // UNION — far lighter for Blazegraph, which 504s on the UNION form.
-      const rows = await sparql(`
+    // Fetch every batch concurrently (issue #16), fold in batch order so
+    // aggregation stays deterministic. Enumerate the 5 family predicates with
+    // VALUES ?p instead of a 5-way UNION — far lighter for Blazegraph, which
+    // 504s on the UNION form.
+    const rowsByBatch = await Promise.all(
+      batches.map((b) =>
+        sparql(`
         SELECT ?s ?p ?o WHERE {
-          VALUES ?s { ${sparqlValues(batches[i])} }
+          VALUES ?s { ${sparqlValues(b)} }
           VALUES ?p { wdt:P22 wdt:P25 wdt:P40 wdt:P26 wdt:P3373 }
           ?s ?p ?o.
-        }`);
+        }`),
+      ),
+    );
+    for (const rows of rowsByBatch) {
       for (const r of rows) {
         const s = qid(r.s!.value);
         const o = qid(r.o!.value);
@@ -141,8 +132,6 @@ async function main() {
         else if (p.endsWith("P26")) addSym(spouseKeys, rawSpouse, s, o);
         else addSym(siblingKeys, rawSibling, s, o);
       }
-      if ((i + 1) % 10 === 0)
-        console.log(`    round ${round}: batch ${i + 1}/${batches.length}`);
       if (known.size > SIZE_CAP) break;
     }
     addTiming("edge-loop", performance.now() - tEdge);
@@ -155,9 +144,15 @@ async function main() {
       allNewNodes.push(q);
     }
 
-    const jaSet = await timed("jaSweep", () => jaSweep(roundNewNodes));
+    // ja-article ratio (leak proxy), now local instead of a WDQS sweep:
+    // fetchNodeAttrs set wikipediaTitle from the same ja.wikipedia sitelink, and
+    // every ja article carries a schema:name (verified), so `wikipediaTitle !==
+    // undefined` ⟺ "has a ja article".
+    const jaCount = roundNewNodes.filter(
+      (q) => nodeById.get(q)?.wikipediaTitle !== undefined,
+    ).length;
     const ratio = roundNewNodes.length
-      ? ((jaSet.size / roundNewNodes.length) * 100).toFixed(1)
+      ? ((jaCount / roundNewNodes.length) * 100).toFixed(1)
       : "—";
     const sample = roundNewNodes
       .slice(0, 6)

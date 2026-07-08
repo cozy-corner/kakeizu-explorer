@@ -45,6 +45,16 @@ const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 30_000;
 const CACHE_DIR = join(import.meta.dirname, "data", ".cache");
 const CACHE_ENABLED = process.env.WDQS_NOCACHE !== "1";
+// Cap in-flight WDQS requests (issue #16): callers Promise.all freely and this
+// gate, not the call sites, keeps us polite to the shared endpoint. Modest to
+// avoid inducing 429/504. Fail fast on a non-positive-integer override —
+// NaN/0/negative would make acquire() wait forever and silently hang the ETL.
+const MAX_CONCURRENCY = Number(process.env.WDQS_CONCURRENCY ?? "3");
+if (!Number.isInteger(MAX_CONCURRENCY) || MAX_CONCURRENCY < 1) {
+  throw new Error(
+    `WDQS_CONCURRENCY must be a positive integer (got ${JSON.stringify(process.env.WDQS_CONCURRENCY)})`,
+  );
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -52,6 +62,36 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function backoffDelay(attempt: number): number {
   const ceiling = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * 2 ** attempt);
   return Math.random() * ceiling;
+}
+
+// Global concurrency gate: at most MAX_CONCURRENCY requests run at once. release
+// hands its slot directly to the next waiter, so `active` never dips between a
+// release and the resumed acquire.
+let active = 0;
+const waiters: (() => void)[] = [];
+async function acquire(): Promise<void> {
+  if (active < MAX_CONCURRENCY) {
+    active++;
+    return;
+  }
+  await new Promise<void>((r) => waiters.push(r));
+}
+function release(): void {
+  const next = waiters.shift();
+  if (next) next();
+  else active--;
+}
+
+// Shared cooperative backoff (issue #16): on a 429/5xx one worker records a
+// pause here and every worker awaits it before its next attempt, so the pool
+// behaves like one polite client instead of N racing retries.
+let pausedUntil = 0;
+async function respectSharedPause(): Promise<void> {
+  const wait = pausedUntil - Date.now();
+  if (wait > 0) await sleep(wait);
+}
+function sharedPause(ms: number): void {
+  pausedUntil = Math.max(pausedUntil, Date.now() + ms);
 }
 
 // Retry-After is either delta-seconds or an HTTP-date; returns ms, or null.
@@ -84,6 +124,8 @@ async function cachePut(path: string, data: Binding[]): Promise<void> {
 async function request(query: string): Promise<Binding[]> {
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    await respectSharedPause();
+
     let res: Response;
     try {
       res = await fetch(ENDPOINT, {
@@ -105,23 +147,40 @@ async function request(query: string): Promise<Binding[]> {
       break;
     }
 
-    if (res.ok) {
-      const json = (await res.json()) as { results: { bindings: Binding[] } };
-      return json.results.bindings;
-    }
-
-    // 4xx other than 429: permanent, fail fast.
-    if (res.status < 500 && res.status !== 429) {
+    // 4xx other than 429: permanent, fail fast. `!res.ok` so a 2xx falls through
+    // to the parse below instead of throwing.
+    if (!res.ok && res.status < 500 && res.status !== 429) {
       throw new Error(
         `WDQS ${res.status}: ${(await res.text()).slice(0, 160)}`,
       );
     }
 
-    // 5xx or 429: transient, back off (honoring Retry-After) and retry.
-    lastError = new Error(`WDQS ${res.status}`);
-    if (attempt < MAX_ATTEMPTS - 1) {
-      const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
-      await sleep(retryAfter ?? backoffDelay(attempt));
+    // 5xx or 429: transient. Pause the whole pool (honoring Retry-After) so
+    // in-flight siblings don't pile more requests onto a throttling server.
+    if (!res.ok) {
+      lastError = new Error(`WDQS ${res.status}`);
+      const delay =
+        parseRetryAfter(res.headers.get("retry-after")) ??
+        backoffDelay(attempt);
+      sharedPause(delay);
+      if (attempt < MAX_ATTEMPTS - 1) await sleep(delay);
+      continue;
+    }
+
+    // Parse INSIDE the try: a truncated/broken 200 body makes JSON.parse throw,
+    // and this used to sit outside the retry loop where one bad body killed the
+    // whole ETL. Parallelism makes such large fragile responses more likely.
+    try {
+      const text = await res.text();
+      return (JSON.parse(text) as { results: { bindings: Binding[] } }).results
+        .bindings;
+    } catch (err) {
+      lastError = err;
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await sleep(backoffDelay(attempt));
+        continue;
+      }
+      break;
     }
   }
   throw new Error(
@@ -129,12 +188,23 @@ async function request(query: string): Promise<Binding[]> {
   );
 }
 
+// Run `request` under the global concurrency gate. Cache hits skip this — they
+// touch no network, so they shouldn't consume a slot.
+async function gatedRequest(query: string): Promise<Binding[]> {
+  await acquire();
+  try {
+    return await request(query);
+  } finally {
+    release();
+  }
+}
+
 export async function sparql(query: string): Promise<Binding[]> {
-  if (!CACHE_ENABLED) return request(query);
+  if (!CACHE_ENABLED) return gatedRequest(query);
   const path = cachePath(query);
   const cached = await cacheGet(path);
   if (cached) return cached;
-  const data = await request(query);
+  const data = await gatedRequest(query);
   await cachePut(path, data);
   return data;
 }
