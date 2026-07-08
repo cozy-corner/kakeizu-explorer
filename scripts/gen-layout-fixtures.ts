@@ -1,15 +1,10 @@
-// Regenerate the golden fixtures that lib/layout.test.ts asserts against.
-//
-// lib/layout is pure over dagre's coordinate output, so a deterministic test only
-// needs that output frozen — not the live DB. This script is the ONE live-dependent
-// step: it runs the SAME dagre setup the view uses (lib/render's STYLE + runEgoLayout,
-// so the frozen coordinates can't drift from what the app draws) once per case, and
-// writes {graph, dagre input, expected output} to lib/fixtures/layout/*.json. The
-// test then replays the pure pipeline offline.
+// Regenerate the golden fixtures lib/layout.test.ts asserts against — the one
+// live-dependent step, so lib/layout itself can be tested offline. Runs the view's
+// own dagre setup (lib/render's STYLE + runEgoLayout, so the frozen coordinates can't
+// drift from what the app draws) and writes {graph, dagre input, expected} per case.
 //
 // Run with the dev server up (Neo4j-backed): bun run scripts/gen-layout-fixtures.ts
-// Eyeball the emitted `expected` before committing — it is the source of truth the
-// test locks in, not an independently-verified oracle.
+// Eyeball the emitted `expected` before committing — it is a snapshot, not an oracle.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
@@ -33,8 +28,6 @@ import { ROW, runEgoLayout, SPOUSE_GUTTER, STYLE } from "../lib/render";
 
 cytoscape.use(dagre);
 
-// Same dagre invocation as the view (STYLE + runEgoLayout); the frozen positions
-// capture its output so the golden reflects what the app actually lays out.
 function dagrePositions(graph: Graph, focus: PersonId): Positions {
   const edges = egoDrawnEdges(graph);
   const layoutEdges = layoutOnlyEdges(graph, edges);
@@ -107,7 +100,6 @@ const AP = (source: string, target: string): GraphEdge => ({
 });
 const ns = (...qids: string[]) => qids.map((qid) => ({ qid, label: qid }));
 
-// file: output basename; qid: focus person; graph: ego graph (fetched or synthetic).
 type Spec = { file: string; qid: PersonId; label: string; graph: Graph };
 
 // Fetched from the live API, then frozen. File name is the QID. Marriage-heavy
