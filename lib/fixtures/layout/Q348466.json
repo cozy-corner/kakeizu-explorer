@@ -1,0 +1,175 @@
+{
+  "qid": "Q348466",
+  "label": "徳川家茂(養子)",
+  "graph": {
+    "nodes": [
+      {
+        "qid": "Q348466",
+        "label": "徳川家茂",
+        "sex": "male",
+        "wikipediaTitle": "徳川家茂"
+      },
+      {
+        "qid": "Q287657",
+        "label": "徳川慶喜",
+        "sex": "male",
+        "wikipediaTitle": "徳川慶喜"
+      },
+      {
+        "qid": "Q6993473",
+        "label": "徳川茂承",
+        "sex": "male",
+        "wikipediaTitle": "徳川茂承"
+      },
+      {
+        "qid": "Q672741",
+        "label": "德川家達",
+        "sex": "male",
+        "wikipediaTitle": "徳川家達"
+      },
+      {
+        "qid": "Q6993203",
+        "label": "徳川斉順",
+        "sex": "male",
+        "wikipediaTitle": "徳川斉順"
+      },
+      {
+        "qid": "Q439717",
+        "label": "徳川家斉",
+        "sex": "male",
+        "wikipediaTitle": "徳川家斉"
+      },
+      {
+        "qid": "Q6993155",
+        "label": "徳川斉彊",
+        "sex": "male",
+        "wikipediaTitle": "徳川斉彊"
+      },
+      {
+        "qid": "Q11446903",
+        "label": "妙操院",
+        "sex": "female",
+        "wikipediaTitle": "妙操院"
+      },
+      {
+        "qid": "Q10729401",
+        "label": "実成院",
+        "sex": "female",
+        "wikipediaTitle": "実成院 (徳川家茂生母)"
+      },
+      {
+        "qid": "Q336383",
+        "label": "徳川家定",
+        "sex": "male",
+        "wikipediaTitle": "徳川家定"
+      },
+      {
+        "qid": "Q1063767",
+        "label": "天璋院",
+        "sex": "female",
+        "wikipediaTitle": "天璋院"
+      }
+    ],
+    "edges": [
+      {
+        "source": "Q348466",
+        "target": "Q287657",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q348466",
+        "target": "Q6993473",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q348466",
+        "target": "Q672741",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q6993203",
+        "target": "Q348466",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q439717",
+        "target": "Q6993155",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q439717",
+        "target": "Q6993203",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q11446903",
+        "target": "Q439717",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q11446903",
+        "target": "Q6993203",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q10729401",
+        "target": "Q6993203",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q10729401",
+        "target": "Q348466",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q336383",
+        "target": "Q348466",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q1063767",
+        "target": "Q348466",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q1063767",
+        "target": "Q336383",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q6993155",
+        "target": "Q348466",
+        "type": "ADOPTIVE_PARENT_OF"
+      }
+    ]
+  },
+  "dagre": {
+    "Q348466": [480, 120],
+    "Q287657": [716, 166],
+    "Q6993473": [716, 120],
+    "Q672741": [716, 74],
+    "Q6993203": [244, 18],
+    "Q439717": [8, 64],
+    "Q6993155": [244, 74],
+    "Q11446903": [8, 8],
+    "Q10729401": [244, 120],
+    "Q336383": [244, 166],
+    "Q1063767": [244, 212]
+  },
+  "expected": {
+    "positions": {
+      "Q348466": [480, 120],
+      "Q287657": [716, 166],
+      "Q6993473": [716, 120],
+      "Q672741": [716, 74],
+      "Q6993203": [244, 18],
+      "Q439717": [8, 64],
+      "Q6993155": [244, 258],
+      "Q11446903": [8, 110],
+      "Q10729401": [244, 64],
+      "Q336383": [244, 166],
+      "Q1063767": [244, 212]
+    },
+    "routing": []
+  }
+}

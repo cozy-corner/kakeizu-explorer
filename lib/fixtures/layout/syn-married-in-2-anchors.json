@@ -1,0 +1,78 @@
+{
+  "qid": "cA1",
+  "label": "syn: married-in, 2 anchors",
+  "graph": {
+    "nodes": [
+      {
+        "qid": "B",
+        "label": "B"
+      },
+      {
+        "qid": "A",
+        "label": "A"
+      },
+      {
+        "qid": "W",
+        "label": "W"
+      },
+      {
+        "qid": "cA1",
+        "label": "cA1"
+      },
+      {
+        "qid": "cA2",
+        "label": "cA2"
+      },
+      {
+        "qid": "cB1",
+        "label": "cB1"
+      }
+    ],
+    "edges": [
+      {
+        "source": "W",
+        "target": "A",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "W",
+        "target": "B",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "A",
+        "target": "cA1",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "A",
+        "target": "cA2",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "B",
+        "target": "cB1",
+        "type": "PARENT_OF"
+      }
+    ]
+  },
+  "dagre": {
+    "B": [8, 8],
+    "A": [8, 77],
+    "W": [8, 123],
+    "cA1": [244, 100],
+    "cA2": [244, 54],
+    "cB1": [244, 8]
+  },
+  "expected": {
+    "positions": {
+      "B": [8, 8],
+      "A": [8, 77],
+      "W": [8, 123],
+      "cA1": [244, 100],
+      "cA2": [244, 54.00000000000001],
+      "cB1": [244, 8]
+    },
+    "routing": []
+  }
+}

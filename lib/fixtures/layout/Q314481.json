@@ -1,0 +1,559 @@
+{
+  "qid": "Q314481",
+  "label": "徳川家光",
+  "graph": {
+    "nodes": [
+      {
+        "qid": "Q314481",
+        "label": "徳川家光",
+        "sex": "male",
+        "wikipediaTitle": "徳川家光"
+      },
+      {
+        "qid": "Q7140443",
+        "label": "廉貞院",
+        "sex": "female",
+        "wikipediaTitle": "廉貞院"
+      },
+      {
+        "qid": "Q6997589",
+        "label": "清泰院 (前田光高の正室)",
+        "sex": "female",
+        "wikipediaTitle": "清泰院 (前田光高正室)"
+      },
+      {
+        "qid": "Q11371041",
+        "label": "亀鶴姫",
+        "sex": "female",
+        "wikipediaTitle": "亀鶴姫"
+      },
+      {
+        "qid": "Q11612770",
+        "label": "自昌院",
+        "sex": "female",
+        "wikipediaTitle": "自昌院"
+      },
+      {
+        "qid": "Q5369704",
+        "label": "桂昌院",
+        "sex": "female",
+        "wikipediaTitle": "桂昌院"
+      },
+      {
+        "qid": "Q5362720",
+        "label": "宝樹院",
+        "sex": "female",
+        "wikipediaTitle": "宝樹院 (徳川家光側室)"
+      },
+      {
+        "qid": "Q5362031",
+        "label": "順性院",
+        "sex": "female",
+        "wikipediaTitle": "順性院"
+      },
+      {
+        "qid": "Q20041644",
+        "label": "徳川鶴松",
+        "sex": "male",
+        "wikipediaTitle": "徳川鶴松"
+      },
+      {
+        "qid": "Q7005290",
+        "label": "霊仙院",
+        "sex": "female",
+        "wikipediaTitle": "霊仙院"
+      },
+      {
+        "qid": "Q323422",
+        "label": "徳川家綱",
+        "sex": "male",
+        "wikipediaTitle": "徳川家綱"
+      },
+      {
+        "qid": "Q313745",
+        "label": "徳川綱吉",
+        "sex": "male",
+        "wikipediaTitle": "徳川綱吉"
+      },
+      {
+        "qid": "Q7004484",
+        "label": "徳川綱重",
+        "sex": "male",
+        "wikipediaTitle": "徳川綱重"
+      },
+      {
+        "qid": "Q7004236",
+        "label": "松平清武",
+        "sex": "male",
+        "wikipediaTitle": "松平清武"
+      },
+      {
+        "qid": "Q366734",
+        "label": "徳川家宣",
+        "sex": "male",
+        "wikipediaTitle": "徳川家宣"
+      },
+      {
+        "qid": "Q5365056",
+        "label": "鶴姫 (徳川綱吉長女)",
+        "sex": "female",
+        "wikipediaTitle": "鶴姫 (徳川綱吉長女)"
+      },
+      {
+        "qid": "Q7004625",
+        "label": "徳川徳松",
+        "sex": "male",
+        "wikipediaTitle": "徳川徳松"
+      },
+      {
+        "qid": "Q314464",
+        "label": "徳川秀忠",
+        "sex": "male",
+        "wikipediaTitle": "徳川秀忠"
+      },
+      {
+        "qid": "Q7004785",
+        "label": "初姫",
+        "sex": "female",
+        "wikipediaTitle": "初姫"
+      },
+      {
+        "qid": "Q7004583",
+        "label": "天崇院",
+        "sex": "female",
+        "wikipediaTitle": "天崇院"
+      },
+      {
+        "qid": "Q20041643",
+        "label": "徳川長丸",
+        "sex": "male",
+        "wikipediaTitle": "徳川長丸"
+      },
+      {
+        "qid": "Q11071642",
+        "label": "珠姫",
+        "sex": "female",
+        "wikipediaTitle": "珠姫"
+      },
+      {
+        "qid": "Q1135700",
+        "label": "徳川忠長",
+        "sex": "male",
+        "wikipediaTitle": "徳川忠長"
+      },
+      {
+        "qid": "Q911334",
+        "label": "徳川和子",
+        "sex": "female",
+        "wikipediaTitle": "徳川和子"
+      },
+      {
+        "qid": "Q837236",
+        "label": "保科正之",
+        "sex": "male",
+        "wikipediaTitle": "保科正之"
+      },
+      {
+        "qid": "Q1147080",
+        "label": "千姫",
+        "sex": "female",
+        "wikipediaTitle": "千姫"
+      },
+      {
+        "qid": "Q171977",
+        "label": "徳川家康",
+        "sex": "male",
+        "wikipediaTitle": "徳川家康"
+      },
+      {
+        "qid": "Q1045995",
+        "label": "西郷局",
+        "sex": "female",
+        "wikipediaTitle": "西郷局"
+      },
+      {
+        "qid": "Q6637021",
+        "label": "松平義行",
+        "sex": "male",
+        "wikipediaTitle": "松平義行"
+      },
+      {
+        "qid": "Q139498003",
+        "label": "徳川直姫",
+        "sex": "female"
+      },
+      {
+        "qid": "Q982743",
+        "label": "徳川綱誠",
+        "sex": "male",
+        "wikipediaTitle": "徳川綱誠"
+      },
+      {
+        "qid": "Q11613124",
+        "label": "自証院",
+        "sex": "female",
+        "wikipediaTitle": "自証院"
+      },
+      {
+        "qid": "Q1325288",
+        "label": "崇源院",
+        "sex": "female",
+        "wikipediaTitle": "崇源院"
+      },
+      {
+        "qid": "Q5354510",
+        "label": "豊臣完子",
+        "sex": "female",
+        "wikipediaTitle": "豊臣完子"
+      },
+      {
+        "qid": "Q635214",
+        "label": "お市の方",
+        "sex": "female",
+        "wikipediaTitle": "お市の方"
+      },
+      {
+        "qid": "Q1142446",
+        "label": "浅井長政",
+        "sex": "male",
+        "wikipediaTitle": "浅井長政"
+      }
+    ],
+    "edges": [
+      {
+        "source": "Q314481",
+        "target": "Q7140443",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q6997589",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q11371041",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q11612770",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q5369704",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q5362720",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q5362031",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q20041644",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q7005290",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q323422",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q313745",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314481",
+        "target": "Q7004484",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q7004484",
+        "target": "Q7004236",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q7004484",
+        "target": "Q366734",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q5362031",
+        "target": "Q7004484",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q313745",
+        "target": "Q5365056",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q313745",
+        "target": "Q7004625",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q5369704",
+        "target": "Q313745",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q5362720",
+        "target": "Q323422",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q7004785",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q7004583",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q20041643",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q11071642",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q314481",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q1135700",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q911334",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q837236",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q314464",
+        "target": "Q1147080",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q171977",
+        "target": "Q314464",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1045995",
+        "target": "Q171977",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q1045995",
+        "target": "Q314464",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q11071642",
+        "target": "Q11612770",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q11071642",
+        "target": "Q11371041",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q7004583",
+        "target": "Q7140443",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q7005290",
+        "target": "Q6637021",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q7005290",
+        "target": "Q139498003",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q7005290",
+        "target": "Q982743",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q11613124",
+        "target": "Q314481",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q11613124",
+        "target": "Q7005290",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q314464",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q5354510",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q7004785",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q7004583",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q314481",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q1135700",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q1147080",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q911334",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1325288",
+        "target": "Q11071642",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q635214",
+        "target": "Q1325288",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q1142446",
+        "target": "Q635214",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q1142446",
+        "target": "Q1325288",
+        "type": "PARENT_OF"
+      }
+    ]
+  },
+  "dagre": {
+    "Q314481": [480, 202],
+    "Q7140443": [716, 8],
+    "Q6997589": [716, 64],
+    "Q11371041": [716, 110],
+    "Q11612770": [716, 156],
+    "Q5369704": [480, 442],
+    "Q5362720": [480, 350],
+    "Q5362031": [480, 672],
+    "Q20041644": [716, 202],
+    "Q7005290": [716, 248],
+    "Q323422": [716, 337],
+    "Q313745": [716, 406],
+    "Q7004484": [716, 636],
+    "Q7004236": [952, 475],
+    "Q366734": [952, 659],
+    "Q5365056": [952, 360],
+    "Q7004625": [952, 429],
+    "Q314464": [244, 396],
+    "Q7004785": [480, 304],
+    "Q7004583": [480, 8],
+    "Q20041643": [480, 396],
+    "Q11071642": [480, 110],
+    "Q1135700": [480, 488],
+    "Q911334": [480, 534],
+    "Q837236": [480, 580],
+    "Q1147080": [480, 626],
+    "Q171977": [8, 373],
+    "Q1045995": [8, 429],
+    "Q6637021": [952, 202],
+    "Q139498003": [952, 248],
+    "Q982743": [952, 314],
+    "Q11613124": [480, 258],
+    "Q1325288": [244, 498],
+    "Q5354510": [480, 718],
+    "Q635214": [8, 521],
+    "Q1142446": [8, 475]
+  },
+  "expected": {
+    "positions": {
+      "Q314481": [480, 202],
+      "Q7140443": [716, 8],
+      "Q6997589": [716, 64],
+      "Q11371041": [716, 110],
+      "Q11612770": [716, 156],
+      "Q5369704": [480, 248],
+      "Q5362720": [480, 294],
+      "Q5362031": [480, 340],
+      "Q20041644": [716, 202],
+      "Q7005290": [716, 248],
+      "Q323422": [716, 337],
+      "Q313745": [716, 405.99999999999994],
+      "Q7004484": [716, 636],
+      "Q7004236": [952, 474.99999999999994],
+      "Q366734": [952, 659],
+      "Q5365056": [952, 360],
+      "Q7004625": [952, 428.99999999999994],
+      "Q314464": [244, 395.99999999999994],
+      "Q7004785": [480, 431.99999999999994],
+      "Q7004583": [480, 8],
+      "Q20041643": [480, 477.99999999999994],
+      "Q11071642": [480, 110],
+      "Q1135700": [480, 524],
+      "Q911334": [480, 570],
+      "Q837236": [480, 616],
+      "Q1147080": [480, 662],
+      "Q171977": [8, 372.99999999999994],
+      "Q1045995": [8, 418.99999999999994],
+      "Q6637021": [952, 202],
+      "Q139498003": [952, 248],
+      "Q982743": [952, 314],
+      "Q11613124": [480, 385.99999999999994],
+      "Q1325288": [244, 497.99999999999994],
+      "Q5354510": [480, 718],
+      "Q635214": [8, 521],
+      "Q1142446": [8, 474.99999999999994]
+    },
+    "routing": []
+  }
+}

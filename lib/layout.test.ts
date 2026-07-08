@@ -11,12 +11,15 @@ import {
 } from "./layout";
 import {
   buildFamilyGraph,
+  egoDrawnEdges,
   type FamilyGraph,
   type Graph,
   type GraphEdge,
   type PersonId,
   type Sex,
 } from "./graph";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 const ROW = 46; // injected; matches the view's NODE_SEP + NODE_SIZE
 const GUTTER = 70;
@@ -750,3 +753,42 @@ test("centerOnlyChildren: a transitive co-spouse below the focus's spouse rides 
     PS: { x: 200, y: 0 },
   });
 });
+
+// ---------- golden fixtures: full pipeline on frozen dagre output ----------
+// lib/layout is pure over dagre's coordinates, so freezing that output (regenerated
+// by scripts/gen-layout-fixtures.ts) pins the pipeline without the live DB. `expected`
+// is a snapshot, not an oracle — eyeball it when regenerating.
+type Fixture = {
+  qid: string;
+  label: string;
+  graph: Graph;
+  dagre: Record<string, [number, number]>;
+  expected: {
+    positions: Record<string, [number, number]>;
+    routing: { source: PersonId; target: PersonId; bow: number }[];
+  };
+};
+
+const FIXTURE_DIR = join(import.meta.dir, "fixtures", "layout");
+const asPixels = (m: Positions): Record<string, [number, number]> =>
+  Object.fromEntries([...m].map(([id, { x, y }]) => [id, [x, y]]));
+
+const fixtureFiles = readdirSync(FIXTURE_DIR).filter((f) =>
+  f.endsWith(".json"),
+);
+// Guard the dynamic loop: a lost/empty fixture dir would otherwise register zero
+// tests and pass green, silently deleting this whole regression guard.
+test("layout golden: fixtures are present", () => {
+  expect(fixtureFiles.length).toBeGreaterThan(0);
+});
+
+for (const file of fixtureFiles) {
+  const fx: Fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, file), "utf8"));
+  test(`layout golden: ${fx.label} (${fx.qid})`, () => {
+    const dagre = pos(Object.entries(fx.dagre));
+    const family = buildFamilyGraph(fx.graph, egoDrawnEdges(fx.graph));
+    const placed = place(dagre, family, fx.qid);
+    expect(asPixels(placed)).toEqual(fx.expected.positions);
+    expect(spouseRouting(placed, family, GUTTER)).toEqual(fx.expected.routing);
+  });
+}

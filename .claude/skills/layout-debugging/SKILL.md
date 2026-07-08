@@ -59,6 +59,8 @@ It mirrors `components/GraphPane.tsx`'s layout step exactly: drop sibling adopti
 
 ## Non-regression
 
-`bun run scripts/layout-parity.ts` checks the pure `lib/layout` functions against
-the original cytoscape-coupled placement on real ego graphs. Run it after touching
-placement code; it must print `PARITY OK`.
+`bun test lib/layout.test.ts` checks the pure `lib/layout` functions against golden
+fixtures — real ego graphs whose dagre output is frozen in `lib/fixtures/layout/*.json`
+(DB-free, CI-runnable). Run it after touching placement code. Regenerate the fixtures
+with the dev server up via `bun run scripts/gen-layout-fixtures.ts` when the placement
+contract intentionally changes, and eyeball the new `expected` before committing.

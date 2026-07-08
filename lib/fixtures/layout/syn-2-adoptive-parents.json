@@ -1,0 +1,67 @@
+{
+  "qid": "F",
+  "label": "syn: 2 adoptive parents",
+  "graph": {
+    "nodes": [
+      {
+        "qid": "AP2",
+        "label": "AP2"
+      },
+      {
+        "qid": "AP1",
+        "label": "AP1"
+      },
+      {
+        "qid": "PA",
+        "label": "PA"
+      },
+      {
+        "qid": "F",
+        "label": "F"
+      },
+      {
+        "qid": "sib",
+        "label": "sib"
+      }
+    ],
+    "edges": [
+      {
+        "source": "AP1",
+        "target": "F",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "AP2",
+        "target": "F",
+        "type": "ADOPTIVE_PARENT_OF"
+      },
+      {
+        "source": "PA",
+        "target": "F",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "PA",
+        "target": "sib",
+        "type": "PARENT_OF"
+      }
+    ]
+  },
+  "dagre": {
+    "AP2": [8, 8],
+    "AP1": [8, 54],
+    "PA": [8, 100],
+    "F": [244, 54],
+    "sib": [244, 110]
+  },
+  "expected": {
+    "positions": {
+      "AP2": [8, 202],
+      "AP1": [8, 156],
+      "PA": [8, 100],
+      "F": [244, 54.00000000000001],
+      "sib": [244, 110]
+    },
+    "routing": []
+  }
+}
