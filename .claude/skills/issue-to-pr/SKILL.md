@@ -3,26 +3,29 @@ name: issue-to-pr
 description: >-
   End-to-end workflow for taking a task or GitHub issue all the way to an opened,
   review-clean PR. It sequences: read the issue/plan and clarify unknowns →
-  EMPIRICALLY VERIFY the load-bearing assumption before writing code → implement
-  in a git worktree → self-review with /code-review and triage the findings →
-  open the PR → triage the PR bot's review the same way. Use this whenever the
-  user wants to 進める / implement / build / refactor an issue or feature through
-  to a PR, or to ACT ON (apply the valid ones, reject the rest with a reason)
+  implement in a git worktree (optionally de-risking a shaky assumption with a
+  throwaway probe first) → clean it up with /simplify and self-review with /code-review,
+  triaging the findings → verify it works by running it → open the PR →
+  triage the PR bot's review the same way. Use this whenever the user
+  wants to 進める / implement / build / refactor an issue or feature through to a
+  PR, or to ACT ON (apply the valid ones, reject the rest with a reason)
   code-review or PR-review findings. Prefer it over jumping straight to coding: it
-  bakes in the assumption-checking, worktree isolation, and disciplined
-  finding-triage that ad-hoc work skips. NOT for one-off single-file edits, for
-  design-discussion-only with no implementation, or for merely fetching or
-  displaying a PR's reviews without acting on them — those belong to design,
-  simplify, or pr-reviews respectively. Delegates each phase to the focused skills
-  (design, code-review, pr-reviews) and may fan out to parallel agents.
+  bakes in worktree isolation, behavioral verification, optional assumption
+  de-risking, and disciplined finding-triage that ad-hoc work skips. NOT for one-off
+  single-file edits, for design-discussion-only with no implementation, or for
+  merely fetching or displaying a PR's reviews without acting on them — those
+  belong to design or pr-reviews respectively. Delegates each phase to the focused
+  skills (design, verify, simplify, code-review, pr-reviews) and may fan out to
+  parallel agents.
 ---
 
 # Issue → PR
 
 An orchestrator for shipping a change well, not just fast. It strings together
-skills you already have and adds the two habits that separate a clean delivery
-from a messy one: **proving the assumption your design rests on before you build
-on it**, and **judging review findings instead of reflexively applying them**.
+skills you already have and adds the habit that separates a clean delivery from a
+messy one: **judging review findings instead of reflexively applying them**. When
+the design happens to rest on a shaky empirical assumption, it also de-risks that
+cheaply before you build on it — an optional step, not a gate.
 
 Run the phases in order. Each links to the skill that owns its details; this file
 owns the _sequence_ and the _judgment_. You don't need every phase for every task
@@ -41,29 +44,27 @@ Ask only what changes what you'll do. A decision with an obvious default isn't a
 question; pick it, state it, move on. The bar for asking is "the answer changes
 the artifact," not "I'm slightly unsure."
 
-## Phase 2 — Verify the load-bearing assumption (before any code)
+### Optional: de-risk the load-bearing assumption first
 
-Every non-trivial plan rests on one or two assumptions that, if false, sink the
-whole approach. Name them, then **prove them with a throwaway probe** before you
-write the real code — not after, when the cost of being wrong is a rewritten PR.
+Not a phase — a conditional technique. **Skip it unless the design genuinely rests
+on an unproven empirical assumption** (how real data behaves, what a library
+actually does). Most changes — UI tweaks, straightforward CRUD, copy — have no such
+assumption; go straight to Implement.
 
-The probe is a small script that measures the real system, not a thought
-experiment. Put it in the repo's `scripts/` (versioned, per the repo's
-conventions), run it, read the number, and only then commit to the design. Delete
-it once it has served its purpose unless it's reusable.
+When there _is_ one and it would sink the whole approach if false, prove it cheaply
+before writing the real code: a small throwaway script in `scripts/` that measures
+the real system, run once, read the number, then commit to the design (delete it
+after unless reusable). This is a lightweight **spike**, standard de-risking — not a
+mandatory gate.
 
-> Example (this came from a real session): a refactor moved layout from pixels to
-> `{col, order}` structural coords, betting that "dagre gives every node in a rank
-> the same x." Before touching the engine, a 40-line probe bucketed every node by
-> `round(x)` across 10 real graphs and printed the max intra-bucket spread:
-> `0.000e+0`. _Then_ the refactor proceeded. Had it been non-zero, the entire
-> `colX` design was wrong — caught in 2 minutes instead of a re-done PR.
+> Example (a real session): a refactor bet that "dagre gives every node in a rank
+> the same x." A 40-line probe bucketed every node by `round(x)` across 10 graphs
+> and printed the max spread: `0.000e+0`. _Then_ the refactor proceeded — a wrong
+> bet would have cost a re-done PR instead of 2 minutes.
 
-If you cannot prove an assumption cheaply, say so and mark it a risk in the plan
-rather than asserting it. A design built on an unverified "x is uniform" is
-speculation; one built on a printed `0.000e+0` is engineering.
+If you can't prove it cheaply, mark it a risk in the plan rather than asserting it.
 
-## Phase 3 — Implement (in a worktree)
+## Phase 2 — Implement (in a worktree)
 
 Create the worktree **from the start** — never branch in the main checkout. Use
 the project's worktree runner if it has one (`git gtr new <branch> --from <base>`),
@@ -77,13 +78,41 @@ and run it. "I read it carefully and it looks equivalent" is not evidence;
 `PARITY OK: identical on every graph` is. Keep `tsc`/lint/test/build green as you
 go, not at the end.
 
-## Phase 4 — Self-review and triage
+Once it's implemented, **verify it works** — invoke the **verify** skill and drive
+the actual change to confirm it does what the issue asked, before spending cleanup
+effort on it. Keep `tsc`/lint/test green throughout as the continuous signal; verify
+is the behavioral confirmation on top. If it doesn't work, fix it here — don't carry
+a broken change into review.
 
-Run `/code-review medium` (the **code-review** skill: it fans out finder + verifier
-agents — that's the agent team, already wired). Then do the part the tool can't:
-**triage every finding** with the rubric below. Apply the valid ones (one commit
-per finding), and for each rejection say _why_ in your summary to the user. Don't
-silently drop a finding and don't reflexively apply one.
+## Phase 3 — Simplify, self-review, and triage
+
+Two passes over the diff, each owned by a focused skill:
+
+- **simplify** — run `/simplify` first. It does the quality pass: reuse existing
+  helpers, collapse needless complexity, fix inefficiency and altitude, then applies
+  the fixes. It does _not_ hunt for bugs — that's the next pass. Review what it
+  changed like any other edit; keep the parity guard green.
+- **code-review** — then run `/code-review medium` (fans out finder + verifier
+  agents — that's the agent team, already wired). Do the part the tool can't:
+  **triage every finding** with the rubric below. Apply the valid ones (one commit
+  per finding), and for each rejection say _why_ in your summary. Don't silently
+  drop a finding and don't reflexively apply one.
+
+Run simplify before code-review so the review sees the cleaned-up diff, not code
+you're about to rewrite. Both rewrite code, so Phase 4 re-verifies before the PR.
+
+## Phase 4 — Re-verify (confirm the cleanup preserved behavior)
+
+Phase 2 established that it works; simplify and code-review are behavior-preserving
+_by intent_, not confirmed. Re-run the Phase 2 verification on the paths the cleanup
+touched — a rewrite is exactly where preserved behavior quietly breaks.
+
+Scale it to what changed: if the cleanup was purely structural and a parity guard is
+green, the guard is your evidence; if simplify or an applied finding touched a
+user-visible path, drive that path again the way Phase 2 did.
+
+Either way, note what you observed (screenshot, output, before/after, or the guard
+result) so it can go in the PR body.
 
 ## Phase 5 — Open the PR
 
@@ -107,7 +136,7 @@ bot doesn't re-raise them on the next push. Re-run the guard after any change.
 
 ---
 
-## The triage rubric (Phases 4 and 6)
+## The triage rubric (Phases 3 and 6)
 
 A reviewer — human or bot — surfaces _candidates_. Your job is to decide which a
 maintainer would actually act on. For each finding, verify against the real code
