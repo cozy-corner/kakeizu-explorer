@@ -532,7 +532,9 @@ export function centerOnlyChildren(
     if (lo > hi) continue; // column too tight to center without overlap
     const shift = Math.max(lo, Math.min(hi, dOrder));
     if (shift === 0) continue;
-    if (longDrop && shift !== dOrder) continue; // all-or-nothing for long-drop
+    // A partial long-drop move strands the child mid-column and can trip
+    // descentJunctions off the couple midpoint, so it's all-or-nothing (#27).
+    if (longDrop && shift !== dOrder) continue;
     for (const m of movers) {
       const p = place.get(m)!;
       place.set(m, { col: p.col, order: p.order + shift });
