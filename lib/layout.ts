@@ -451,10 +451,11 @@ export function descentJunctions(
 // father's row while the mother is packed a row below.
 //
 // Selection uses the ORIGINAL placements: a single-child couple whose child sits
-// within one row of the midpoint. A child that drops far below is a long vertical
-// line where the half-row is invisible and the midpoint origin already reads right,
-// so it's excluded. Selecting on the original layout means a child stays selected
-// even after its own parents shift.
+// within one row of the midpoint, OR a long-drop child that is a leaf. A near-level
+// child's jog is a half row; a long-drop child's is not invisible (#27: dy≈158) —
+// but pulling a long-drop child up is only safe when it has no descendants of its
+// own to strand, hence the leaf gate. Selecting on the original layout means a child
+// stays selected even after its own parents shift.
 //
 // Couples are then centered parents-before-children (a father sits one column left
 // of his child), and each child is moved onto its parents' LIVE midpoint — after
@@ -477,13 +478,24 @@ export function centerOnlyChildren(
   // to miss the focus's blood-line spouse and transitive co-spouses (#30).
   const attached = tuckHosts(place, fam, focusId);
 
+  // A person who parents anyone in view: moving them up would strand their own
+  // children's descent lines, so long-drop centering below is limited to leaves.
+  const hasDescendants = new Set<PersonId>();
+  for (const parents of fam.trueParentsOf.values())
+    for (const p of parents) hasDescendants.add(p);
+  for (const parents of fam.adoptiveParentOf.values())
+    for (const p of parents) hasDescendants.add(p);
+
   const selected = coLocatedCouples(fam, input)
     .filter((c) => {
       if (c.children.length !== 1) return false;
       // coLocatedCouples validates father/mother placements but not the child's, so
       // guard before the deref — same defence the loop and the view already apply.
       const cp = input.get(c.children[0]);
-      return cp !== undefined && Math.abs(c.mid.order - cp.order) <= 1;
+      if (cp === undefined) return false;
+      if (Math.abs(c.mid.order - cp.order) <= 1) return true;
+      // Long-drop child: admit only a leaf, whose upward move strands nothing (#27).
+      return !hasDescendants.has(c.children[0]);
     })
     .sort((a, b) => input.get(a.father)!.col - input.get(b.father)!.col);
 
