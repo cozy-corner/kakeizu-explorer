@@ -409,8 +409,8 @@ function coLocatedCouples(
 // child's row instead (clamped to the parents' marriage segment so it stays between
 // them): the line runs straight, sprouting from whichever parent shares that row —
 // a smaller artifact than the jog, and no node moves. Only single, near-level
-// children qualify: a long-drop child (#27) keeps the midpoint origin, where the
-// jog is invisible and the couple-centered start reads right.
+// children qualify: a long-drop child that stays far off keeps the midpoint origin,
+// where the jog is invisible and the couple-centered start reads right.
 export function descentJunctions(
   fam: FamilyGraph,
   placements: Placements,
@@ -451,10 +451,10 @@ export function descentJunctions(
 // father's row while the mother is packed a row below.
 //
 // Selection uses the ORIGINAL placements: a single-child couple whose child sits
-// within one row of the midpoint. A child that drops far below is a long vertical
-// line where the half-row is invisible and the midpoint origin already reads right,
-// so it's excluded. Selecting on the original layout means a child stays selected
-// even after its own parents shift.
+// within one row of the midpoint, OR a long-drop child safe to pull up — one where
+// neither it nor a tucked spouse has descendants whose lines the move would strand
+// (#27). Selecting on the original layout means a child stays selected even after
+// its own parents shift.
 //
 // Couples are then centered parents-before-children (a father sits one column left
 // of his child), and each child is moved onto its parents' LIVE midpoint — after
@@ -477,18 +477,28 @@ export function centerOnlyChildren(
   // to miss the focus's blood-line spouse and transitive co-spouses (#30).
   const attached = tuckHosts(place, fam, focusId);
 
+  const hasDescendants = new Set<PersonId>();
+  for (const parents of fam.trueParentsOf.values())
+    for (const p of parents) hasDescendants.add(p);
+  for (const parents of fam.adoptiveParentOf.values())
+    for (const p of parents) hasDescendants.add(p);
+
   const selected = coLocatedCouples(fam, input)
-    .filter((c) => {
-      if (c.children.length !== 1) return false;
+    .flatMap((c) => {
+      if (c.children.length !== 1) return [];
       // coLocatedCouples validates father/mother placements but not the child's, so
       // guard before the deref — same defence the loop and the view already apply.
       const cp = input.get(c.children[0]);
-      return cp !== undefined && Math.abs(c.mid.order - cp.order) <= 1;
+      if (cp === undefined) return [];
+      const child = c.children[0];
+      const movers = tuckChain(attached, child);
+      const longDrop = Math.abs(c.mid.order - cp.order) > 1;
+      if (longDrop && movers.some((id) => hasDescendants.has(id))) return [];
+      return [{ c, child, longDrop, movers }];
     })
-    .sort((a, b) => input.get(a.father)!.col - input.get(b.father)!.col);
+    .sort((a, b) => input.get(a.c.father)!.col - input.get(b.c.father)!.col);
 
-  for (const c of selected) {
-    const child = c.children[0];
+  for (const { c, child, longDrop, movers } of selected) {
     const cp = place.get(child);
     const fp = place.get(c.father);
     const mp = place.get(c.mother);
@@ -496,11 +506,7 @@ export function centerOnlyChildren(
     const dOrder = (fp.order + mp.order) / 2 - cp.order; // live midpoint
     if (dOrder === 0) continue;
 
-    // Move the child together with every spouse tucked beside it (transitively),
-    // so the child's own couple keeps its spacing. Walking `attached` from the
-    // child reproduces exactly the column block packColumns built around it.
     const col = cp.col;
-    const movers = tuckChain(attached, child);
     const moverSet = new Set(movers);
     const top = Math.min(...movers.map((m) => place.get(m)!.order));
     const bottom = Math.max(...movers.map((m) => place.get(m)!.order));
@@ -517,6 +523,9 @@ export function centerOnlyChildren(
     if (lo > hi) continue; // column too tight to center without overlap
     const shift = Math.max(lo, Math.min(hi, dOrder));
     if (shift === 0) continue;
+    // A partial long-drop move strands the child mid-column and can trip
+    // descentJunctions off the couple midpoint, so it's all-or-nothing (#27).
+    if (longDrop && shift !== dOrder) continue;
     for (const m of movers) {
       const p = place.get(m)!;
       place.set(m, { col: p.col, order: p.order + shift });
