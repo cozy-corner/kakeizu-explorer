@@ -409,10 +409,8 @@ function coLocatedCouples(
 // child's row instead (clamped to the parents' marriage segment so it stays between
 // them): the line runs straight, sprouting from whichever parent shares that row —
 // a smaller artifact than the jog, and no node moves. Only single, near-level
-// children qualify. A long-drop leaf is already pulled onto the midpoint by
-// centerOnlyChildren (#27), so it arrives here near-level with cp.order == mid.order
-// and stays put; a long-drop child that remains far off (non-leaf, or too tight to
-// center) keeps the midpoint origin, where the jog is invisible.
+// children qualify: a long-drop child that stays far off keeps the midpoint origin,
+// where the jog is invisible and the couple-centered start reads right.
 export function descentJunctions(
   fam: FamilyGraph,
   placements: Placements,
@@ -453,11 +451,10 @@ export function descentJunctions(
 // father's row while the mother is packed a row below.
 //
 // Selection uses the ORIGINAL placements: a single-child couple whose child sits
-// within one row of the midpoint, OR a long-drop child that is a leaf. A near-level
-// child's jog is a half row; a long-drop child's is not invisible (#27: dy≈158) —
-// but pulling a long-drop child up is only safe when it has no descendants of its
-// own to strand, hence the leaf gate. Selecting on the original layout means a child
-// stays selected even after its own parents shift.
+// within one row of the midpoint, OR a long-drop child safe to pull up — one where
+// neither it nor a tucked spouse has descendants whose lines the move would strand
+// (#27). Selecting on the original layout means a child stays selected even after
+// its own parents shift.
 //
 // Couples are then centered parents-before-children (a father sits one column left
 // of his child), and each child is moved onto its parents' LIVE midpoint — after
@@ -480,8 +477,6 @@ export function centerOnlyChildren(
   // to miss the focus's blood-line spouse and transitive co-spouses (#30).
   const attached = tuckHosts(place, fam, focusId);
 
-  // A person who parents anyone in view: moving them up would strand their own
-  // children's descent lines, so long-drop centering below is limited to leaves.
   const hasDescendants = new Set<PersonId>();
   for (const parents of fam.trueParentsOf.values())
     for (const p of parents) hasDescendants.add(p);
@@ -496,12 +491,8 @@ export function centerOnlyChildren(
       const cp = input.get(c.children[0]);
       if (cp === undefined) return [];
       const child = c.children[0];
-      // The child plus every spouse tucked beside it (the block packColumns packed):
-      // they move together so the child's own couple keeps its spacing.
       const movers = tuckChain(attached, child);
       const longDrop = Math.abs(c.mid.order - cp.order) > 1;
-      // A long-drop admits only when every moved node is a leaf, else dragging a
-      // spouse up strands its own descent lines (#27).
       if (longDrop && movers.some((id) => hasDescendants.has(id))) return [];
       return [{ c, child, longDrop, movers }];
     })
