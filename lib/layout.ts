@@ -496,8 +496,11 @@ export function centerOnlyChildren(
       const cp = input.get(c.children[0]);
       if (cp === undefined) return false;
       if (Math.abs(c.mid.order - cp.order) <= 1) return true;
-      // Long-drop child: admit only a leaf, whose upward move strands nothing (#27).
-      return !hasDescendants.has(c.children[0]);
+      // Long-drop: every node that moves with the child (child + tucked spouses)
+      // must be a leaf, else dragging a spouse up strands its own descent lines (#27).
+      return tuckChain(attached, c.children[0]).every(
+        (id) => !hasDescendants.has(id),
+      );
     })
     .sort((a, b) => input.get(a.father)!.col - input.get(b.father)!.col);
 
