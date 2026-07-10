@@ -123,8 +123,7 @@ const fmt = (pts: Pos[]) => pts.map((p) => `(${r(p.x)},${r(p.y)})`).join(" → "
 const COL = NODE_SIZE + RANK_SEP; // one generation's x-stride
 
 // Build the structured data once; prose and --json render from the same arrays so
-// the two views can't drift. The prose rendering below must stay byte-identical to
-// the previous output (acceptance condition: default format unchanged).
+// the two views can't drift.
 type NodeOut = { id: string; label: string; x: number; y: number };
 type DroppedAdoption = {
   source: string;
@@ -165,9 +164,18 @@ const droppedOut: DroppedAdoption[] = dropped.map((e) => ({
   targetLabel: label(e.target),
 }));
 
+// The real render hides a co-located couple's father→child edge and draws the
+// junction→child line instead (GraphPane's buildEgoPlan). Mirror that hidden set
+// here, else the dump reports a father-origin line the app never draws.
+const junctionList = descentJunctions(fam, placedStruct);
+const hiddenEdgeIds = new Set<string>();
+for (const j of junctionList)
+  for (const c of j.children) hiddenEdgeIds.add(`${j.father}|PARENT_OF|${c}`);
+
 const descentOut: DescentLine[] = [];
 for (const e of edges) {
   if (e.type !== "PARENT_OF" && e.type !== "ADOPTIVE_PARENT_OF") continue;
+  if (hiddenEdgeIds.has(edgeKey(e))) continue;
   const s = placed.get(e.source as PersonId);
   const t = placed.get(e.target as PersonId);
   if (!s || !t) continue;
@@ -183,11 +191,11 @@ for (const e of edges) {
   });
 }
 
-const detoursOut = spouseRouting(placed, fam, SPOUSE_GUTTER);
-
 const junctionsOut: Junction[] = [];
-for (const j of descentJunctions(fam, placedStruct)) {
+for (const j of junctionList) {
   const jpos = projectOne(j.pos, colX, ROW);
+  const jid = junctionId(j.father, j.mother);
+  const coupleLabel = `${label(j.father)}＋${label(j.mother)}`;
   const children: Junction["children"] = [];
   for (const c of j.children) {
     const cp = placed.get(c);
@@ -202,9 +210,21 @@ for (const j of descentJunctions(fam, placedStruct)) {
       y: r(cp.y),
       dy: r(cp.y - jpos.y),
     });
+    // Origin is the midpoint, so a child on the couple's own row is bends=2 (jog
+    // around the midpoint), not the bends=0 a father-origin line would show.
+    descentOut.push({
+      source: jid,
+      sourceLabel: coupleLabel,
+      target: c,
+      targetLabel: label(c),
+      adoptive: false,
+      path: taxiPoints(jpos, cp).map((p) => ({ x: r(p.x), y: r(p.y) })),
+      cols: Math.round((cp.x - jpos.x) / COL),
+      bends: jpos.y === cp.y ? 0 : 2,
+    });
   }
   junctionsOut.push({
-    id: junctionId(j.father, j.mother),
+    id: jid,
     father: j.father,
     mother: j.mother,
     x: r(jpos.x),
@@ -212,6 +232,8 @@ for (const j of descentJunctions(fam, placedStruct)) {
     children,
   });
 }
+
+const detoursOut = spouseRouting(placed, fam, SPOUSE_GUTTER);
 
 if (jsonMode) {
   console.log(

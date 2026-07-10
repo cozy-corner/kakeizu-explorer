@@ -42,6 +42,10 @@ It mirrors `components/GraphPane.tsx`'s layout step exactly: drop sibling adopti
   - `cols≥2` is the red flag: a descent line crossing an extra column means the
     child is placed a generation too deep (the usual cause of an "unnecessary
     bend"). Every normal line is `cols=1`.
+  - A co-located couple's line reads `父＋母 → 子` and starts at the **midpoint**,
+    not the father: the app hides the father→child edge and draws junction→child,
+    so the dump does too. Its start/`bends` match `descentJunctions`, not the
+    father's row (a child on the couple's row is `bends=2`, jogging the midpoint).
 - **Descent junctions** — couple-midpoint origin of a descent line + `dy` to each
   child.
 - **Spouse detours** — marriage lines bowed around a blocking node.
