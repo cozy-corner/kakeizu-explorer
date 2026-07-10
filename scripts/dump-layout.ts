@@ -18,6 +18,7 @@ import dagre from "cytoscape-dagre";
 import {
   buildFamilyGraph,
   egoDrawnEdges,
+  junctionHiddenEdgeIds,
   junctionId,
   layoutOnlyEdges,
   patrilinealEdges,
@@ -164,13 +165,9 @@ const droppedOut: DroppedAdoption[] = dropped.map((e) => ({
   targetLabel: label(e.target),
 }));
 
-// The real render hides a co-located couple's father→child edge and draws the
-// junction→child line instead (GraphPane's buildEgoPlan). Mirror that hidden set
-// here, else the dump reports a father-origin line the app never draws.
+// Skip these below, else the dump reports a father-origin line the app never draws.
 const junctionList = descentJunctions(fam, placedStruct);
-const hiddenEdgeIds = new Set<string>();
-for (const j of junctionList)
-  for (const c of j.children) hiddenEdgeIds.add(`${j.father}|PARENT_OF|${c}`);
+const hiddenEdgeIds = junctionHiddenEdgeIds(junctionList);
 
 const descentOut: DescentLine[] = [];
 for (const e of edges) {
