@@ -165,6 +165,29 @@ const droppedOut: DroppedAdoption[] = dropped.map((e) => ({
   targetLabel: label(e.target),
 }));
 
+// Single-source the taxi/cols/bends math so the two callers below can't drift.
+type Endpoint = { id: string; label: string; pos: Pos };
+const descentLine = (
+  from: Endpoint,
+  to: Endpoint,
+  adoptive: boolean,
+): DescentLine => {
+  const path = taxiPoints(from.pos, to.pos).map((p) => ({
+    x: r(p.x),
+    y: r(p.y),
+  }));
+  return {
+    source: from.id,
+    sourceLabel: from.label,
+    target: to.id,
+    targetLabel: to.label,
+    adoptive,
+    path,
+    cols: Math.round((to.pos.x - from.pos.x) / COL),
+    bends: path.length - 2, // taxiPoints: 2 pts straight, 4 pts one jog
+  };
+};
+
 // Skip these below, else the dump reports a father-origin line the app never draws.
 const junctionList = descentJunctions(fam, placedStruct);
 const hiddenEdgeIds = junctionHiddenEdgeIds(junctionList);
@@ -176,16 +199,13 @@ for (const e of edges) {
   const s = placed.get(e.source as PersonId);
   const t = placed.get(e.target as PersonId);
   if (!s || !t) continue;
-  descentOut.push({
-    source: e.source,
-    sourceLabel: label(e.source),
-    target: e.target,
-    targetLabel: label(e.target),
-    adoptive: e.type === "ADOPTIVE_PARENT_OF",
-    path: taxiPoints(s, t).map((p) => ({ x: r(p.x), y: r(p.y) })),
-    cols: Math.round((t.x - s.x) / COL),
-    bends: s.y === t.y ? 0 : 2,
-  });
+  descentOut.push(
+    descentLine(
+      { id: e.source, label: label(e.source), pos: s },
+      { id: e.target, label: label(e.target), pos: t },
+      e.type === "ADOPTIVE_PARENT_OF",
+    ),
+  );
 }
 
 const junctionsOut: Junction[] = [];
@@ -207,18 +227,15 @@ for (const j of junctionList) {
       y: r(cp.y),
       dy: r(cp.y - jpos.y),
     });
-    // Origin is the midpoint, so a child on the couple's own row is bends=2 (jog
-    // around the midpoint), not the bends=0 a father-origin line would show.
-    descentOut.push({
-      source: jid,
-      sourceLabel: coupleLabel,
-      target: c,
-      targetLabel: label(c),
-      adoptive: false,
-      path: taxiPoints(jpos, cp).map((p) => ({ x: r(p.x), y: r(p.y) })),
-      cols: Math.round((cp.x - jpos.x) / COL),
-      bends: jpos.y === cp.y ? 0 : 2,
-    });
+    // Origin is the midpoint, so a child on the couple's own row jogs (bends=2),
+    // where a father-origin line would read straight.
+    descentOut.push(
+      descentLine(
+        { id: jid, label: coupleLabel, pos: jpos },
+        { id: c, label: label(c), pos: cp },
+        false,
+      ),
+    );
   }
   junctionsOut.push({
     id: jid,
