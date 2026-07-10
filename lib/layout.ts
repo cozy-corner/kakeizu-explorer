@@ -409,8 +409,10 @@ function coLocatedCouples(
 // child's row instead (clamped to the parents' marriage segment so it stays between
 // them): the line runs straight, sprouting from whichever parent shares that row —
 // a smaller artifact than the jog, and no node moves. Only single, near-level
-// children qualify: a long-drop child (#27) keeps the midpoint origin, where the
-// jog is invisible and the couple-centered start reads right.
+// children qualify. A long-drop leaf is already pulled onto the midpoint by
+// centerOnlyChildren (#27), so it arrives here near-level with cp.order == mid.order
+// and stays put; a long-drop child that remains far off (non-leaf, or too tight to
+// center) keeps the midpoint origin, where the jog is invisible.
 export function descentJunctions(
   fam: FamilyGraph,
   placements: Placements,
@@ -507,6 +509,12 @@ export function centerOnlyChildren(
     if (!cp || !fp || !mp) continue;
     const dOrder = (fp.order + mp.order) / 2 - cp.order; // live midpoint
     if (dOrder === 0) continue;
+    // A long-drop leaf (admitted by the leaf gate above) must reach the midpoint
+    // outright: a clamp-limited partial move would strand it mid-column with a
+    // residual jog, and could land it within one row of the midpoint where
+    // descentJunctions then drops the junction off the couple's midpoint (#27). A
+    // near-level child keeps the old clamp-partial behaviour (#22/#28).
+    const longDrop = Math.abs(c.mid.order - input.get(child)!.order) > 1;
 
     // Move the child together with every spouse tucked beside it (transitively),
     // so the child's own couple keeps its spacing. Walking `attached` from the
@@ -529,6 +537,7 @@ export function centerOnlyChildren(
     if (lo > hi) continue; // column too tight to center without overlap
     const shift = Math.max(lo, Math.min(hi, dOrder));
     if (shift === 0) continue;
+    if (longDrop && shift !== dOrder) continue; // all-or-nothing for long-drop
     for (const m of movers) {
       const p = place.get(m)!;
       place.set(m, { col: p.col, order: p.order + shift });
