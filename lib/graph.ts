@@ -70,6 +70,22 @@ export const edgeId = (e: {
   target: string;
 }): string => `${e.source}|${e.type}|${e.target}`;
 
+// The father→child edges a descent junction absorbs: the ego view hides each and
+// draws a junction→child line in its place. Single-sourced so the live view and the
+// offline dump hide the same set — a per-file reimplementation is what let
+// dump-layout drift (see #57).
+export const junctionHiddenEdgeIds = (
+  junctions: readonly { father: PersonId; children: readonly PersonId[] }[],
+): Set<string> => {
+  const hidden = new Set<string>();
+  for (const j of junctions)
+    for (const child of j.children)
+      hidden.add(
+        edgeId({ source: j.father, type: "PARENT_OF", target: child }),
+      );
+  return hidden;
+};
+
 // Reduce a neighbourhood toward a patrilineal tree: the line of descent runs
 // through fathers, mothers are shown as the father's spouse (not as a second
 // descent line). For each child keep every father edge — a parent whose sex

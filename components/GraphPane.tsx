@@ -7,6 +7,7 @@ import {
   buildFamilyGraph,
   edgeId,
   egoDrawnEdges,
+  junctionHiddenEdgeIds,
   junctionId,
   layoutOnlyEdges,
   mergeGraph,
@@ -250,19 +251,17 @@ function computeEgoPlan(
     spouseBows.set(edgeId({ source, type: "SPOUSE_OF", target }), bow);
   }
 
+  const junctionList = descentJunctions(fam, placed);
   const junctions: EgoPlan["junctions"] = [];
   const descentEdges: EgoPlan["descentEdges"] = [];
-  const hiddenEdgeIds = new Set<string>();
-  for (const j of descentJunctions(fam, placed)) {
+  const hiddenEdgeIds = junctionHiddenEdgeIds(junctionList);
+  for (const j of junctionList) {
     const jid = junctionId(j.father, j.mother);
     const jpos = projectOne(j.pos, colX, ROW);
     junctions.push({ id: jid, pos: jpos });
     positions.set(jid, jpos);
     for (const child of j.children) {
       descentEdges.push({ id: `${jid}->${child}`, source: jid, target: child });
-      hiddenEdgeIds.add(
-        edgeId({ source: j.father, type: "PARENT_OF", target: child }),
-      );
     }
   }
 

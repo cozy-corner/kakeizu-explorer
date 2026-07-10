@@ -18,6 +18,7 @@ import dagre from "cytoscape-dagre";
 import {
   buildFamilyGraph,
   egoDrawnEdges,
+  junctionHiddenEdgeIds,
   junctionId,
   layoutOnlyEdges,
   patrilinealEdges,
@@ -123,8 +124,7 @@ const fmt = (pts: Pos[]) => pts.map((p) => `(${r(p.x)},${r(p.y)})`).join(" → "
 const COL = NODE_SIZE + RANK_SEP; // one generation's x-stride
 
 // Build the structured data once; prose and --json render from the same arrays so
-// the two views can't drift. The prose rendering below must stay byte-identical to
-// the previous output (acceptance condition: default format unchanged).
+// the two views can't drift.
 type NodeOut = { id: string; label: string; x: number; y: number };
 type DroppedAdoption = {
   source: string;
@@ -165,29 +165,54 @@ const droppedOut: DroppedAdoption[] = dropped.map((e) => ({
   targetLabel: label(e.target),
 }));
 
+// Single-source the taxi/cols/bends math so the two callers below can't drift.
+type Endpoint = { id: string; label: string; pos: Pos };
+const descentLine = (
+  from: Endpoint,
+  to: Endpoint,
+  adoptive: boolean,
+): DescentLine => {
+  const path = taxiPoints(from.pos, to.pos).map((p) => ({
+    x: r(p.x),
+    y: r(p.y),
+  }));
+  return {
+    source: from.id,
+    sourceLabel: from.label,
+    target: to.id,
+    targetLabel: to.label,
+    adoptive,
+    path,
+    cols: Math.round((to.pos.x - from.pos.x) / COL),
+    bends: path.length - 2, // taxiPoints: 2 pts straight, 4 pts one jog
+  };
+};
+
+// Skip these below, else the dump reports a father-origin line the app never draws.
+const junctionList = descentJunctions(fam, placedStruct);
+const hiddenEdgeIds = junctionHiddenEdgeIds(junctionList);
+
 const descentOut: DescentLine[] = [];
 for (const e of edges) {
   if (e.type !== "PARENT_OF" && e.type !== "ADOPTIVE_PARENT_OF") continue;
+  if (hiddenEdgeIds.has(edgeKey(e))) continue;
   const s = placed.get(e.source as PersonId);
   const t = placed.get(e.target as PersonId);
   if (!s || !t) continue;
-  descentOut.push({
-    source: e.source,
-    sourceLabel: label(e.source),
-    target: e.target,
-    targetLabel: label(e.target),
-    adoptive: e.type === "ADOPTIVE_PARENT_OF",
-    path: taxiPoints(s, t).map((p) => ({ x: r(p.x), y: r(p.y) })),
-    cols: Math.round((t.x - s.x) / COL),
-    bends: s.y === t.y ? 0 : 2,
-  });
+  descentOut.push(
+    descentLine(
+      { id: e.source, label: label(e.source), pos: s },
+      { id: e.target, label: label(e.target), pos: t },
+      e.type === "ADOPTIVE_PARENT_OF",
+    ),
+  );
 }
 
-const detoursOut = spouseRouting(placed, fam, SPOUSE_GUTTER);
-
 const junctionsOut: Junction[] = [];
-for (const j of descentJunctions(fam, placedStruct)) {
+for (const j of junctionList) {
   const jpos = projectOne(j.pos, colX, ROW);
+  const jid = junctionId(j.father, j.mother);
+  const coupleLabel = `${label(j.father)}＋${label(j.mother)}`;
   const children: Junction["children"] = [];
   for (const c of j.children) {
     const cp = placed.get(c);
@@ -202,9 +227,18 @@ for (const j of descentJunctions(fam, placedStruct)) {
       y: r(cp.y),
       dy: r(cp.y - jpos.y),
     });
+    // Origin is the midpoint, so a child on the couple's own row jogs (bends=2),
+    // where a father-origin line would read straight.
+    descentOut.push(
+      descentLine(
+        { id: jid, label: coupleLabel, pos: jpos },
+        { id: c, label: label(c), pos: cp },
+        false,
+      ),
+    );
   }
   junctionsOut.push({
-    id: junctionId(j.father, j.mother),
+    id: jid,
     father: j.father,
     mother: j.mother,
     x: r(jpos.x),
@@ -212,6 +246,8 @@ for (const j of descentJunctions(fam, placedStruct)) {
     children,
   });
 }
+
+const detoursOut = spouseRouting(placed, fam, SPOUSE_GUTTER);
 
 if (jsonMode) {
   console.log(
