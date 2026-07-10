@@ -489,41 +489,33 @@ export function centerOnlyChildren(
     for (const p of parents) hasDescendants.add(p);
 
   const selected = coLocatedCouples(fam, input)
-    .filter((c) => {
-      if (c.children.length !== 1) return false;
+    .flatMap((c) => {
+      if (c.children.length !== 1) return [];
       // coLocatedCouples validates father/mother placements but not the child's, so
       // guard before the deref — same defence the loop and the view already apply.
       const cp = input.get(c.children[0]);
-      if (cp === undefined) return false;
-      if (Math.abs(c.mid.order - cp.order) <= 1) return true;
-      // Long-drop: every node that moves with the child (child + tucked spouses)
-      // must be a leaf, else dragging a spouse up strands its own descent lines (#27).
-      return tuckChain(attached, c.children[0]).every(
-        (id) => !hasDescendants.has(id),
-      );
+      if (cp === undefined) return [];
+      const child = c.children[0];
+      // The child plus every spouse tucked beside it (the block packColumns packed):
+      // they move together so the child's own couple keeps its spacing.
+      const movers = tuckChain(attached, child);
+      const longDrop = Math.abs(c.mid.order - cp.order) > 1;
+      // A long-drop admits only when every moved node is a leaf, else dragging a
+      // spouse up strands its own descent lines (#27).
+      if (longDrop && movers.some((id) => hasDescendants.has(id))) return [];
+      return [{ c, child, longDrop, movers }];
     })
-    .sort((a, b) => input.get(a.father)!.col - input.get(b.father)!.col);
+    .sort((a, b) => input.get(a.c.father)!.col - input.get(b.c.father)!.col);
 
-  for (const c of selected) {
-    const child = c.children[0];
+  for (const { c, child, longDrop, movers } of selected) {
     const cp = place.get(child);
     const fp = place.get(c.father);
     const mp = place.get(c.mother);
     if (!cp || !fp || !mp) continue;
     const dOrder = (fp.order + mp.order) / 2 - cp.order; // live midpoint
     if (dOrder === 0) continue;
-    // A long-drop leaf (admitted by the leaf gate above) must reach the midpoint
-    // outright: a clamp-limited partial move would strand it mid-column with a
-    // residual jog, and could land it within one row of the midpoint where
-    // descentJunctions then drops the junction off the couple's midpoint (#27). A
-    // near-level child keeps the old clamp-partial behaviour (#22/#28).
-    const longDrop = Math.abs(c.mid.order - input.get(child)!.order) > 1;
 
-    // Move the child together with every spouse tucked beside it (transitively),
-    // so the child's own couple keeps its spacing. Walking `attached` from the
-    // child reproduces exactly the column block packColumns built around it.
     const col = cp.col;
-    const movers = tuckChain(attached, child);
     const moverSet = new Set(movers);
     const top = Math.min(...movers.map((m) => place.get(m)!.order));
     const bottom = Math.max(...movers.map((m) => place.get(m)!.order));
