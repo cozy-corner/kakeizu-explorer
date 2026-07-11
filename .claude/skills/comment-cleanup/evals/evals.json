@@ -1,0 +1,29 @@
+{
+  "skill_name": "comment-cleanup",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "place-nodes.ts のコメント、過剰なやつ訂正しといて。",
+      "expected_output": "Deletes pure what-comments (loop over every node / x is uniform within a column / set the placed record / increment by half a row) and the gray-zone restatement (not a co-located couple). Rewrites the two-line header down to just the dagre 'why', keeps that why. Leaves all code identical.",
+      "files": ["fixtures/place-nodes.ts"]
+    },
+    {
+      "id": 1,
+      "prompt": "reduce-edges.ts のコメントを掃除して。日本語のコメントもあるけど直しといて。",
+      "expected_output": "Deletes the Japanese what-comments (結果を貯める配列 / すべての辺をループする / 辺を追加する / 兄弟養子かどうかを判定). Keeps the genuine why comments (P1039 role authority, disputed multiple-fathers, 家督 sibling-adoption drop) but translates them to English, preserving domain terms 家督/養子/P1039. Code unchanged.",
+      "files": ["fixtures/reduce-edges.ts"]
+    },
+    {
+      "id": 2,
+      "prompt": "driver.ts の冗長なコメント削って。",
+      "expected_output": "Deletes the what-comments (return the cached driver / create the driver / cache it on the global object / return the driver) but KEEPS the two real why comments (Driver connection-pool rationale, and the throw-on-missing-URL rationale). Tests restraint under zero-based: genuine why survives. Code unchanged.",
+      "files": ["fixtures/driver.ts"]
+    },
+    {
+      "id": 3,
+      "prompt": "render-node.ts のコメント整理して。",
+      "expected_output": "Trims the verbose JSDoc on exported nodeStyle down to a minimal contract line (keeps it — public API — but drops the step-by-step body narration, the PR #48 ref, and the redundant @param/@returns that only re-say names). Deletes the name-only '/** Returns the node style. */' over defaultStyle. Deletes stale/PR comments in the body (previously padded 8px…#52, measure the label width, add the padding, temporary…phase 3). Code unchanged.",
+      "files": ["fixtures/render-node.ts"]
+    }
+  ]
+}

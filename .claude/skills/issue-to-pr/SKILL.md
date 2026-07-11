@@ -4,8 +4,8 @@ description: >-
   End-to-end workflow for taking a task or GitHub issue all the way to an opened,
   review-clean PR. It sequences: read the issue/plan and clarify unknowns →
   implement in a git worktree (optionally de-risking a shaky assumption with a
-  throwaway probe first) → clean it up with /simplify and self-review with /code-review,
-  triaging the findings → verify it works by running it → open the PR →
+  throwaway probe first) → clean it up with /simplify and comment-cleanup, self-review
+  with /code-review, triaging the findings → verify it works by running it → open the PR →
   triage the PR bot's review the same way. Use this whenever the user
   wants to 進める / implement / build / refactor an issue or feature through to a
   PR, or to ACT ON (apply the valid ones, reject the rest with a reason)
@@ -15,8 +15,8 @@ description: >-
   single-file edits, for design-discussion-only with no implementation, or for
   merely fetching or displaying a PR's reviews without acting on them — those
   belong to design or pr-reviews respectively. Delegates each phase to the focused
-  skills (design, verify, simplify, code-review, pr-reviews) and may fan out to
-  parallel agents.
+  skills (design, verify, simplify, comment-cleanup, code-review, pr-reviews) and may
+  fan out to parallel agents.
 ---
 
 # Issue → PR
@@ -92,14 +92,21 @@ Two passes over the diff, each owned by a focused skill:
   helpers, collapse needless complexity, fix inefficiency and altitude, then applies
   the fixes. It does _not_ hunt for bugs — that's the next pass. Review what it
   changed like any other edit; keep the parity guard green.
+- **comment-cleanup** — then run `comment-cleanup` on the diff. It judges the change's
+  comments against the now-settled code: deletes what-comments that restate the code,
+  trims verbose public-API docs to a minimal contract, drops stale-by-design comments
+  (PR/issue numbers, "previously…", phase markers), and normalizes JA code comments to
+  English — keeping only the non-obvious _why_. Comments only; it never touches code.
 - **code-review** — then run `/code-review medium` (fans out finder + verifier
   agents — that's the agent team, already wired). Do the part the tool can't:
   **triage every finding** with the rubric below. Apply the valid ones (one commit
   per finding), and for each rejection say _why_ in your summary. Don't silently
   drop a finding and don't reflexively apply one.
 
-Run simplify before code-review so the review sees the cleaned-up diff, not code
-you're about to rewrite. Both rewrite code, so Phase 4 re-verifies before the PR.
+Order matters: simplify first so comment-cleanup and code-review judge the final code,
+not code you're about to rewrite; comment-cleanup before code-review so the review
+reads a clean diff. simplify rewrites code, so Phase 4 re-verifies before the PR
+(comment-cleanup is comment-only — nothing behavioral to re-verify there).
 
 ## Phase 4 — Re-verify (confirm the cleanup preserved behavior)
 
