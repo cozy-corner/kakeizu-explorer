@@ -68,3 +68,9 @@ fixtures — real ego graphs whose dagre output is frozen in `lib/fixtures/layou
 (DB-free, CI-runnable). Run it after touching placement code. Regenerate the fixtures
 with the dev server up via `bun run scripts/gen-layout-fixtures.ts` when the placement
 contract intentionally changes, and eyeball the new `expected` before committing.
+
+When only `lib/layout` changed and the dagre ranking is untouched, prefer
+`bun run scripts/regen-expected.ts` instead: it recomputes only each fixture's
+`expected` block from the already-frozen `graph`+`dagre`, so it needs no DB and
+leaves the input byte-identical — the diff then shows just the placement change,
+not re-fetched graph/dagre noise. Still eyeball the new `expected`.

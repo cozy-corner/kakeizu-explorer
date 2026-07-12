@@ -18,7 +18,6 @@ import {
   type SyntheticEdge,
 } from "@/lib/graph";
 import {
-  centerOnlyChildren,
   descentJunctions,
   placeNodes,
   project,
@@ -238,11 +237,7 @@ function computeEgoPlan(
   });
   const fam = buildFamilyGraph(g, edges);
   const { placements, colX } = readPlacement(raw, ROW);
-  const placed = centerOnlyChildren(
-    placeNodes(placements, fam, focus),
-    fam,
-    focus,
-  );
+  const placed = placeNodes(placements, fam, focus);
   const px = project(placed, colX, ROW);
   const positions: Map<string, Pos> = new Map(px);
 
