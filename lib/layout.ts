@@ -274,10 +274,20 @@ function orderDescentForest(
   // disputed second father whose child the layout filed under the first. Rooting
   // them all keeps the whole graph in one normalized order frame, so nothing is
   // left stranded at a stale dagre row where it could overlap a tidy-placed node.
-  const roots = [...place.keys()]
+  const ordered = [...place.keys()].sort(
+    (a, b) => inputOrder.get(a)! - inputOrder.get(b)!,
+  );
+  const rootSubs = ordered
     .filter((n) => !tucked.has(n) && !placedAsChild.has(n))
-    .sort((a, b) => inputOrder.get(a)! - inputOrder.get(b)!);
-  const placed = stackSubtrees(roots.map(layout));
+    .map(layout);
+  // A closed ancestry cycle (every member is placedAsChild, so none is a root)
+  // is unreached by the pass above; lay out each still-unplaced node as its own
+  // root so it too lands in the normalized frame instead of keeping stale dagre
+  // coordinates. `laidOut` skips cycle members already covered by an earlier entry.
+  const cycleSubs = ordered
+    .filter((n) => !tucked.has(n) && !laidOut.has(n))
+    .map(layout);
+  const placed = stackSubtrees([...rootSubs, ...cycleSubs]);
   const rows = [...placed.order.values()];
   const offset = rows.length ? -Math.min(...rows) : 0;
   for (const [id, o] of placed.order)

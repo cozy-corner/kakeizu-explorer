@@ -311,6 +311,25 @@ test("placeNodes: a malformed ancestry cycle terminates and still places every n
   });
 });
 
+test("placeNodes: a closed cycle with no root still places every node in the normalized frame", () => {
+  // A↔B is a cycle with no parentless entry, so no root reaches it. Both are
+  // placedAsChild, yet each must still be laid out as its own root rather than
+  // keeping stale dagre coordinates (would otherwise overlap tidy-placed nodes).
+  const edges: GraphEdge[] = [
+    { source: "A", target: "B", type: "PARENT_OF" },
+    { source: "B", target: "A", type: "PARENT_OF" },
+  ];
+  const input = pos([
+    ["A", [0, 0]],
+    ["B", [100, 0]],
+  ]);
+
+  expect(obj(place(input, fam(edges), "A"))).toEqual({
+    A: { x: 0, y: 0 },
+    B: { x: 100, y: 0 },
+  });
+});
+
 test("spouseRouting: a clear marriage line is not routed", () => {
   const edges: GraphEdge[] = [{ source: "S", target: "T", type: "SPOUSE_OF" }];
   const input = pos([
