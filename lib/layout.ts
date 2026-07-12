@@ -77,9 +77,7 @@ function clonePlacements(p: Placements): Placements {
 // spouse rides beside the focus even when that spouse heads their own blood line.
 // Transitive co-spouses are reached by walking the map (a tucked spouse may host
 // its own). Depends only on edges, the present node set, and the focus column —
-// not on order — so it's stable across the repacking, letting both packColumns and
-// centerOnlyChildren derive their mover sets from one definition (the two used to
-// re-derive it separately and drift apart).
+// not on order — so it's stable however the tidy layout stacks the column.
 function tuckHosts(
   place: Placements,
   fam: FamilyGraph,
@@ -121,16 +119,14 @@ function tuckHosts(
 }
 
 // Flatten a host's tuck chain in DFS pre-order, host first: a tucked-in spouse
-// may itself host co-spouses, so this walks the whole `attached` subtree. Shared
-// so packColumns (the spacing walk) and centerOnlyChildren (the mover block)
-// always pack the same set — the divergence that re-derived movers caused in #30.
+// may itself host co-spouses, so this walks the whole `attached` subtree.
 function tuckChain(
   attached: Map<PersonId, PersonId[]>,
   root: PersonId,
 ): PersonId[] {
   const chain: PersonId[] = [];
   const seen = new Set<PersonId>(); // a reverse-direction SPOUSE_OF can list a
-  // partner twice; visit each once so the spacing walk doesn't insert a phantom row
+  // partner twice; visit each once so the couple block doesn't gain a phantom row
   const walk = (id: PersonId): void => {
     if (seen.has(id)) return;
     seen.add(id);
@@ -141,53 +137,154 @@ function tuckChain(
   return chain;
 }
 
-// Keep dagre's vertical positions for blood descendants — gaps and all, since the
-// gaps separate one parent's children from the next — so parent blocks stay
-// readable. Married-in spouses move: tuck each beside the partner it married,
-// preferring the focus when someone married more than one in-tree relative. The
-// focus's own spouse is tucked beside the focus too, even when that spouse heads
-// their own blood line (so dagre stacked them in their own block).
-function packColumns(
+// A laid-out subtree in relative order units: `row` is the blood node's own row,
+// `order` the rows of every person under it, and top/bottom the per-column extent
+// of occupied rows (the contour the sibling packing clears).
+type Subtree = {
+  row: number;
+  order: Map<PersonId, number>;
+  top: Map<number, number>;
+  bottom: Map<number, number>;
+};
+
+// Stack sibling subtrees top-to-bottom, each shifted just enough to clear the
+// running contour of the ones above by one row in every shared column. Direct
+// siblings always share their own column (children of one parent sit one column
+// right of it), so that column pins the ordering; deeper generations extend the
+// contour rightward and keep cousin subtrees from overlapping. Returns each
+// subtree's shifted node row plus the merged order map and contour.
+function stackSubtrees(subs: Subtree[]): {
+  rows: number[];
+  order: Map<PersonId, number>;
+  top: Map<number, number>;
+  bottom: Map<number, number>;
+} {
+  const order = new Map<PersonId, number>();
+  const top = new Map<number, number>();
+  const bottom = new Map<number, number>();
+  const rows: number[] = [];
+  for (const sub of subs) {
+    // Clear the running contour by one row in every shared column; an unshared
+    // column contributes -Infinity so it never binds, and the 0 floor keeps a
+    // subtree from sliding up.
+    const shift = Math.max(
+      0,
+      ...[...sub.top].map(([col, t]) => {
+        const b = bottom.get(col);
+        return b === undefined ? -Infinity : b + 1 - t;
+      }),
+    );
+    for (const [id, o] of sub.order) order.set(id, o + shift);
+    for (const [col, t] of sub.top)
+      top.set(col, Math.min(top.get(col) ?? Infinity, t + shift));
+    for (const [col, b] of sub.bottom)
+      bottom.set(col, Math.max(bottom.get(col) ?? -Infinity, b + shift));
+    rows.push(sub.row + shift);
+  }
+  return { rows, order, top, bottom };
+}
+
+// Recompute vertical order as a Reingold–Tilford tidy layout of the descent
+// forest, keeping dagre's generation column (`col`) as the fixed depth axis and
+// solving only `order`. A couple (a blood node plus the spouses tucked below it)
+// is one block; a parent's descent junction centers on the span of its children's
+// rows, so the parent's own row sits half a block above that — giving symmetric
+// fans, straight lone-child lines, and centered parents by construction. dagre's
+// barycenter y lacks those invariants, so its descent lines can fold
+// asymmetrically; the tidy layout removes that whole class rather than patching it.
+function orderDescentForest(
   input: Placements,
   fam: FamilyGraph,
   focusId: PersonId,
 ): Placements {
   const place = clonePlacements(input);
   const attached = tuckHosts(place, fam, focusId);
+  const tucked = new Set<PersonId>([...attached.values()].flat());
 
-  // Provisional: pull each tucked spouse into its host's column so the column
-  // grouping below processes it there; the spacing walk overwrites the order.
-  // A focus-spouse already shares the focus's column, so this is a no-op for it.
-  for (const [host, ids] of attached) {
-    const hp = place.get(host)!;
-    for (const id of ids) place.set(id, { col: hp.col, order: hp.order });
+  // child → the one parent that owns its tree position; the first present parent
+  // (blood before adoptive) wins, any others are cross-links the layout ignores. A
+  // tucked spouse isn't placed as its own blood parent's child — the couple it
+  // rides in owns its row, so that ancestor edge stays a cross-link.
+  const inputOrder = new Map(
+    [...place.keys()].map((id, i) => [id, i] as const),
+  );
+  const childrenOf = new Map<PersonId, PersonId[]>();
+  const placedAsChild = new Set<PersonId>();
+  for (const child of place.keys()) {
+    if (tucked.has(child)) continue;
+    const blood = (fam.fatherOf.get(child) ?? []).filter((p) => place.has(p));
+    const parents = blood.length
+      ? blood
+      : (fam.adoptiveParentOf.get(child) ?? []).filter((p) => place.has(p));
+    if (parents.length === 0) continue;
+    placedAsChild.add(child);
+    pushInto(childrenOf, parents[0], child);
   }
 
-  const attachedIds = new Set<PersonId>();
-  for (const list of attached.values())
-    for (const id of list) attachedIds.add(id);
+  const coupleCol = new Map<PersonId, number>();
+  const laidOut = new Set<PersonId>();
+  const layout = (node: PersonId): Subtree => {
+    // Guard against a malformed ancestry cycle in the drawn edges (Wikidata can
+    // record a person as their own ancestor): revisiting a node would recurse
+    // forever. A node is legitimately laid out once, so a repeat means a cycle.
+    if (laidOut.has(node))
+      return { row: 0, order: new Map(), top: new Map(), bottom: new Map() };
+    laidOut.add(node);
+    const col = place.get(node)!.col;
+    const couple = tuckChain(attached, node); // [node, ...tucked spouses]
+    const spouses = couple.slice(1);
+    const k = spouses.length;
+    // A couple's children hang from ALL its members: a spouse who married in but
+    // heads their own line (drawn as the father of the couple's child) contributes
+    // that child, so the whole couple centers on it instead of the spouse drifting
+    // off to head a separate subtree. Merge across members back into reading order.
+    const kids = couple
+      .flatMap((m) => childrenOf.get(m) ?? [])
+      .sort((a, b) => inputOrder.get(a)! - inputOrder.get(b)!);
 
-  const cols = new Map<number, PersonId[]>();
-  for (const [id, p] of place) pushInto(cols, p.col, id);
+    const stacked = kids.length
+      ? stackSubtrees(kids.map(layout))
+      : {
+          rows: [] as number[],
+          order: new Map<PersonId, number>(),
+          top: new Map<number, number>(),
+          bottom: new Map<number, number>(),
+        };
+    const { order, top, bottom } = stacked;
+    // Father sits half a block above the junction — the center of the children's
+    // rows; a childless couple has no junction, so its block starts at row 0.
+    const row = kids.length
+      ? (Math.min(...stacked.rows) + Math.max(...stacked.rows)) / 2 - k / 2
+      : 0;
 
-  for (const colIds of cols.values()) {
-    const seeds = colIds
-      .filter((id) => !attachedIds.has(id))
-      .sort((a, b) => place.get(a)!.order - place.get(b)!.order);
-    const chain = seeds.flatMap((s) => tuckChain(attached, s));
-    // dagre spaces anchors ≥ 1 row apart, so keeping each anchor's own order
-    // reproduces a spouse-free column exactly; only a tucked-in spouse pushes the
-    // rows below down.
-    const col = place.get(chain[0])!.col;
-    let prevOrder = -Infinity;
-    for (const id of chain) {
-      const order = attachedIds.has(id)
-        ? prevOrder + 1
-        : Math.max(prevOrder + 1, place.get(id)!.order);
-      place.set(id, { col, order });
-      prevOrder = order;
-    }
-  }
+    order.set(node, row);
+    spouses.forEach((s, idx) => {
+      order.set(s, row + 1 + idx);
+      coupleCol.set(s, col); // a tucked spouse joins its host's column
+    });
+    // The node's own column sits one generation left of every child, so it's never
+    // already in the child-derived contour — set it outright.
+    top.set(col, row);
+    bottom.set(col, row + k);
+    return { row, order, top, bottom };
+  };
+
+  // Every node that isn't someone's tree-child and isn't a tucked spouse roots its
+  // own subtree — including a childless loner, an off-host married-in spouse, or a
+  // disputed second father whose child the layout filed under the first. Rooting
+  // them all keeps the whole graph in one normalized order frame, so nothing is
+  // left stranded at a stale dagre row where it could overlap a tidy-placed node.
+  const roots = [...place.keys()]
+    .filter((n) => !tucked.has(n) && !placedAsChild.has(n))
+    .sort((a, b) => inputOrder.get(a)! - inputOrder.get(b)!);
+  const placed = stackSubtrees(roots.map(layout));
+  const rows = [...placed.order.values()];
+  const offset = rows.length ? -Math.min(...rows) : 0;
+  for (const [id, o] of placed.order)
+    place.set(id, {
+      col: coupleCol.get(id) ?? place.get(id)!.col,
+      order: o + offset,
+    });
   return place;
 }
 
@@ -215,7 +312,7 @@ function placeAdoptiveParents(
   });
   if (parents.length === 0) return place;
 
-  // The sibling cluster is everyone dagre put in the focus's column.
+  // The sibling cluster is everyone the tidy pass placed in the focus's column.
   let clusterBottom = -Infinity;
   for (const p of place.values()) {
     if (p.col === focus.col) clusterBottom = Math.max(clusterBottom, p.order);
@@ -235,7 +332,11 @@ export function placeNodes(
   fam: FamilyGraph,
   focusId: PersonId,
 ): Placements {
-  return placeAdoptiveParents(packColumns(place, fam, focusId), fam, focusId);
+  return placeAdoptiveParents(
+    orderDescentForest(place, fam, focusId),
+    fam,
+    focusId,
+  );
 }
 
 const BLOCK_Y_MARGIN = 8; // ignore the partners' own rows near each endpoint
@@ -401,135 +502,17 @@ function coLocatedCouples(
 }
 
 // One junction per co-located couple, anchored at their midpoint, replacing the
-// drawn father→child edges (hidden by id) with junction→child DESCENT edges.
-//
-// A lone child that centerOnlyChildren couldn't pull onto the midpoint — a fixed
-// blood spouse pinned directly below it aborts the shift (#28) — is left a half row
-// off, jogging its descent line. For that one child, drop the junction onto the
-// child's row instead (clamped to the parents' marriage segment so it stays between
-// them): the line runs straight, sprouting from whichever parent shares that row —
-// a smaller artifact than the jog, and no node moves. Only single, near-level
-// children qualify: a long-drop child that stays far off keeps the midpoint origin,
-// where the jog is invisible and the couple-centered start reads right.
+// drawn father→child edges (hidden by id) with junction→child DESCENT edges. The
+// tidy layout centers each couple's junction on its children's rows, so a lone
+// child's line already runs straight from the midpoint — no jog to special-case.
 export function descentJunctions(
   fam: FamilyGraph,
   placements: Placements,
 ): DescentJunction[] {
-  return coLocatedCouples(fam, placements).map((c) => {
-    let mid = c.mid;
-    if (c.children.length === 1) {
-      const cp = placements.get(c.children[0]);
-      const fp = placements.get(c.father);
-      const mp = placements.get(c.mother);
-      if (
-        cp &&
-        fp &&
-        mp &&
-        cp.order !== c.mid.order &&
-        Math.abs(c.mid.order - cp.order) <= 1
-      ) {
-        const loOrder = Math.min(fp.order, mp.order);
-        const hiOrder = Math.max(fp.order, mp.order);
-        mid = {
-          col: c.mid.col,
-          order: Math.max(loOrder, Math.min(hiOrder, cp.order)),
-        };
-      }
-    }
-    return {
-      father: c.father,
-      mother: c.mother,
-      pos: mid,
-      children: c.children,
-    };
-  });
-}
-
-// Nudge each near-horizontal only-child onto its parents' midpoint so the descent
-// line leaves the couple straight instead of jogging half a row. The midpoint
-// convention is right; the jog is only the artifact of a lone child sitting on the
-// father's row while the mother is packed a row below.
-//
-// Selection uses the ORIGINAL placements: a single-child couple whose child sits
-// within one row of the midpoint, OR a long-drop child safe to pull up — one where
-// neither it nor a tucked spouse has descendants whose lines the move would strand
-// (#27). Selecting on the original layout means a child stays selected even after
-// its own parents shift.
-//
-// Couples are then centered parents-before-children (a father sits one column left
-// of his child), and each child is moved onto its parents' LIVE midpoint — after
-// the parents may themselves have moved. So an only-child lineage forms a clean
-// half-row staircase: every link is straight, the lineage just steps down a half
-// row per generation (unavoidable — the midpoint is always half a row below the
-// father). The child's tucked-in spouse(s) ride along to keep that couple adjacent,
-// and the shift is clamped to the column's row spacing so it never overlaps a
-// neighbour. Kept out of `placeNodes` (and thus the #18 parity check): it's a new
-// rule, not part of the dagre-placement contract that parity guards.
-export function centerOnlyChildren(
-  input: Placements,
-  fam: FamilyGraph,
-  focusId: PersonId,
-): Placements {
-  const place = clonePlacements(input);
-  // Same tuck model packColumns packed the column with: a spouse it tucked beside
-  // the child must ride along, or the clamp below would mistake it for a fixed
-  // neighbour and pin the shift to 0. Re-deriving movers from spouse edges used
-  // to miss the focus's blood-line spouse and transitive co-spouses (#30).
-  const attached = tuckHosts(place, fam, focusId);
-
-  const hasDescendants = new Set<PersonId>();
-  for (const parents of fam.trueParentsOf.values())
-    for (const p of parents) hasDescendants.add(p);
-  for (const parents of fam.adoptiveParentOf.values())
-    for (const p of parents) hasDescendants.add(p);
-
-  const selected = coLocatedCouples(fam, input)
-    .flatMap((c) => {
-      if (c.children.length !== 1) return [];
-      // coLocatedCouples validates father/mother placements but not the child's, so
-      // guard before the deref — same defence the loop and the view already apply.
-      const cp = input.get(c.children[0]);
-      if (cp === undefined) return [];
-      const child = c.children[0];
-      const movers = tuckChain(attached, child);
-      const longDrop = Math.abs(c.mid.order - cp.order) > 1;
-      if (longDrop && movers.some((id) => hasDescendants.has(id))) return [];
-      return [{ c, child, longDrop, movers }];
-    })
-    .sort((a, b) => input.get(a.c.father)!.col - input.get(b.c.father)!.col);
-
-  for (const { c, child, longDrop, movers } of selected) {
-    const cp = place.get(child);
-    const fp = place.get(c.father);
-    const mp = place.get(c.mother);
-    if (!cp || !fp || !mp) continue;
-    const dOrder = (fp.order + mp.order) / 2 - cp.order; // live midpoint
-    if (dOrder === 0) continue;
-
-    const col = cp.col;
-    const moverSet = new Set(movers);
-    const top = Math.min(...movers.map((m) => place.get(m)!.order));
-    const bottom = Math.max(...movers.map((m) => place.get(m)!.order));
-    // Nearest fixed neighbours above/below the moved block in this column.
-    let above = -Infinity;
-    let below = Infinity;
-    for (const [id, p] of place) {
-      if (moverSet.has(id) || p.col !== col) continue;
-      if (p.order < top) above = Math.max(above, p.order);
-      if (p.order > bottom) below = Math.min(below, p.order);
-    }
-    const lo = above === -Infinity ? -Infinity : above + 1 - top;
-    const hi = below === Infinity ? Infinity : below - 1 - bottom;
-    if (lo > hi) continue; // column too tight to center without overlap
-    const shift = Math.max(lo, Math.min(hi, dOrder));
-    if (shift === 0) continue;
-    // A partial long-drop move strands the child mid-column and can trip
-    // descentJunctions off the couple midpoint, so it's all-or-nothing (#27).
-    if (longDrop && shift !== dOrder) continue;
-    for (const m of movers) {
-      const p = place.get(m)!;
-      place.set(m, { col: p.col, order: p.order + shift });
-    }
-  }
-  return place;
+  return coLocatedCouples(fam, placements).map((c) => ({
+    father: c.father,
+    mother: c.mother,
+    pos: c.mid,
+    children: c.children,
+  }));
 }

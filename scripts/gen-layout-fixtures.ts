@@ -59,8 +59,7 @@ function dagrePositions(graph: Graph, focus: PersonId): Positions {
 }
 
 // The pure pipeline the test replays: readPlacement → placeNodes → project, then
-// spouse routing. Matches lib/layout.test.ts's `place` (centerOnlyChildren is a
-// render-only pass, deliberately outside this placement contract).
+// spouse routing. Matches lib/layout.test.ts's `place`.
 function computeExpected(graph: Graph, focus: PersonId, dagre: Positions) {
   const fam = buildFamilyGraph(graph, egoDrawnEdges(graph));
   const { placements, colX } = readPlacement(dagre, ROW);

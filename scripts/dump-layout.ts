@@ -27,7 +27,6 @@ import {
   type PersonId,
 } from "../lib/graph";
 import {
-  centerOnlyChildren,
   descentJunctions,
   placeNodes,
   project,
@@ -103,11 +102,7 @@ cy.nodes().forEach((n) => {
 });
 const fam = buildFamilyGraph(graph, edges);
 const { placements, colX } = readPlacement(positions, ROW);
-const placedStruct = centerOnlyChildren(
-  placeNodes(placements, fam, qid),
-  fam,
-  qid,
-);
+const placedStruct = placeNodes(placements, fam, qid);
 const placed = project(placedStruct, colX, ROW);
 
 const label = (id: string) =>
