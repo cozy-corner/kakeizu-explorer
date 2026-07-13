@@ -1,6 +1,6 @@
 ---
 name: comment-cleanup
-description: Use to correct over-commenting in this repo — code comments that merely restate what the code already says (labels on obvious assignments, control-flow conditions, loop bounds) or narrate line-by-line. Deletes pure what-comments, rewrites partly-useful ones into the non-obvious why, and normalizes Japanese code comments to English. Trigger whenever the user asks to clean up / prune / fix / 訂正する comments, remove redundant or excessive comments, or review comments for a diff or a set of files. Runs on the uncommitted diff by default, or on paths you pass it. Comments only — it never changes code behavior. NOT for writing new docs or prose.
+description: Use to correct over-commenting in this repo — code comments that merely restate what the code already says (labels on obvious assignments, control-flow conditions, loop bounds) or narrate line-by-line. Deletes pure what-comments, rewrites partly-useful ones into the non-obvious why, and normalizes Japanese code comments to English. Trigger whenever the user asks to clean up / prune / fix / 訂正する comments, remove redundant or excessive comments, or review comments for a diff or a set of files. Runs on the uncommitted diff by default, or on a diff range (e.g. `main...HEAD`) or paths you pass it. Comments only — it never changes code behavior. NOT for writing new docs or prose.
 ---
 
 # Cleaning up over-commenting
@@ -21,10 +21,19 @@ comments — never the code they sit on.** Behavior must be identical afterward.
 
 ## Scope
 
-- If the user passed file paths or a directory, work on those.
-- Otherwise work on the **uncommitted diff**: `git diff HEAD --name-only` for the
-  changed files, and only judge comments on or adjacent to changed lines. Don't go
-  reformatting comments the user didn't touch — that buries their real change in noise.
+The scope is always **a diff** — its changed files, and only the comments on or
+adjacent to its changed lines. Never reformat comments the diff didn't touch; that
+buries the real change in noise. What supplies the diff differs by input:
+
+- **A diff range** (e.g. `main...HEAD`) — use it: `git diff main...HEAD --name-only`
+  for the files, and judge only comments on or adjacent to lines that range changed.
+  This is how to scope a branch whose work is already committed — pass the range, not
+  the paths, so the changed-lines restriction survives.
+- **File paths or a directory** — work on those files. Note this loses the
+  changed-lines restriction (it judges every comment in the file), so prefer a range
+  when you have one and only fall back to paths for a whole-file pass.
+- **Nothing** — default to the **uncommitted diff**: `git diff HEAD --name-only`, same
+  changed-lines rule.
 
 ## The one question
 

@@ -84,6 +84,8 @@ effort on it. Keep `tsc`/lint/test green throughout as the continuous signal; ve
 is the behavioral confirmation on top. If it doesn't work, fix it here — don't carry
 a broken change into review.
 
+Once it verifies, **commit the feature** — see **When to commit** for the cadence.
+
 ## Phase 3 — Simplify, self-review, and triage
 
 Two passes over the diff, each owned by a focused skill:
@@ -92,7 +94,8 @@ Two passes over the diff, each owned by a focused skill:
   helpers, collapse needless complexity, fix inefficiency and altitude, then applies
   the fixes. It does _not_ hunt for bugs — that's the next pass. Review what it
   changed like any other edit; keep the parity guard green.
-- **comment-cleanup** — then run `comment-cleanup` on the diff. It judges the change's
+- **comment-cleanup** — then run `comment-cleanup` on the `main...HEAD` range (see
+  **When to commit** for why the range, not a bare run). It judges the change's
   comments against the now-settled code: deletes what-comments that restate the code,
   trims verbose public-API docs to a minimal contract, drops stale-by-design comments
   (PR/issue numbers, "previously…", phase markers), and normalizes JA code comments to
@@ -126,8 +129,9 @@ result) so it can go in the PR body.
 Once review is clean and the guard is green, push the worktree branch and open the
 PR (gh). Write the body so a reviewer sees _what changed, how it was verified, and
 what's deliberately out of scope_ — include the assumption-probe result and the
-parity/guard evidence, and link the issue. Commit/push only when the user has asked
-to proceed to a PR; opening it is outward-facing, so confirm if unsure.
+parity/guard evidence, and link the issue. Local commits happen throughout Phases 2–3
+(see **When to commit**); it's the _push_ and PR-open that are outward-facing — do
+those only when the user has asked to proceed to a PR, and confirm if unsure.
 
 ## Phase 6 — Triage the PR review
 
@@ -142,6 +146,25 @@ Apply the valid ones; for the rejected ones, reply on the PR with the reason so 
 bot doesn't re-raise them on the next push. Re-run the guard after any change.
 
 ---
+
+## When to commit
+
+You make every commit here — the human never commits, they _review_. And review is
+commit-independent: the human reads the whole branch-vs-base diff at any time with
+`hunk diff main...HEAD` (`gdm`), so committing as you go never hides anything from
+them. Only the _push_ is gated on their go-ahead. So commit for a clean, reviewable
+history, in this cadence:
+
+- **Phase 2 — the feature.** Once it verifies, commit it in **logical units** (e.g.
+  model → query → render) — not one lump, not per line. This is the base the rest
+  stacks on; every later commit sits on top of a working feature.
+- **Phase 3 — simplify.** Commit the simplify pass on top of the feature.
+- **Phase 3 — comment-cleanup.** Pass it the `main...HEAD` range — a bare run reads
+  `git diff HEAD`, which is empty once the feature is committed, so it would scope to
+  nothing — then commit the cleanup.
+- **Phase 3 — code-review.** One commit per applied finding, so each stays independently
+  reviewable and revertable.
+- **Phase 5 — push.** Only when the user has said to proceed to a PR.
 
 ## The triage rubric (Phases 3 and 6)
 
