@@ -11,6 +11,7 @@ import {
   type PersonId,
   personsToGraph,
   siblingAdoptiveEdges,
+  spouseAdoptiveEdges,
   withoutAdoptions,
 } from "./graph";
 
@@ -497,6 +498,100 @@ test("ego drawn: keeps a cross-generation adoption", () => {
     source: "uncle",
     target: "nephew",
     type: "ADOPTIVE_PARENT_OF",
+  });
+});
+
+test("spouse adoptive: flags an adoptive edge between two people also married (淀殿 shape)", () => {
+  const edges: GraphEdge[] = [
+    { source: "focus", target: "yodo", type: "ADOPTIVE_PARENT_OF" },
+    { source: "focus", target: "yodo", type: "SPOUSE_OF" },
+  ];
+
+  expect(spouseAdoptiveEdges(edges)).toEqual([
+    { source: "focus", target: "yodo", type: "ADOPTIVE_PARENT_OF" },
+  ]);
+});
+
+test("spouse adoptive: matches regardless of edge direction (unordered pair)", () => {
+  // SPOUSE_OF is stored in one arbitrary direction, ADOPTIVE_PARENT_OF focus→child.
+  const edges: GraphEdge[] = [
+    { source: "focus", target: "yodo", type: "ADOPTIVE_PARENT_OF" },
+    { source: "yodo", target: "focus", type: "SPOUSE_OF" },
+  ];
+
+  expect(spouseAdoptiveEdges(edges)).toEqual([
+    { source: "focus", target: "yodo", type: "ADOPTIVE_PARENT_OF" },
+  ]);
+});
+
+test("spouse adoptive: keeps a 婿養子 adoption (adopter and spouse are different people)", () => {
+  // X adopts the son-in-law, who marries X's daughter. The adoptive pair (X, son)
+  // is not the married pair (son, daughter), so the real adoptive descent survives.
+  const edges: GraphEdge[] = [
+    { source: "X", target: "son", type: "ADOPTIVE_PARENT_OF" },
+    { source: "son", target: "daughter", type: "SPOUSE_OF" },
+    { source: "X", target: "daughter", type: "PARENT_OF" },
+  ];
+
+  expect(spouseAdoptiveEdges(edges)).toEqual([]);
+});
+
+test("ego drawn: drops an adoptive edge between a married couple, keeps the marriage", () => {
+  const graph: Graph = {
+    nodes: [
+      { qid: "focus", label: "秀吉", sex: "male" },
+      { qid: "yodo", label: "淀殿", sex: "female" },
+      { qid: "child", label: "秀頼", sex: "male" },
+    ],
+    edges: [
+      { source: "focus", target: "yodo", type: "ADOPTIVE_PARENT_OF" },
+      { source: "focus", target: "yodo", type: "SPOUSE_OF" },
+      { source: "focus", target: "child", type: "PARENT_OF" },
+      { source: "yodo", target: "child", type: "PARENT_OF" },
+    ],
+  };
+
+  const drawn = egoDrawnEdges(graph);
+  expect(drawn).not.toContainEqual({
+    source: "focus",
+    target: "yodo",
+    type: "ADOPTIVE_PARENT_OF",
+  });
+  expect(drawn).toContainEqual({
+    source: "focus",
+    target: "yodo",
+    type: "SPOUSE_OF",
+  });
+});
+
+test("ego drawn: co-parenting (no recorded marriage) still reclassifies the adoptive edge as a spouse", () => {
+  // The adopter and adoptee share a child but have no recorded SPOUSE_OF.
+  // patrilinealEdges synthesizes a co-parent marriage, and that synthesized edge
+  // is enough to treat the pair as spouses — sharing a child means they ARE the
+  // reproductive couple, so spouse placement (not adopted-child) is correct.
+  const graph: Graph = {
+    nodes: [
+      { qid: "focus", label: "焦点", sex: "male" },
+      { qid: "partner", label: "配偶者", sex: "female" },
+      { qid: "child", label: "子", sex: "male" },
+    ],
+    edges: [
+      { source: "focus", target: "partner", type: "ADOPTIVE_PARENT_OF" },
+      { source: "focus", target: "child", type: "PARENT_OF" },
+      { source: "partner", target: "child", type: "PARENT_OF" },
+    ],
+  };
+
+  const drawn = egoDrawnEdges(graph);
+  expect(drawn).not.toContainEqual({
+    source: "focus",
+    target: "partner",
+    type: "ADOPTIVE_PARENT_OF",
+  });
+  expect(drawn).toContainEqual({
+    source: "focus",
+    target: "partner",
+    type: "SPOUSE_OF",
   });
 });
 
