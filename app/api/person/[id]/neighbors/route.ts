@@ -31,6 +31,10 @@ export async function GET(
     // Adoption edges are also DRAWN only when incident to the focus: between
     // descendants (e.g. the 御三卿 succession 斉敦→斉朝→斉温→斉荘…) they chain in
     // the layout and inflate the apparent generation depth past `hops`.
+    // The direct (1-hop) spouses of the focus and of each blood descendant are
+    // also pulled into the node set: a childless spouse (正室 高台院/ねね) shares
+    // no descent path, so PARENT_OF traversal alone would drop her. Direct only,
+    // no recursive in-law expansion.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
        // Drop the focus's child's competing father (e.g. 近藤能成 vs 頼朝 over
@@ -47,8 +51,12 @@ export async function GET(
        WITH c, collect(DISTINCT m) AS bio
        OPTIONAL MATCH (c)-[:ADOPTIVE_PARENT_OF]-(ad:Person)
        WITH c, bio, collect(DISTINCT ad) AS adlist
+       UNWIND ([c] + bio) AS s
+       OPTIONAL MATCH (s)-[:SPOUSE_OF]-(sp:Person)
+       WITH c, bio, adlist, collect(DISTINCT sp) AS splist
        WITH [c] + [x IN bio WHERE x <> c]
-            + [x IN adlist WHERE x <> c AND NOT x IN bio] AS nodes
+            + [x IN splist WHERE x <> c AND NOT x IN bio]
+            + [x IN adlist WHERE x <> c AND NOT x IN bio AND NOT x IN splist] AS nodes
        UNWIND nodes AS a
        OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]->(b:Person)
        WHERE b IN nodes
