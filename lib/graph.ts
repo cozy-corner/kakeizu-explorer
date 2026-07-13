@@ -70,6 +70,10 @@ export const edgeId = (e: {
   target: string;
 }): string => `${e.source}|${e.type}|${e.target}`;
 
+// So a couple keys the same however the edge that names them is oriented.
+const pairKey = (a: string, b: string): string =>
+  a < b ? `${a}|${b}` : `${b}|${a}`;
+
 // The father→child edges a descent junction absorbs: the ego view hides each and
 // draws a junction→child line in its place. Single-sourced so the live view and the
 // offline dump hide the same set — a per-file reimplementation is what let
@@ -111,7 +115,6 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
   // and deliberately don't influence the father/mother/couple logic.
   const adoptive: GraphEdge[] = [];
   const couple = new Set<string>(); // unordered pairs already linked as spouses
-  const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
   for (const e of graph.edges) {
     if (e.type === "PARENT_OF") {
       const list = parentsOf.get(e.target) ?? [];
@@ -216,7 +219,6 @@ function addKey(map: Map<string, Set<string>>, key: string): Set<string> {
 // drop these. The pair must be the SAME two nodes (unordered): a 婿養子 (adopted by X,
 // married to X's DAUGHTER — different people) is a genuine descent and keeps its edge.
 export function spouseAdoptiveEdges(edges: GraphEdge[]): GraphEdge[] {
-  const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
   const married = new Set<string>();
   for (const e of edges)
     if (e.type === "SPOUSE_OF") married.add(pairKey(e.source, e.target));
