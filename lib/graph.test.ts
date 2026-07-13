@@ -564,6 +564,37 @@ test("ego drawn: drops an adoptive edge between a married couple, keeps the marr
   });
 });
 
+test("ego drawn: co-parenting (no recorded marriage) still reclassifies the adoptive edge as a spouse", () => {
+  // The adopter and adoptee share a child but have no recorded SPOUSE_OF.
+  // patrilinealEdges synthesizes a co-parent marriage, and that synthesized edge
+  // is enough to treat the pair as spouses — sharing a child means they ARE the
+  // reproductive couple, so spouse placement (not adopted-child) is correct.
+  const graph: Graph = {
+    nodes: [
+      { qid: "focus", label: "焦点", sex: "male" },
+      { qid: "partner", label: "配偶者", sex: "female" },
+      { qid: "child", label: "子", sex: "male" },
+    ],
+    edges: [
+      { source: "focus", target: "partner", type: "ADOPTIVE_PARENT_OF" },
+      { source: "focus", target: "child", type: "PARENT_OF" },
+      { source: "partner", target: "child", type: "PARENT_OF" },
+    ],
+  };
+
+  const drawn = egoDrawnEdges(graph);
+  expect(drawn).not.toContainEqual({
+    source: "focus",
+    target: "partner",
+    type: "ADOPTIVE_PARENT_OF",
+  });
+  expect(drawn).toContainEqual({
+    source: "focus",
+    target: "partner",
+    type: "SPOUSE_OF",
+  });
+});
+
 test("withoutAdoptions: drops the adoptive edge and the now-orphaned 養父", () => {
   const graph: Graph = {
     nodes: [
