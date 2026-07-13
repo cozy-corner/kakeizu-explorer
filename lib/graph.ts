@@ -207,6 +207,26 @@ function addKey(map: Map<string, Set<string>>, key: string): Set<string> {
   return set;
 }
 
+// Adoptive edges between two people who are ALSO married to each other. Wikidata's
+// 養子/猶子 conflation records e.g. 秀吉→淀殿 as BOTH ADOPTIVE_PARENT_OF and SPOUSE_OF;
+// the marriage is the real relationship. Left in, the adoptive edge gives the partner
+// an incident parent edge, so buildFamilyGraph's isMarriedIn reads her as an adopted
+// CHILD — placing her a column below the focus and pushing her children another column
+// over — instead of a married-in spouse that tuckHosts seats beside the focus. Callers
+// drop these. The pair must be the SAME two nodes (unordered): a 婿養子 (adopted by X,
+// married to X's DAUGHTER — different people) is a genuine descent and keeps its edge.
+export function spouseAdoptiveEdges(edges: GraphEdge[]): GraphEdge[] {
+  const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+  const married = new Set<string>();
+  for (const e of edges)
+    if (e.type === "SPOUSE_OF") married.add(pairKey(e.source, e.target));
+  return edges.filter(
+    (e) =>
+      e.type === "ADOPTIVE_PARENT_OF" &&
+      married.has(pairKey(e.source, e.target)),
+  );
+}
+
 // The edges the ego (focused-person) view draws: the patrilineal reduction minus
 // sibling adoptions. Sibling 養子 (家督 succession between blood siblings) is dropped
 // entirely so it neither draws a false second descent nor over-ranks the focus
@@ -215,7 +235,9 @@ function addKey(map: Map<string, Set<string>>, key: string): Set<string> {
 export function egoDrawnEdges(graph: Graph): GraphEdge[] {
   const drawn = patrilinealEdges(graph);
   const key = (e: GraphEdge) => `${e.source}|${e.type}|${e.target}`;
-  const skip = new Set(siblingAdoptiveEdges(drawn).map(key));
+  const skip = new Set(
+    [...siblingAdoptiveEdges(drawn), ...spouseAdoptiveEdges(drawn)].map(key),
+  );
   return drawn.filter((e) => !skip.has(key(e)));
 }
 
