@@ -26,9 +26,12 @@ import { NODE_SIZE, RANK_SEP, ROW, runEgoLayout, STYLE } from "../lib/render";
 cytoscape.use(dagre);
 
 const args = process.argv.slice(2);
-const qid = (args.find((a) => !a.startsWith("--")) ?? "Q187550") as PersonId;
 const hopsArg = args.indexOf("--hops");
 const hops = hopsArg >= 0 ? Number(args[hopsArg + 1]) : 2;
+// Skip the value that follows --hops so it isn't mistaken for the positional QID.
+const hopsValueIdx = hopsArg >= 0 ? hopsArg + 1 : -1;
+const qid = (args.find((a, i) => !a.startsWith("--") && i !== hopsValueIdx) ??
+  "Q187550") as PersonId;
 const showAdoptions = !args.includes("--blood");
 
 const res = await fetch(
