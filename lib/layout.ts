@@ -377,7 +377,7 @@ function pullFloatingComponents(
   // to C, both off the anchor) resolves against original positions and the outcome
   // can't depend on iteration order.
   const col0 = new Map([...place].map(([id, pl]) => [id, pl.col]));
-  const columns = new Set(col0.values()); // the generation columns nodes occupy
+  const columns = new Set(col0.values());
 
   const floating = new Map<PersonId, PersonId[]>();
   for (const [id, component] of componentOf)
