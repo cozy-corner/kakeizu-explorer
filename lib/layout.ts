@@ -335,22 +335,31 @@ function descentComponents(
 // null: no external bridge, already co-columned, or disagreeing bridges that are a
 // genuine cross-generation marriage (崇源院×秀勝 vs 千姫×秀頼 — mother and daughter
 // marrying into the same column can't both co-column), whose line is left honest.
+//
+// At least one bridge must reach the FOCUS component — the immovable anchor tree. A
+// float married only to other floats has no fixed target to pull toward; sliding it
+// would just swap the two islands' columns without co-columning the marriage, so it's
+// left in place (returns null).
 function marriageShift(
   members: PersonId[],
   component: PersonId,
+  focusComponent: PersonId | undefined,
   componentOf: Map<PersonId, PersonId>,
   fam: FamilyGraph,
   col0: Map<PersonId, number>,
 ): number | null {
   const deltas = new Set<number>();
+  let anchored = false;
   for (const id of members) {
     const idCol = col0.get(id)!;
     for (const sp of fam.spouseOf.get(id) ?? []) {
-      if (!col0.has(sp) || componentOf.get(sp) === component) continue;
+      const spComponent = componentOf.get(sp);
+      if (!col0.has(sp) || spComponent === component) continue;
+      if (spComponent === focusComponent) anchored = true;
       deltas.add(col0.get(sp)! - idCol);
     }
   }
-  if (deltas.size !== 1) return null;
+  if (!anchored || deltas.size !== 1) return null;
   const [delta] = deltas;
   return delta === 0 ? null : delta;
 }
@@ -384,7 +393,14 @@ function pullFloatingComponents(
     if (component !== focusComponent) pushInto(floating, component, id);
 
   for (const [component, members] of floating) {
-    const shift = marriageShift(members, component, componentOf, fam, col0);
+    const shift = marriageShift(
+      members,
+      component,
+      focusComponent,
+      componentOf,
+      fam,
+      col0,
+    );
     if (shift === null) continue;
     // Off-grid: a slid member would land on a column no node occupies (projectOne throws
     // on such a column) — leave the crossing line honest rather than invent a column.
