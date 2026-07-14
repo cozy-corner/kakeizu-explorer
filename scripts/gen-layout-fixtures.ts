@@ -63,11 +63,7 @@ function dagrePositions(graph: Graph, focus: PersonId): Positions {
 function computeExpected(graph: Graph, focus: PersonId, dagre: Positions) {
   const fam = buildFamilyGraph(graph, egoDrawnEdges(graph));
   const { placements, colX } = readPlacement(dagre, ROW);
-  const positions = project(
-    placeNodes(placements, fam, focus, colX),
-    colX,
-    ROW,
-  );
+  const positions = project(placeNodes(placements, fam, focus), colX, ROW);
   const routing = spouseRouting(positions, fam, SPOUSE_GUTTER);
   return { positions, routing };
 }

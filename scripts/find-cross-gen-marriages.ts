@@ -64,7 +64,7 @@ cy.nodes().forEach((n) => {
 });
 const fam = buildFamilyGraph(graph, edges);
 const { placements, colX } = readPlacement(pos, ROW);
-const placed = project(placeNodes(placements, fam, qid, colX), colX, ROW);
+const placed = project(placeNodes(placements, fam, qid), colX, ROW);
 
 const label = (id: string) =>
   graph.nodes.find((n) => n.qid === id)?.label ?? id;

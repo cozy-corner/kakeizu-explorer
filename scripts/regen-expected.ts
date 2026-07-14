@@ -33,11 +33,7 @@ for (const file of readdirSync(DIR).filter((f) => f.endsWith(".json"))) {
   const graph: Graph = fx.graph;
   const fam = buildFamilyGraph(graph, egoDrawnEdges(graph));
   const { placements, colX } = readPlacement(pos(fx.dagre), ROW);
-  const positions = project(
-    placeNodes(placements, fam, fx.qid, colX),
-    colX,
-    ROW,
-  );
+  const positions = project(placeNodes(placements, fam, fx.qid), colX, ROW);
   fx.expected = {
     positions: toJson(positions),
     routing: spouseRouting(positions, fam, SPOUSE_GUTTER),

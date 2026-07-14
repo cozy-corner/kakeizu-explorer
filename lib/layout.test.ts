@@ -36,7 +36,7 @@ const pos = (entries: [string, [number, number]][]): Positions =>
 // pixels: read dagre's pixel input into a placement, run the pass, project back.
 const place = (input: Positions, f: FamilyGraph, focus: string): Positions => {
   const { placements, colX } = readPlacement(input, ROW);
-  return project(placeNodes(placements, f, pid(focus), colX), colX, ROW);
+  return project(placeNodes(placements, f, pid(focus)), colX, ROW);
 };
 // Project to plain strings/pixels so assertions read in bare ids, not branded ones.
 const junctions = (f: FamilyGraph, input: Positions) => {

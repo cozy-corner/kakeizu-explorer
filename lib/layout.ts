@@ -365,7 +365,6 @@ function pullFloatingComponents(
   input: Placements,
   fam: FamilyGraph,
   focusId: PersonId,
-  colX: Map<number, number>,
 ): Placements {
   const place = clonePlacements(input);
   if (!place.has(focusId)) return place; // no anchor tree to pull toward
@@ -378,6 +377,7 @@ function pullFloatingComponents(
   // to C, both off the anchor) resolves against original positions and the outcome
   // can't depend on iteration order.
   const col0 = new Map([...place].map(([id, pl]) => [id, pl.col]));
+  const columns = new Set(col0.values()); // the generation columns nodes occupy
 
   const floating = new Map<PersonId, PersonId[]>();
   for (const [id, component] of componentOf)
@@ -386,9 +386,9 @@ function pullFloatingComponents(
   for (const [component, members] of floating) {
     const shift = marriageShift(members, component, componentOf, fam, col0);
     if (shift === null) continue;
-    // Off-grid: a slid member would land on a column no node occupies, which projectOne
-    // rejects — leave the crossing line honest rather than invent a column.
-    if (!members.every((id) => colX.has(col0.get(id)! + shift))) continue;
+    // Off-grid: a slid member would land on a column no node occupies (projectOne throws
+    // on such a column) — leave the crossing line honest rather than invent a column.
+    if (!members.every((id) => columns.has(col0.get(id)! + shift))) continue;
     for (const id of members)
       place.set(id, {
         col: col0.get(id)! + shift,
@@ -441,11 +441,10 @@ export function placeNodes(
   place: Placements,
   fam: FamilyGraph,
   focusId: PersonId,
-  colX: Map<number, number>,
 ): Placements {
   return placeAdoptiveParents(
     orderDescentForest(
-      pullFloatingComponents(place, fam, focusId, colX),
+      pullFloatingComponents(place, fam, focusId),
       fam,
       focusId,
     ),

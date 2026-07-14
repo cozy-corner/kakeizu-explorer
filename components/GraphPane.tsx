@@ -237,7 +237,7 @@ function computeEgoPlan(
   });
   const fam = buildFamilyGraph(g, edges);
   const { placements, colX } = readPlacement(raw, ROW);
-  const placed = placeNodes(placements, fam, focus, colX);
+  const placed = placeNodes(placements, fam, focus);
   const px = project(placed, colX, ROW);
   const positions: Map<string, Pos> = new Map(px);
 
