@@ -298,32 +298,15 @@ function orderDescentForest(
   return place;
 }
 
-// Pull a floating spouse-only component back beside its partner. A person who heads
-// their own descent line (isMarriedIn=false, so tuckHosts skips them) yet reaches the
-// focus tree only through a marriage lands in dagre's leftmost rank, drawing a marriage
-// line across generations. When such a component can slide to its partner's column
-// WITHOUT breaking another of its marriages, do so — its subtree and tucked spouses
-// ride along rigidly, so every internal parent/child column gap is preserved.
-//
-// The moving unit is the drawn descent forest (father/adoptive edges) UNIONED with
-// tuck links (a married-in spouse joins its host), so a spouse riding in a component
-// moves with it. A SPOUSE_OF edge crossing two components is an external bridge; its
-// col-delta is how far the component must slide to co-column that couple. A component
-// slides only when all its external bridges agree on one non-zero delta (an unambiguous
-// target) and every shifted member lands on an existing column. Disagreeing deltas mean
-// the marriage is genuinely cross-generation (崇源院×秀勝 vs 千姫×秀頼 — mother and
-// daughter marrying into the same column can't both co-column) so the line is left honest.
-function pullFloatingComponents(
-  input: Placements,
+// Partition the placed nodes into the rigid blocks that must move together when a
+// floating line is pulled: the drawn descent forest (blood + adoptive parent edges)
+// unioned with tuck links, so a married-in spouse rides in the same block as the host
+// it tucks beside. Returns each node mapped to its block's representative.
+function descentComponents(
+  place: Placements,
   fam: FamilyGraph,
   focusId: PersonId,
-  colX: Map<number, number>,
-): Placements {
-  const place = clonePlacements(input);
-  if (!place.has(focusId)) return place; // no anchor tree to pull toward
-
-  const attached = tuckHosts(place, fam, focusId);
-
+): Map<PersonId, PersonId> {
   const parent = new Map<PersonId, PersonId>();
   for (const id of place.keys()) parent.set(id, id);
   const find = (x: PersonId): PersonId => {
@@ -340,39 +323,75 @@ function pullFloatingComponents(
   };
   linkParents(fam.fatherOf);
   linkParents(fam.adoptiveParentOf);
-  for (const [host, spouses] of attached)
+  for (const [host, spouses] of tuckHosts(place, fam, focusId))
     for (const s of spouses) union(s, host);
+  return new Map([...place.keys()].map((id) => [id, find(id)]));
+}
 
-  // The focus's component is the anchor tree and never moves.
-  const focusRoot = find(focusId);
-  const members = new Map<PersonId, PersonId[]>();
-  for (const id of place.keys()) pushInto(members, find(id), id);
+// How far a floating component must slide to co-column its marriages: the gap from
+// each member to a spouse OUTSIDE the component (a spouse within it rides along, so
+// it's no constraint), measured on the frozen `col0`. Returns that shift only when
+// every external bridge agrees on one non-zero value — an unambiguous target — else
+// null: no external bridge, already co-columned, or disagreeing bridges that are a
+// genuine cross-generation marriage (崇源院×秀勝 vs 千姫×秀頼 — mother and daughter
+// marrying into the same column can't both co-column), whose line is left honest.
+function marriageShift(
+  members: PersonId[],
+  component: PersonId,
+  componentOf: Map<PersonId, PersonId>,
+  fam: FamilyGraph,
+  col0: Map<PersonId, number>,
+): number | null {
+  const deltas = new Set<number>();
+  for (const id of members) {
+    const idCol = col0.get(id)!;
+    for (const sp of fam.spouseOf.get(id) ?? []) {
+      if (!col0.has(sp) || componentOf.get(sp) === component) continue;
+      deltas.add(col0.get(sp)! - idCol);
+    }
+  }
+  if (deltas.size !== 1) return null;
+  const [delta] = deltas;
+  return delta === 0 ? null : delta;
+}
 
-  // Deltas and the off-grid gate read this frozen column per node, not the live
-  // `place` a prior iteration may have shifted — so a chain of non-focus components
-  // (B married to C, both off the anchor) resolves against original positions and
-  // the outcome can't depend on iteration order.
+// Pull a floating spouse-only component back beside its partner. A person who heads
+// their own descent line (isMarriedIn=false, so tuckHosts skips them) yet reaches the
+// focus tree only through a marriage lands in dagre's leftmost rank, drawing a marriage
+// line across generations. When such a component can slide to its partner's column
+// WITHOUT breaking another of its marriages, do so — its subtree and tucked spouses
+// ride along rigidly, so every internal parent/child column gap is preserved.
+function pullFloatingComponents(
+  input: Placements,
+  fam: FamilyGraph,
+  focusId: PersonId,
+  colX: Map<number, number>,
+): Placements {
+  const place = clonePlacements(input);
+  if (!place.has(focusId)) return place; // no anchor tree to pull toward
+
+  const componentOf = descentComponents(place, fam, focusId);
+  const focusComponent = componentOf.get(focusId); // the anchor tree; never moves
+
+  // Every component's shift and off-grid gate read this frozen column per node, not the
+  // live `place` a prior slide mutated — so a chain of non-focus components (B married
+  // to C, both off the anchor) resolves against original positions and the outcome
+  // can't depend on iteration order.
   const col0 = new Map([...place].map(([id, pl]) => [id, pl.col]));
 
-  for (const [root, ids] of members) {
-    if (root === focusRoot) continue;
-    // Slide distance implied by each external bridge = target partner's column minus
-    // the member's; a spouse inside the same component rides along, so it's no constraint.
-    const deltas = new Set<number>();
-    for (const id of ids) {
-      const idCol = col0.get(id)!;
-      for (const sp of fam.spouseOf.get(id) ?? []) {
-        if (!place.has(sp) || find(sp) === root) continue;
-        deltas.add(col0.get(sp)! - idCol);
-      }
-    }
-    if (deltas.size !== 1) continue; // no bridge, or conflicting targets
-    const delta = [...deltas][0];
-    if (delta === 0) continue; // already co-columned
-    if (!ids.every((id) => colX.has(col0.get(id)! + delta))) continue; // off-grid
-    for (const id of ids)
+  const floating = new Map<PersonId, PersonId[]>();
+  for (const [id, component] of componentOf)
+    if (component !== focusComponent) pushInto(floating, component, id);
+
+  for (const [component, members] of floating) {
+    const shift = marriageShift(members, component, componentOf, fam, col0);
+    if (shift === null) continue;
+    // Off-grid: a slid member would land on a column no node occupies, which projectOne
+    // rejects — leave the crossing line honest rather than invent a column.
+    if (!members.every((id) => colX.has(col0.get(id)! + shift))) continue;
+    for (const id of members)
       place.set(id, {
-        col: col0.get(id)! + delta,
+        col: col0.get(id)! + shift,
         order: place.get(id)!.order,
       });
   }
