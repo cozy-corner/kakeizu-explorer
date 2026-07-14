@@ -298,6 +298,122 @@ function orderDescentForest(
   return place;
 }
 
+// Partition the placed nodes into the rigid blocks that must move together when a
+// floating line is pulled: the drawn descent forest (blood + adoptive parent edges)
+// unioned with tuck links, so a married-in spouse rides in the same block as the host
+// it tucks beside. Returns each node mapped to its block's representative.
+function descentComponents(
+  place: Placements,
+  fam: FamilyGraph,
+  focusId: PersonId,
+): Map<PersonId, PersonId> {
+  const parent = new Map<PersonId, PersonId>();
+  for (const id of place.keys()) parent.set(id, id);
+  const find = (x: PersonId): PersonId => {
+    let r = x;
+    while (parent.get(r) !== r) r = parent.get(r)!;
+    return r;
+  };
+  const union = (a: PersonId, b: PersonId): void => {
+    parent.set(find(a), find(b));
+  };
+  const linkParents = (m: Map<PersonId, PersonId[]>): void => {
+    for (const [child, parents] of m)
+      for (const p of parents) if (place.has(p)) union(child, p);
+  };
+  linkParents(fam.fatherOf);
+  linkParents(fam.adoptiveParentOf);
+  for (const [host, spouses] of tuckHosts(place, fam, focusId))
+    for (const s of spouses) union(s, host);
+  return new Map([...place.keys()].map((id) => [id, find(id)]));
+}
+
+// How far a floating component must slide to co-column its marriages: the gap from
+// each member to a spouse OUTSIDE the component (a spouse within it rides along, so
+// it's no constraint), measured on the frozen `col0`. Returns that shift only when
+// every external bridge agrees on one non-zero value — an unambiguous target — else
+// null: no external bridge, already co-columned, or disagreeing bridges that are a
+// genuine cross-generation marriage (崇源院×秀勝 vs 千姫×秀頼 — mother and daughter
+// marrying into the same column can't both co-column), whose line is left honest.
+//
+// At least one bridge must reach the FOCUS component — the immovable anchor tree. A
+// float married only to other floats has no fixed target to pull toward; sliding it
+// would just swap the two islands' columns without co-columning the marriage, so it's
+// left in place (returns null).
+function marriageShift(
+  members: PersonId[],
+  component: PersonId,
+  focusComponent: PersonId | undefined,
+  componentOf: Map<PersonId, PersonId>,
+  fam: FamilyGraph,
+  col0: Map<PersonId, number>,
+): number | null {
+  const deltas = new Set<number>();
+  let anchored = false;
+  for (const id of members) {
+    const idCol = col0.get(id)!;
+    for (const sp of fam.spouseOf.get(id) ?? []) {
+      const spComponent = componentOf.get(sp);
+      if (!col0.has(sp) || spComponent === component) continue;
+      if (spComponent === focusComponent) anchored = true;
+      deltas.add(col0.get(sp)! - idCol);
+    }
+  }
+  if (!anchored || deltas.size !== 1) return null;
+  const [delta] = deltas;
+  return delta === 0 ? null : delta;
+}
+
+// Pull a floating spouse-only component back beside its partner. A person who heads
+// their own descent line (isMarriedIn=false, so tuckHosts skips them) yet reaches the
+// focus tree only through a marriage lands in dagre's leftmost rank, drawing a marriage
+// line across generations. When such a component can slide to its partner's column
+// WITHOUT breaking another of its marriages, do so — its subtree and tucked spouses
+// ride along rigidly, so every internal parent/child column gap is preserved.
+function pullFloatingComponents(
+  input: Placements,
+  fam: FamilyGraph,
+  focusId: PersonId,
+): Placements {
+  const place = clonePlacements(input);
+  if (!place.has(focusId)) return place; // no anchor tree to pull toward
+
+  const componentOf = descentComponents(place, fam, focusId);
+  const focusComponent = componentOf.get(focusId); // the anchor tree; never moves
+
+  // Every component's shift and off-grid gate read this frozen column per node, not the
+  // live `place` a prior slide mutated — so a chain of non-focus components (B married
+  // to C, both off the anchor) resolves against original positions and the outcome
+  // can't depend on iteration order.
+  const col0 = new Map([...place].map(([id, pl]) => [id, pl.col]));
+  const columns = new Set(col0.values());
+
+  const floating = new Map<PersonId, PersonId[]>();
+  for (const [id, component] of componentOf)
+    if (component !== focusComponent) pushInto(floating, component, id);
+
+  for (const [component, members] of floating) {
+    const shift = marriageShift(
+      members,
+      component,
+      focusComponent,
+      componentOf,
+      fam,
+      col0,
+    );
+    if (shift === null) continue;
+    // Off-grid: a slid member would land on a column no node occupies (projectOne throws
+    // on such a column) — leave the crossing line honest rather than invent a column.
+    if (!members.every((id) => columns.has(col0.get(id)! + shift))) continue;
+    for (const id of members)
+      place.set(id, {
+        col: col0.get(id)! + shift,
+        order: place.get(id)!.order,
+      });
+  }
+  return place;
+}
+
 // An adoptive parent of the focus enters dagre via its ADOPTIVE_PARENT_OF edge,
 // so it lands in the blood-parent column on the focus's own row — right on top of
 // the real father. Drop each below the focus's sibling cluster: still left of the
@@ -343,7 +459,11 @@ export function placeNodes(
   focusId: PersonId,
 ): Placements {
   return placeAdoptiveParents(
-    orderDescentForest(place, fam, focusId),
+    orderDescentForest(
+      pullFloatingComponents(place, fam, focusId),
+      fam,
+      focusId,
+    ),
     fam,
     focusId,
   );
