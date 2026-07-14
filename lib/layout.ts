@@ -348,24 +348,33 @@ function pullFloatingComponents(
   const members = new Map<PersonId, PersonId[]>();
   for (const id of place.keys()) pushInto(members, find(id), id);
 
+  // Deltas and the off-grid gate read this frozen column per node, not the live
+  // `place` a prior iteration may have shifted — so a chain of non-focus components
+  // (B married to C, both off the anchor) resolves against original positions and
+  // the outcome can't depend on iteration order.
+  const col0 = new Map([...place].map(([id, pl]) => [id, pl.col]));
+
   for (const [root, ids] of members) {
     if (root === focusRoot) continue;
     // Slide distance implied by each external bridge = target partner's column minus
     // the member's; a spouse inside the same component rides along, so it's no constraint.
     const deltas = new Set<number>();
-    for (const id of ids)
+    for (const id of ids) {
+      const idCol = col0.get(id)!;
       for (const sp of fam.spouseOf.get(id) ?? []) {
         if (!place.has(sp) || find(sp) === root) continue;
-        deltas.add(place.get(sp)!.col - place.get(id)!.col);
+        deltas.add(col0.get(sp)! - idCol);
       }
+    }
     if (deltas.size !== 1) continue; // no bridge, or conflicting targets
     const delta = [...deltas][0];
     if (delta === 0) continue; // already co-columned
-    if (!ids.every((id) => colX.has(place.get(id)!.col + delta))) continue; // off-grid
-    for (const id of ids) {
-      const pl = place.get(id)!;
-      place.set(id, { col: pl.col + delta, order: pl.order });
-    }
+    if (!ids.every((id) => colX.has(col0.get(id)! + delta))) continue; // off-grid
+    for (const id of ids)
+      place.set(id, {
+        col: col0.get(id)! + delta,
+        order: place.get(id)!.order,
+      });
   }
   return place;
 }
