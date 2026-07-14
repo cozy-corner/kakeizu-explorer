@@ -102,7 +102,7 @@ cy.nodes().forEach((n) => {
 });
 const fam = buildFamilyGraph(graph, edges);
 const { placements, colX } = readPlacement(positions, ROW);
-const placedStruct = placeNodes(placements, fam, qid);
+const placedStruct = placeNodes(placements, fam, qid, colX);
 const placed = project(placedStruct, colX, ROW);
 
 const label = (id: string) =>
