@@ -159,19 +159,19 @@ function PathPane({
   const noPath = !!graph && graph.nodes.length === 0;
 
   return (
-    <div className="relative h-full w-full bg-zinc-50 dark:bg-zinc-900">
+    <div className="bg-washi relative h-full w-full">
       {loading && (
-        <p className="absolute top-3 left-3 z-10 text-sm text-zinc-500">
+        <p className="text-muted absolute top-3 left-3 z-10 text-sm">
           経路を探索中…
         </p>
       )}
       {error && (
-        <p className="absolute top-3 left-3 z-10 text-sm text-red-600">
+        <p className="text-vermilion absolute top-3 left-3 z-10 text-sm">
           {error}
         </p>
       )}
       {noPath && (
-        <p className="absolute top-3 left-3 z-10 text-sm text-zinc-500">
+        <p className="text-muted absolute top-3 left-3 z-10 text-sm">
           経路が見つかりません
         </p>
       )}
@@ -595,14 +595,14 @@ function EgoPane({
   }, [showAdoptions, focus, onCurrent, paint]);
 
   return (
-    <div className="relative h-full w-full bg-zinc-50 dark:bg-zinc-900">
+    <div className="bg-washi relative h-full w-full">
       {!ready && !error && (
-        <p className="absolute top-3 left-3 z-10 text-sm text-zinc-500">
+        <p className="text-muted absolute top-3 left-3 z-10 text-sm">
           グラフを読み込み中…
         </p>
       )}
       {error && (
-        <p className="absolute top-3 left-3 z-10 text-sm text-red-600">
+        <p className="text-vermilion absolute top-3 left-3 z-10 text-sm">
           {error}
         </p>
       )}
