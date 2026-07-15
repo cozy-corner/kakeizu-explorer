@@ -25,7 +25,6 @@
 /* No dark mode: the right pane is a Wikipedia iframe locked to a light ground,
    so a dark left pane would clash with it. Light-only is deliberate. */
 body {
-  background: var(--color-washi);
   color: var(--color-ink);
   font-family: var(--font-mincho-body), serif;
 }

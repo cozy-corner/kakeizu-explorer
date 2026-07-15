@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Shippori_Mincho, Noto_Serif_JP } from "next/font/google";
+import { washiGround } from "@/components/washiGround";
 import "./globals.css";
 
 // Japanese fonts have no `latin`-only subset covering their glyphs, so next/font
@@ -32,7 +33,9 @@ export default function RootLayout({
       lang="ja"
       className={`${shipporiMincho.variable} ${notoSerifJp.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col" style={washiGround}>
+        {children}
+      </body>
     </html>
   );
 }
