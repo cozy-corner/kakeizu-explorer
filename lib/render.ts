@@ -45,7 +45,6 @@ export const STYLE: cytoscape.StylesheetJson = [
       color: WA.ink,
       "text-outline-width": 2,
       "text-outline-color": WA.washi, // matches the page ground so labels read on any node
-
       // Left-to-right tree with horizontal labels: put the name to the right of
       // each node so vertically-stacked siblings' labels don't collide.
       "text-valign": "center",
