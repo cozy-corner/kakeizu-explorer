@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
-/* 和の伝統色をセマンティックなデザイントークンとして一元定義。値はここだけに置き、
-   コンポーネントは bg-washi / text-ink のような生成ユーティリティ経由で参照する。
-   （グラフ側 STYLE は DOM 非依存の dump-layout からも使うため lib/render.ts の
-   パレット定数で別管理。生成り色だけ両者に現れる。） */
+/* Single source of truth for the theme's colours; components reference them via
+   generated utilities (bg-washi, text-ink…). The graph's STYLE keeps a separate
+   palette constant in lib/render.ts because the offline dump-layout script uses it
+   with no DOM to resolve vars against — only 生成り overlaps the two. */
 @theme {
   --color-washi: #f5f0e6; /* 生成り — page ground, beside the white Wikipedia pane */
   --color-ink: #1c1a17; /* 墨 — primary text */
   --color-rule: #d8cdb8; /* 罫 — dividers/borders */
-  --color-rule-strong: #cdbfa5; /* 濃いめの罫 — input/small-button outline */
+  --color-rule-strong: #cdbfa5; /* stronger 罫 — input/small-button outline */
   --color-muted: #857c6d; /* 鈍色 — secondary text */
-  --color-faint: #9c9384; /* 薄鈍 — tertiary text (qid) */
-  --color-tint: #ece5d5; /* hover/選択の淡い生成り wash */
-  --color-panel: #efe8d8; /* 一段沈めた注記帯の地 */
-  --color-panel-rule: #e2d8c4; /* panel の罫 */
+  --color-faint: #9c9384; /* tertiary text (qid) */
+  --color-tint: #ece5d5; /* hover/selection wash */
+  --color-panel: #efe8d8; /* sunken note-strip ground */
+  --color-panel-rule: #e2d8c4; /* panel rule */
   --color-vermilion: #c1352b; /* 朱 — error text, emphasis */
 
-  /* Mincho faces from next/font (vars set on <html>). Body copy + UI use the body
-     face; headings use the heavier display face via font-display. */
+  /* Mincho faces from next/font (vars set on <html>): body face for copy + UI,
+     heavier display face for headings via font-display. */
   --font-sans: var(--font-mincho-body);
   --font-display: var(--font-mincho-display);
 }
@@ -27,7 +27,5 @@
 body {
   background: var(--color-washi);
   color: var(--color-ink);
-  /* Body copy and UI use the mincho for a book-like feel; the display face is
-     applied per-element (font-mincho-display) where a heavier heading is wanted. */
   font-family: var(--font-mincho-body), serif;
 }
