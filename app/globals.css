@@ -1,26 +1,30 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Single source of truth for the theme's colours; components reference them via
+   generated utilities (text-ink, border-rule…). The graph's STYLE keeps a separate
+   palette constant in lib/render.ts because the offline dump-layout script uses it
+   with no DOM to resolve vars against — only 生成り overlaps the two. */
+@theme {
+  --color-washi: #f5f0e6; /* 生成り — page ground, beside the white Wikipedia pane */
+  --color-ink: #1c1a17; /* 墨 — primary text */
+  --color-rule: #d8cdb8; /* 罫 — dividers/borders */
+  --color-rule-strong: #cdbfa5; /* stronger 罫 — input/small-button outline */
+  --color-muted: #857c6d; /* 鈍色 — secondary text */
+  --color-faint: #9c9384; /* tertiary text (qid) */
+  --color-tint: #ece5d5; /* hover/selection wash */
+  --color-panel: #efe8d8; /* sunken note-strip ground */
+  --color-panel-rule: #e2d8c4; /* panel rule */
+  --color-vermilion: #c1352b; /* 朱 — error text, emphasis */
+
+  /* Mincho faces from next/font (vars set on <html>): body face for copy + UI,
+     heavier display face for headings via font-display. */
+  --font-sans: var(--font-mincho-body);
+  --font-display: var(--font-mincho-display);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* No dark mode: the right pane is a Wikipedia iframe locked to a light ground,
+   so a dark left pane would clash with it. Light-only is deliberate. */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--color-ink);
+  font-family: var(--font-mincho-body), serif;
 }

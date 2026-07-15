@@ -12,6 +12,22 @@ export const ROW = NODE_SEP + NODE_SIZE;
 export const RANK_SEP = 220; // leaves room for a name between generation columns
 export const SPOUSE_GUTTER = 70; // < RANK_SEP: stays in the node-free inter-column gutter
 
+// 和 palette for the graph. Literals (not CSS vars) because this stylesheet is
+// also consumed by the offline dump-layout script, which has no DOM to resolve
+// vars against. Sex colours (藍/紅) live inline below — they belong to the sex
+// convention (#66), a separate concern from this theme.
+const WA = {
+  washi: "#f5f0e6", // 生成り — page ground; label outline + adoption core gap
+  ink: "#1c1a17", // 墨 — labels
+  rikyu: "#6b6357", // 利休鼠 — unknown-sex node
+  ai: "#223a70", // 藍 — keyboard cursor ring
+  shu: "#c1352b", // 朱 — focus/current
+  enji: "#9e3d4f", // 臙脂 — spouse line
+  kincha: "#916008", // 金茶 — adoptive (dashed) line
+  suminezu: "#5a5450", // 墨鼠 — descent/parent line
+  edge: "#c9bda3", // faint default edge
+} as const;
+
 // Genealogy-chart styling: PARENT_OF is drawn as a rightward right-angle (taxi)
 // line with an arrow — the tree spine flows left→right; SPOUSE_OF is a straight
 // link joining a couple. Sibling edges are never emitted (siblings share a parent).
@@ -22,13 +38,13 @@ export const STYLE: cytoscape.StylesheetJson = [
       // Unknown-sex fallback (a P21-less person); male/female override shape and
       // colour below. A junction inherits it too but is invisible, so the diamond
       // never shows.
-      "background-color": "#64748b",
+      "background-color": WA.rikyu,
       shape: "diamond",
       label: "data(label)",
       "font-size": "10px",
-      color: "#0f172a",
+      color: WA.ink,
       "text-outline-width": 2,
-      "text-outline-color": "#f8fafc",
+      "text-outline-color": WA.washi, // matches the page ground so labels read on any node
       // Left-to-right tree with horizontal labels: put the name to the right of
       // each node so vertically-stacked siblings' labels don't collide.
       "text-valign": "center",
@@ -59,7 +75,7 @@ export const STYLE: cytoscape.StylesheetJson = [
     // target (last fired) — both get the same red emphasis.
     selector: "node[focus = 1], node.current",
     style: {
-      "background-color": "#dc2626",
+      "background-color": WA.shu,
       "font-size": "13px",
       "font-weight": "bold",
       "z-index": 10,
@@ -72,7 +88,7 @@ export const STYLE: cytoscape.StylesheetJson = [
     selector: "node.cursor",
     style: {
       "border-width": 3,
-      "border-color": "#2563eb",
+      "border-color": WA.ai,
       "border-opacity": 1,
     },
   },
@@ -85,7 +101,7 @@ export const STYLE: cytoscape.StylesheetJson = [
   },
   {
     selector: "edge",
-    style: { width: 1.5, "curve-style": "bezier", "line-color": "#cbd5e1" },
+    style: { width: 1.5, "curve-style": "bezier", "line-color": WA.edge },
   },
   {
     // All parent→child relations flow as a rightward right-angle (taxi) line with an
@@ -105,28 +121,23 @@ export const STYLE: cytoscape.StylesheetJson = [
   },
   {
     selector: 'edge[type = "PARENT_OF"], edge[type = "DESCENT"]',
-    style: { "line-color": "#475569", "target-arrow-color": "#475569" },
+    style: { "line-color": WA.suminezu, "target-arrow-color": WA.suminezu },
   },
   {
     selector: 'edge[type = "SPOUSE_OF"]',
-    style: { "line-color": "#db2777", "curve-style": "straight" },
+    style: { "line-color": WA.enji, "curve-style": "straight" },
   },
   {
-    // Adoption is a parent→child relation (same taxi routing as blood, above), but
-    // drawn as a double line in a distinct green to mark it as non-blood. cytoscape
-    // has no `line-style: double` for edges, so the doubling is faked with line-outline:
-    // a background-coloured core line inside a thin green outline reads as two parallel
-    // green strokes.
+    // Adoption is a parent→child relation (same taxi routing as blood, above),
+    // drawn dashed so the non-blood tie reads by line FORM, not colour alone —
+    // legible regardless of palette contrast or colour vision. 金茶 only reinforces.
     selector: 'edge[type = "ADOPTIVE_PARENT_OF"]',
     style: {
-      // width = the dark (background-coloured) gap; the green outline draws the two
-      // parallel strokes on either side. A thin stroke + moderate gap reads as two
-      // crisp parallel lines rather than one thick band.
-      width: 4,
-      "line-color": "#18181b",
-      "line-outline-width": 1,
-      "line-outline-color": "#22c55e",
-      "target-arrow-color": "#22c55e",
+      width: 1.5,
+      "line-style": "dashed",
+      "line-dash-pattern": [6, 3],
+      "line-color": WA.kincha,
+      "target-arrow-color": WA.kincha,
     },
   },
   {

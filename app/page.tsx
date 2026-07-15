@@ -72,8 +72,8 @@ export default function Home() {
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      <header className="flex flex-wrap items-center gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <h1 className="text-lg font-semibold tracking-tight">
+      <header className="border-rule flex flex-wrap items-center gap-3 border-b px-4 py-3">
+        <h1 className="font-display text-xl font-semibold tracking-wide">
           家系図エクスプローラー
         </h1>
         <form onSubmit={search} className="flex flex-1 gap-2 sm:max-w-md">
@@ -83,29 +83,29 @@ export default function Home() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="人物名で検索（例: 織田信長）"
             aria-label="人物名で検索"
-            className="flex-1 rounded-md border border-zinc-300 px-3 py-1.5 dark:border-zinc-700 dark:bg-zinc-900"
+            className="border-rule-strong flex-1 rounded-md border bg-white/60 px-3 py-1.5"
           />
           <button
             type="submit"
             disabled={loading}
-            className="rounded-md bg-zinc-900 px-4 py-1.5 text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            className="bg-ink text-washi rounded-md px-4 py-1.5 disabled:opacity-50"
           >
             検索
           </button>
         </form>
       </header>
 
-      {loading && <p className="px-4 py-2 text-sm text-zinc-500">検索中…</p>}
-      {error && <p className="px-4 py-2 text-sm text-red-600">{error}</p>}
+      {loading && <p className="text-muted px-4 py-2 text-sm">検索中…</p>}
+      {error && <p className="text-vermilion px-4 py-2 text-sm">{error}</p>}
       {results && (
-        <ul className="max-h-64 overflow-auto border-b border-zinc-200 dark:border-zinc-800">
+        <ul className="border-rule max-h-64 overflow-auto border-b">
           {results.nodes.length === 0 && (
-            <li className="px-4 py-2 text-sm text-zinc-500">
+            <li className="text-muted px-4 py-2 text-sm">
               該当する人物が見つかりません
             </li>
           )}
           {results.total > results.nodes.length && (
-            <li className="border-b border-zinc-100 bg-zinc-50 px-4 py-2 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+            <li className="border-panel-rule bg-panel text-muted border-b px-4 py-2 text-sm">
               {results.total} 件ヒット。関連度の高い上位 {results.nodes.length}{" "}
               件を表示中。名前を絞り込んでください。
             </li>
@@ -114,16 +114,16 @@ export default function Home() {
             <li key={node.qid} className="flex items-center">
               <button
                 onClick={() => selectPerson(node)}
-                className="flex-1 px-4 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="hover:bg-tint flex-1 px-4 py-2 text-left"
               >
                 {node.label}{" "}
-                <span className="text-sm text-zinc-400">{node.qid}</span>
+                <span className="text-faint text-sm">{node.qid}</span>
               </button>
               {focus && node.qid !== focus.qid && (
                 <button
                   onClick={() => choosePathTarget(node)}
                   title={`${focus.label} からの経路を表示`}
-                  className="mr-2 shrink-0 rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  className="border-rule-strong text-muted hover:bg-tint mr-2 shrink-0 rounded-md border px-2 py-1 text-xs"
                 >
                   ⇄ 経路
                 </button>
@@ -136,23 +136,23 @@ export default function Home() {
       <main className="flex min-h-0 flex-1">
         {focus ? (
           <>
-            <section className="flex w-1/2 flex-col border-r border-zinc-200 dark:border-zinc-800">
+            <section className="border-rule flex w-1/2 flex-col border-r">
               {pathTarget && (
-                <div className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+                <div className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
                   <span className="truncate">
                     経路: <strong>{focus.label}</strong> →{" "}
                     <strong>{pathTarget.label}</strong>
                   </span>
                   <button
                     onClick={() => setPathTarget(null)}
-                    className="ml-auto shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    className="border-rule-strong hover:bg-tint ml-auto shrink-0 rounded-md border px-2 py-0.5 text-xs"
                   >
                     エゴ表示に戻る
                   </button>
                 </div>
               )}
               {!pathTarget && (
-                <label className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+                <label className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
                   <input
                     type="checkbox"
                     checked={showAdoptions}
@@ -180,7 +180,7 @@ export default function Home() {
             </section>
           </>
         ) : (
-          <p className="m-auto text-zinc-500">
+          <p className="text-muted m-auto">
             人物を検索して選択すると家系グラフと記事を表示します
           </p>
         )}
