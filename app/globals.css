@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Single source of truth for the theme's colours; components reference them via
-   generated utilities (bg-washi, text-ink…). The graph's STYLE keeps a separate
+   generated utilities (text-ink, border-rule…). The graph's STYLE keeps a separate
    palette constant in lib/render.ts because the offline dump-layout script uses it
    with no DOM to resolve vars against — only 生成り overlaps the two. */
 @theme {
