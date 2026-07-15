@@ -1,26 +1,33 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* 和の伝統色をセマンティックなデザイントークンとして一元定義。値はここだけに置き、
+   コンポーネントは bg-washi / text-ink のような生成ユーティリティ経由で参照する。
+   （グラフ側 STYLE は DOM 非依存の dump-layout からも使うため lib/render.ts の
+   パレット定数で別管理。生成り色だけ両者に現れる。） */
+@theme {
+  --color-washi: #f5f0e6; /* 生成り — page ground, beside the white Wikipedia pane */
+  --color-ink: #1c1a17; /* 墨 — primary text */
+  --color-rule: #d8cdb8; /* 罫 — dividers/borders */
+  --color-rule-strong: #cdbfa5; /* 濃いめの罫 — input/small-button outline */
+  --color-muted: #857c6d; /* 鈍色 — secondary text */
+  --color-faint: #9c9384; /* 薄鈍 — tertiary text (qid) */
+  --color-tint: #ece5d5; /* hover/選択の淡い生成り wash */
+  --color-panel: #efe8d8; /* 一段沈めた注記帯の地 */
+  --color-panel-rule: #e2d8c4; /* panel の罫 */
+  --color-vermilion: #c1352b; /* 朱 — error text, emphasis */
+
+  /* Mincho faces from next/font (vars set on <html>). Body copy + UI use the body
+     face; headings use the heavier display face via font-display. */
+  --font-sans: var(--font-mincho-body);
+  --font-display: var(--font-mincho-display);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* No dark mode: the right pane is a Wikipedia iframe locked to a light ground,
+   so a dark left pane would clash with it. Light-only is deliberate. */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-washi);
+  color: var(--color-ink);
+  /* Body copy and UI use the mincho for a book-like feel; the display face is
+     applied per-element (font-mincho-display) where a heavier heading is wanted. */
+  font-family: var(--font-mincho-body), serif;
 }
