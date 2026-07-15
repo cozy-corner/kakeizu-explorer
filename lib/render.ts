@@ -19,7 +19,11 @@ export const STYLE: cytoscape.StylesheetJson = [
   {
     selector: "node",
     style: {
+      // Unknown-sex fallback (a P21-less person); male/female override shape and
+      // colour below. A junction inherits it too but is invisible, so the diamond
+      // never shows.
       "background-color": "#64748b",
+      shape: "diamond",
       label: "data(label)",
       "font-size": "10px",
       color: "#0f172a",
@@ -33,6 +37,19 @@ export const STYLE: cytoscape.StylesheetJson = [
       width: NODE_SIZE,
       height: NODE_SIZE,
     },
+  },
+  {
+    // Sex distinction (shape + colour), leaning on the Japanese convention of
+    // indigo for men and crimson for women. Shape carries the distinction on its
+    // own so the focus red (below, which overrides fill) never erases it, and it
+    // survives for colour-blind readers. Placed before the focus block so that
+    // block's red fill wins on the focused node.
+    selector: 'node[sex = "male"]',
+    style: { shape: "rectangle", "background-color": "#1e3a8a" },
+  },
+  {
+    selector: 'node[sex = "female"]',
+    style: { shape: "ellipse", "background-color": "#f43f5e" },
   },
   {
     // Emphasis is colour + bold label only, never size: dagre sizes a rank's row

@@ -15,6 +15,7 @@ import {
   type Graph,
   type JunctionId,
   type PersonId,
+  type Sex,
   type SyntheticEdge,
 } from "@/lib/graph";
 import {
@@ -126,6 +127,7 @@ function PathPane({
           label: n.label,
           // Carried so a tap can re-focus with the canonical article title (below).
           wikipediaTitle: n.wikipediaTitle,
+          sex: n.sex,
           focus: n.qid === focus.qid || n.qid === pathTo.qid ? 1 : 0,
         },
       })),
@@ -192,6 +194,7 @@ type EgoPlan = {
   labels: Map<string, string>;
   // ja.wikipedia sitelink per person, so a fired node can open the canonical article.
   wikipediaTitles: Map<string, string | undefined>;
+  sexes: Map<string, Sex | undefined>; // person qid → sex, for the node's shape/colour
   positions: Map<string, Pos>; // person + junction id → pixels
   // Drawn person edges; the ones in `hiddenEdgeIds` are kept but hidden (replaced
   // by a midpoint junction line), matching the previous renderer.
@@ -267,6 +270,7 @@ function computeEgoPlan(
     personIds: g.nodes.map((n) => n.qid),
     labels: new Map(g.nodes.map((n) => [n.qid, n.label])),
     wikipediaTitles: new Map(g.nodes.map((n) => [n.qid, n.wikipediaTitle])),
+    sexes: new Map(g.nodes.map((n) => [n.qid, n.sex])),
     positions,
     personEdges: edges.map((e) => ({
       id: edgeId(e),
@@ -309,7 +313,9 @@ function renderEgoPlan(
     if (!pos) continue;
     const existing = cy.getElementById(id);
     if (existing.empty()) {
-      const n = cy.add({ data: { id, label: plan.labels.get(id) } });
+      const n = cy.add({
+        data: { id, label: plan.labels.get(id), sex: plan.sexes.get(id) },
+      });
       n.position(opts.emergeFrom ?? pos);
       if (opts.animate && opts.emergeFrom)
         n.animate({ position: pos }, { duration: ANIM_MS });
