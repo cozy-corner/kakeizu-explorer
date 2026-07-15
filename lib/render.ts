@@ -23,7 +23,7 @@ const WA = {
   ai: "#223a70", // 藍 — keyboard cursor ring
   shu: "#c1352b", // 朱 — focus/current
   enji: "#9e3d4f", // 臙脂 — spouse line
-  kincha: "#b8860b", // 金茶 — adoptive line
+  kincha: "#916008", // 金茶 — adoptive (dashed) line
   suminezu: "#5a5450", // 墨鼠 — descent/parent line
   edge: "#c9bda3", // faint default edge
 } as const;
@@ -128,20 +128,15 @@ export const STYLE: cytoscape.StylesheetJson = [
     style: { "line-color": WA.enji, "curve-style": "straight" },
   },
   {
-    // Adoption is a parent→child relation (same taxi routing as blood, above), but
-    // drawn as a double line in 金茶 to mark it as non-blood. cytoscape has no
-    // `line-style: double` for edges, so the doubling is faked with line-outline:
-    // a background-coloured core line inside a thin 金茶 outline reads as two parallel
-    // strokes.
+    // Adoption is a parent→child relation (same taxi routing as blood, above),
+    // drawn dashed so the non-blood tie reads by line FORM, not colour alone —
+    // legible regardless of palette contrast or colour vision. 金茶 only reinforces.
     selector: 'edge[type = "ADOPTIVE_PARENT_OF"]',
     style: {
-      // width = the background-coloured gap; the 金茶 outline draws the two parallel
-      // strokes on either side. The core must match the page ground (生成り) so it
-      // vanishes and only the two outline strokes read.
-      width: 4,
-      "line-color": WA.washi,
-      "line-outline-width": 1,
-      "line-outline-color": WA.kincha,
+      width: 1.5,
+      "line-style": "dashed",
+      "line-dash-pattern": [6, 3],
+      "line-color": WA.kincha,
       "target-arrow-color": WA.kincha,
     },
   },
