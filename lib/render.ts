@@ -19,9 +19,9 @@ export const STYLE: cytoscape.StylesheetJson = [
   {
     selector: "node",
     style: {
-      // Default is the "unknown sex" look — grey diamond; male/female override
-      // shape and colour below. A P21-less person keeps this; so does a junction
-      // (invisible anyway), so its diamond shape never shows.
+      // Unknown-sex fallback (a P21-less person); male/female override shape and
+      // colour below. A junction inherits it too but is invisible, so the diamond
+      // never shows.
       "background-color": "#64748b",
       shape: "diamond",
       label: "data(label)",
