@@ -8,10 +8,14 @@
 // Mirrors GraphPane's layout step, including dropping sibling adoptions, so the
 // output reflects what the app actually draws.
 //
-// Usage: bun run scripts/dump-layout.ts [QID] [--json]   (default: Q319664 徳川吉宗)
+// Usage: bun run scripts/dump-layout.ts [QID] [--json] [--adoptions]
+//   (default: Q319664 徳川吉宗, blood view — matches the app's default toggle-OFF)
 //   Requires the dev server running (reads /api/person/:id/neighbors).
+//   --adoptions keeps 養子 edges (toggle ON); default reduces to the blood view via
+//     withoutAdoptions, mirroring GraphPane.computeEgoPlan so the dump reproduces
+//     the default screen instead of the adoption-inclusive one.
 //   --json emits the same data machine-readably so derived quantities (gaps, row
-//   skew) are a `jq` one-liner instead of a brittle awk parse of the prose.
+//     skew) are a `jq` one-liner instead of a brittle awk parse of the prose.
 
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import dagre from "cytoscape-dagre";
@@ -22,6 +26,7 @@ import {
   junctionId,
   layoutOnlyEdges,
   patrilinealEdges,
+  withoutAdoptions,
   type Graph,
   type GraphEdge,
   type PersonId,
@@ -49,6 +54,7 @@ cytoscape.use(dagre);
 
 const args = process.argv.slice(2);
 const jsonMode = args.includes("--json");
+const showAdoptions = args.includes("--adoptions");
 const qid = (args.find((a) => !a.startsWith("--")) ?? "Q319664") as PersonId;
 
 let graph: Graph;
@@ -64,6 +70,10 @@ try {
   );
   process.exit(1);
 }
+
+// Match GraphPane.computeEgoPlan: the default (toggle-OFF) view drops 養子 edges
+// and re-roots on the ego before the pipeline; --adoptions keeps the raw graph.
+if (!showAdoptions) graph = withoutAdoptions(graph, qid);
 
 const edges = egoDrawnEdges(graph);
 const layoutEdges = layoutOnlyEdges(graph, edges);
