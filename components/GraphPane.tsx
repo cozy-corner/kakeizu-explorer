@@ -55,6 +55,13 @@ export type FocusPerson = {
 const COL = NODE_SIZE + RANK_SEP;
 const ANIM_MS = 300;
 
+// The node's on-screen label: the name, with the DB degree appended as a badge
+// when known. `label` stays the pure name (article pane / focus callbacks read it);
+// only this display string carries the number.
+function nodeDisp(label: string, degree: number | undefined): string {
+  return degree === undefined ? label : `${label}  ${degree}`;
+}
+
 export function GraphPane(props: {
   focus: FocusPerson;
   pathTo?: FocusPerson | null;
@@ -126,6 +133,7 @@ function PathPane({
         data: {
           id: n.qid,
           label: n.label,
+          disp: n.label, // path view shows no degree badge; disp is just the name
           // Carried so a tap can re-focus with the canonical article title (below).
           wikipediaTitle: n.wikipediaTitle,
           sex: n.sex,
@@ -193,6 +201,7 @@ function PathPane({
 type EgoPlan = {
   personIds: string[];
   labels: Map<string, string>;
+  degrees: Map<string, number | undefined>; // person qid → DB total degree, for the badge
   // ja.wikipedia sitelink per person, so a fired node can open the canonical article.
   wikipediaTitles: Map<string, string | undefined>;
   sexes: Map<string, Sex | undefined>; // person qid → sex, for the node's shape/colour
@@ -270,6 +279,7 @@ function computeEgoPlan(
   return {
     personIds: g.nodes.map((n) => n.qid),
     labels: new Map(g.nodes.map((n) => [n.qid, n.label])),
+    degrees: new Map(g.nodes.map((n) => [n.qid, n.degree])),
     wikipediaTitles: new Map(g.nodes.map((n) => [n.qid, n.wikipediaTitle])),
     sexes: new Map(g.nodes.map((n) => [n.qid, n.sex])),
     positions,
@@ -314,8 +324,14 @@ function renderEgoPlan(
     if (!pos) continue;
     const existing = cy.getElementById(id);
     if (existing.empty()) {
+      const label = plan.labels.get(id) ?? id;
       const n = cy.add({
-        data: { id, label: plan.labels.get(id), sex: plan.sexes.get(id) },
+        data: {
+          id,
+          label,
+          disp: nodeDisp(label, plan.degrees.get(id)),
+          sex: plan.sexes.get(id),
+        },
       });
       n.position(opts.emergeFrom ?? pos);
       if (opts.animate && opts.emergeFrom)
