@@ -37,11 +37,14 @@ export type GraphNode = {
   label: string;
   sex?: Sex;
   wikipediaTitle?: string;
-  // Total distinct people this person is directly related to in the DB (blood /
-  // marriage / adoption), independent of how much of the graph is drawn — the ego
-  // view shows it as a badge so a hidden hub reads even when only a few edges are
-  // on screen. Only the neighbors API populates it.
+  // Distinct people this person is directly related to in the DB, independent of
+  // how much of the graph is drawn — the ego view shows it as a badge so a hidden
+  // hub reads even when only a few edges are on screen. Two counts so the badge can
+  // follow the adoption toggle: `degree` is blood + marriage only, matching the
+  // blood view; `degreeWithAdoptions` also counts adoptive ties. Only the neighbors
+  // API populates them.
   degree?: number;
+  degreeWithAdoptions?: number;
 };
 // A domain edge carries a kinship type, or the hidden LAYOUT type when fed to dagre.
 // DESCENT (the other SyntheticEdge) is built straight into cytoscape by the view and
@@ -383,7 +386,10 @@ export type NeighborRow = {
   aLabel: string;
   aSex: string | null;
   aWikipediaTitle: string | null;
-  aDegree: number; // a's DB total degree; rides on every row of `a` (see GraphNode.degree)
+  // a's two DB degrees (blood-only, and incl. adoption); both ride on every row of
+  // `a` (see GraphNode.degree / degreeWithAdoptions).
+  aDegree: number;
+  aDegreeWithAdoptions: number;
   type: string | null;
   bQid: string | null;
   bLabel: string | null;
@@ -404,6 +410,7 @@ export function neighborsToGraph(rows: NeighborRow[]): Graph {
       sex: (row.aSex ?? undefined) as Sex | undefined,
       wikipediaTitle: row.aWikipediaTitle ?? undefined,
       degree: row.aDegree,
+      degreeWithAdoptions: row.aDegreeWithAdoptions,
     });
     if (row.type && row.bQid && row.bLabel) {
       // Only seed b when unseen: its own `a` row (which carries degree) may come

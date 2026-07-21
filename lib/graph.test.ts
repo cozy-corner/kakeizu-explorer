@@ -51,6 +51,7 @@ test("neighbors: builds nodes and edges, mapping the relationship type and wikip
       aSex: null,
       aWikipediaTitle: "織田信長 (人物)", // differs from label
       aDegree: 11,
+      aDegreeWithAdoptions: 12,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
@@ -66,6 +67,7 @@ test("neighbors: builds nodes and edges, mapping the relationship type and wikip
         label: "織田信長",
         wikipediaTitle: "織田信長 (人物)",
         degree: 11,
+        degreeWithAdoptions: 12,
       },
       // b-only here (no `a` row of its own), so no degree — production always
       // supplies one via that row; the b-preservation test below covers it.
@@ -84,6 +86,7 @@ test("neighbors: an isolated focus person yields one node and no edges", () => {
       aSex: null,
       aWikipediaTitle: null,
       aDegree: 0,
+      aDegreeWithAdoptions: 0,
       type: null,
       bQid: null,
       bLabel: null,
@@ -93,7 +96,9 @@ test("neighbors: an isolated focus person yields one node and no edges", () => {
   ]);
 
   expect(graph).toEqual({
-    nodes: [{ qid: "Q171411", label: "織田信長", degree: 0 }],
+    nodes: [
+      { qid: "Q171411", label: "織田信長", degree: 0, degreeWithAdoptions: 0 },
+    ],
     edges: [],
   });
 });
@@ -106,6 +111,7 @@ test("neighbors: dedupes repeated nodes and edges", () => {
       aSex: null,
       aWikipediaTitle: null,
       aDegree: 11,
+      aDegreeWithAdoptions: 12,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
@@ -119,6 +125,7 @@ test("neighbors: dedupes repeated nodes and edges", () => {
       aSex: null,
       aWikipediaTitle: null,
       aDegree: 11,
+      aDegreeWithAdoptions: 12,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
@@ -132,6 +139,7 @@ test("neighbors: dedupes repeated nodes and edges", () => {
       aSex: null,
       aWikipediaTitle: null,
       aDegree: 4,
+      aDegreeWithAdoptions: 5,
       type: null,
       bQid: null,
       bLabel: null,
@@ -141,8 +149,8 @@ test("neighbors: dedupes repeated nodes and edges", () => {
   ]);
 
   expect(graph.nodes).toEqual([
-    { qid: "Q171411", label: "織田信長", degree: 11 },
-    { qid: "Q1234", label: "織田信忠", degree: 4 },
+    { qid: "Q171411", label: "織田信長", degree: 11, degreeWithAdoptions: 12 },
+    { qid: "Q1234", label: "織田信忠", degree: 4, degreeWithAdoptions: 5 },
   ]);
   expect(graph.edges).toEqual([
     { source: "Q171411", target: "Q1234", type: "PARENT_OF" },
@@ -159,6 +167,7 @@ test("neighbors: a node first seen in the b column still gets its own row's degr
       aSex: null,
       aWikipediaTitle: null,
       aDegree: 11,
+      aDegreeWithAdoptions: 12,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "織田信忠",
@@ -171,6 +180,7 @@ test("neighbors: a node first seen in the b column still gets its own row's degr
       aSex: null,
       aWikipediaTitle: null,
       aDegree: 4,
+      aDegreeWithAdoptions: 5,
       type: null,
       bQid: null,
       bLabel: null,
@@ -180,8 +190,8 @@ test("neighbors: a node first seen in the b column still gets its own row's degr
   ]);
 
   expect(graph.nodes).toEqual([
-    { qid: "Q171411", label: "織田信長", degree: 11 },
-    { qid: "Q1234", label: "織田信忠", degree: 4 },
+    { qid: "Q171411", label: "織田信長", degree: 11, degreeWithAdoptions: 12 },
+    { qid: "Q1234", label: "織田信忠", degree: 4, degreeWithAdoptions: 5 },
   ]);
 });
 
@@ -287,6 +297,7 @@ test("neighbors: carries each node's sex through", () => {
       aSex: "male",
       aWikipediaTitle: null,
       aDegree: 11,
+      aDegreeWithAdoptions: 12,
       type: "PARENT_OF",
       bQid: "Q1234",
       bLabel: "徳姫",
@@ -296,7 +307,13 @@ test("neighbors: carries each node's sex through", () => {
   ]);
 
   expect(graph.nodes).toEqual([
-    { qid: "Q171411", label: "織田信長", sex: "male", degree: 11 },
+    {
+      qid: "Q171411",
+      label: "織田信長",
+      sex: "male",
+      degree: 11,
+      degreeWithAdoptions: 12,
+    },
     { qid: "Q1234", label: "徳姫", sex: "female" },
   ]);
 });

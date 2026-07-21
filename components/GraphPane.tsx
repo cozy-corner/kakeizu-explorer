@@ -279,7 +279,14 @@ function computeEgoPlan(
   return {
     personIds: g.nodes.map((n) => n.qid),
     labels: new Map(g.nodes.map((n) => [n.qid, n.label])),
-    degrees: new Map(g.nodes.map((n) => [n.qid, n.degree])),
+    // The badge follows the view: the blood view (adoptions off) counts only
+    // blood/marriage ties, the adoption view adds adoptive ones.
+    degrees: new Map(
+      g.nodes.map((n) => [
+        n.qid,
+        showAdoptions ? n.degreeWithAdoptions : n.degree,
+      ]),
+    ),
     wikipediaTitles: new Map(g.nodes.map((n) => [n.qid, n.wikipediaTitle])),
     sexes: new Map(g.nodes.map((n) => [n.qid, n.sex])),
     positions,
@@ -322,27 +329,24 @@ function renderEgoPlan(
   for (const id of plan.personIds) {
     const pos = plan.positions.get(id);
     if (!pos) continue;
+    const label = plan.labels.get(id) ?? id;
+    const disp = nodeDisp(label, plan.degrees.get(id));
     const existing = cy.getElementById(id);
     if (existing.empty()) {
-      const label = plan.labels.get(id) ?? id;
-      const n = cy.add({
-        data: {
-          id,
-          label,
-          disp: nodeDisp(label, plan.degrees.get(id)),
-          sex: plan.sexes.get(id),
-        },
-      });
+      const n = cy.add({ data: { id, label, disp, sex: plan.sexes.get(id) } });
       n.position(opts.emergeFrom ?? pos);
       if (opts.animate && opts.emergeFrom)
         n.animate({ position: pos }, { duration: ANIM_MS });
       else n.position(pos);
-    } else if (opts.animate) {
-      existing
-        .stop(true, false)
-        .animate({ position: pos }, { duration: ANIM_MS });
     } else {
-      existing.position(pos);
+      // Refresh disp so the badge follows the adoption toggle: the same node's
+      // degree differs between the blood and adoption views.
+      existing.data("disp", disp);
+      if (opts.animate)
+        existing
+          .stop(true, false)
+          .animate({ position: pos }, { duration: ANIM_MS });
+      else existing.position(pos);
     }
   }
 
