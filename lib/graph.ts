@@ -405,17 +405,17 @@ export function neighborsToGraph(rows: NeighborRow[]): Graph {
       wikipediaTitle: row.aWikipediaTitle ?? undefined,
       degree: row.aDegree,
     });
-    if (row.type && row.bQid && row.bLabel && !nodes.has(row.bQid)) {
+    if (row.type && row.bQid && row.bLabel) {
       // Only seed b when unseen: its own `a` row (which carries degree) may come
       // later; overwriting here would drop that degree.
-      nodes.set(row.bQid, {
-        qid: row.bQid,
-        label: row.bLabel,
-        sex: (row.bSex ?? undefined) as Sex | undefined,
-        wikipediaTitle: row.bWikipediaTitle ?? undefined,
-      });
-    }
-    if (row.type && row.bQid && row.bLabel) {
+      if (!nodes.has(row.bQid)) {
+        nodes.set(row.bQid, {
+          qid: row.bQid,
+          label: row.bLabel,
+          sex: (row.bSex ?? undefined) as Sex | undefined,
+          wikipediaTitle: row.bWikipediaTitle ?? undefined,
+        });
+      }
       const key = `${row.aQid}|${row.type}|${row.bQid}`;
       edges.set(key, {
         source: row.aQid,

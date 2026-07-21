@@ -58,19 +58,20 @@ export async function GET(
             + [x IN splist WHERE x <> c AND NOT x IN bio]
             + [x IN adlist WHERE x <> c AND NOT x IN bio AND NOT x IN splist] AS nodes
        UNWIND nodes AS a
-       OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]->(b:Person)
-       WHERE b IN nodes
-         AND (type(r) <> 'ADOPTIVE_PARENT_OF' OR a.qid = $id OR b.qid = $id)
        // a's DB total degree: distinct people it's directly related to across the
        // whole DB, NOT limited to the drawn node set — so the badge reveals a hub
        // whose ties are mostly off-screen. DISTINCT so two edges to one person (e.g.
-       // spouse who is also co-parent) count once. Rides on every row of a.
+       // spouse who is also co-parent) count once. Computed once per node here,
+       // before the edge fan-out below.
+       WITH nodes, a, COUNT {
+         MATCH (a)-[:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]-(x:Person)
+         RETURN DISTINCT x
+       } AS aDegree
+       OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]->(b:Person)
+       WHERE b IN nodes
+         AND (type(r) <> 'ADOPTIVE_PARENT_OF' OR a.qid = $id OR b.qid = $id)
        RETURN a.qid AS aQid, a.label AS aLabel, a.sex AS aSex,
-              a.wikipediaTitle AS aWikipediaTitle,
-              COUNT {
-                MATCH (a)-[:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]-(x:Person)
-                RETURN DISTINCT x
-              } AS aDegree,
+              a.wikipediaTitle AS aWikipediaTitle, aDegree,
               type(r) AS type, b.qid AS bQid, b.label AS bLabel, b.sex AS bSex,
               b.wikipediaTitle AS bWikipediaTitle`,
       { id },
