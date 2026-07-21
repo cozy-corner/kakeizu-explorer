@@ -100,11 +100,12 @@ Two passes over the diff, each owned by a focused skill:
   trims verbose public-API docs to a minimal contract, drops stale-by-design comments
   (PR/issue numbers, "previously…", phase markers), and normalizes JA code comments to
   English — keeping only the non-obvious _why_. Comments only; it never touches code.
-- **code-review** — then run `/code-review medium` (fans out finder + verifier
-  agents — that's the agent team, already wired). Do the part the tool can't:
-  **triage every finding** with the rubric below. Apply the valid ones (one commit
-  per finding), and for each rejection say _why_ in your summary. Don't silently
-  drop a finding and don't reflexively apply one.
+- **code-review** — `/code-review` is user-invocable only, so **pause and ask the
+  user to run `/code-review medium`** — it fans out finder + verifier agents on its
+  own. When its findings come back, do the part it can't: **triage every finding**
+  with the rubric below. Apply the valid ones (one commit per finding), and for each
+  rejection say _why_ in your summary. Don't silently drop a finding and don't
+  reflexively apply one.
 
 Order matters: simplify first so comment-cleanup and code-review judge the final code,
 not code you're about to rewrite; comment-cleanup before code-review so the review
@@ -204,7 +205,7 @@ as not actually throwing at runtime; that's your own new line, so it got an expl
 
 Phases naturally fan out, and that's encouraged:
 
-- `/code-review` already runs parallel finder + verifier agents.
+- `/code-review` (user-run) already runs parallel finder + verifier agents.
 - A heavy assumption check or a cross-cutting triage can spawn parallel agents
   (see **dispatching-parallel-agents**) — one per file/angle/finding — when the
   work is independent. Keep the _conclusion_, not the file dumps.
