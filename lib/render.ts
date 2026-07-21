@@ -40,7 +40,10 @@ export const STYLE: cytoscape.StylesheetJson = [
       // never shows.
       "background-color": WA.rikyu,
       shape: "diamond",
-      label: "data(label)",
+      // Display text set by the view; `data(label)` stays the pure name (used by
+      // the article pane / focus callbacks) while the ego view's `disp` appends the
+      // degree badge. Every drawable node must carry `disp` or its label vanishes.
+      label: "data(disp)",
       "font-size": "10px",
       color: WA.ink,
       "text-outline-width": 2,

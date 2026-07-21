@@ -58,11 +58,26 @@ export async function GET(
             + [x IN splist WHERE x <> c AND NOT x IN bio]
             + [x IN adlist WHERE x <> c AND NOT x IN bio AND NOT x IN splist] AS nodes
        UNWIND nodes AS a
+       // a's DB degrees: distinct people it's directly related to across the whole
+       // DB, NOT limited to the drawn node set — so the badge reveals a hub whose
+       // ties are mostly off-screen. Two counts so the badge can follow the adoption
+       // toggle: aDegree is blood + marriage only (the blood view); the second also
+       // counts adoptive ties. DISTINCT so two edges to one person (e.g. a spouse who
+       // is also co-parent, or an adoptive parent also married in) count once.
+       WITH nodes, a,
+         COUNT {
+           MATCH (a)-[:PARENT_OF|SPOUSE_OF]-(x:Person)
+           RETURN DISTINCT x
+         } AS aDegree,
+         COUNT {
+           MATCH (a)-[:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]-(x:Person)
+           RETURN DISTINCT x
+         } AS aDegreeWithAdoptions
        OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]->(b:Person)
        WHERE b IN nodes
          AND (type(r) <> 'ADOPTIVE_PARENT_OF' OR a.qid = $id OR b.qid = $id)
        RETURN a.qid AS aQid, a.label AS aLabel, a.sex AS aSex,
-              a.wikipediaTitle AS aWikipediaTitle,
+              a.wikipediaTitle AS aWikipediaTitle, aDegree, aDegreeWithAdoptions,
               type(r) AS type, b.qid AS bQid, b.label AS bLabel, b.sex AS bSex,
               b.wikipediaTitle AS bWikipediaTitle`,
       { id },
@@ -71,6 +86,8 @@ export async function GET(
         aLabel: r.get("aLabel"),
         aSex: r.get("aSex"),
         aWikipediaTitle: r.get("aWikipediaTitle"),
+        aDegree: r.get("aDegree").toNumber(),
+        aDegreeWithAdoptions: r.get("aDegreeWithAdoptions").toNumber(),
         type: r.get("type"),
         bQid: r.get("bQid"),
         bLabel: r.get("bLabel"),
