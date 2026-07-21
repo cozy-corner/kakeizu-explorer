@@ -61,8 +61,7 @@ export async function GET(
        // a's DB total degree: distinct people it's directly related to across the
        // whole DB, NOT limited to the drawn node set — so the badge reveals a hub
        // whose ties are mostly off-screen. DISTINCT so two edges to one person (e.g.
-       // spouse who is also co-parent) count once. Computed once per node here,
-       // before the edge fan-out below.
+       // spouse who is also co-parent) count once.
        WITH nodes, a, COUNT {
          MATCH (a)-[:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]-(x:Person)
          RETURN DISTINCT x
