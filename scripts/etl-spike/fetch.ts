@@ -13,8 +13,8 @@
 //    fragmented.
 //
 // Topology comes from truthy `wdt:` (decides which edges exist); every persisted
-// attribute (label, sex, nationality, per-edge rank/P1039/P1480) is captured once via
-// attrs.ts. The adoptive split and foreign pruning are pure-local transforms downstream.
+// attribute is captured once via attrs.ts. The adoptive split and foreign pruning
+// are pure-local transforms downstream.
 
 import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
 import {

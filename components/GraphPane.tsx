@@ -160,7 +160,9 @@ function PathPane({
   }, [graph, focus.qid, pathTo.qid, onSelect]);
 
   const loading = !graph && !error;
-  // An empty graph means no path found (a missing person 404s above instead).
+  // An empty graph means no path found — unknown or disconnected endpoints;
+  // /api/path returns 200 with an empty graph for those. A failed request
+  // surfaces as `error` instead.
   const noPath = !!graph && graph.nodes.length === 0;
 
   return (

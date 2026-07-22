@@ -1,9 +1,10 @@
 // Polite Wikidata Query Service (WDQS) client shared by the ETL spike scripts.
 //
-// Retries only transient failures (network errors, HTTP 5xx, 429) with
-// exponential backoff + full jitter, honoring a Retry-After header when present;
-// never retries other 4xx. Identifies itself with a descriptive User-Agent (a
-// WDQS requirement) and POSTs so long VALUES lists don't overflow the URL (431).
+// Retries transient failures (network errors, HTTP 5xx, 429, and a malformed body
+// on a 200) with exponential backoff + full jitter, honoring a Retry-After header
+// when present; never retries other 4xx. Identifies itself with a descriptive
+// User-Agent (a WDQS requirement) and POSTs so long VALUES lists don't overflow
+// the URL (431).
 //
 // Result cache: every successful query is memoized to data/.cache/<sha1>.json,
 // keyed by the exact query string, so re-runs never re-hit WDQS for data already
