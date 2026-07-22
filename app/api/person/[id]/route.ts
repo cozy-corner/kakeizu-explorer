@@ -34,7 +34,13 @@ export async function GET(
         { status: 404 },
       );
     }
-    return NextResponse.json(person);
+    // Normalize null → absent, matching personsToGraph so every person-producing
+    // route yields the same optional-wikipediaTitle shape the client expects.
+    return NextResponse.json({
+      qid: person.qid,
+      label: person.label,
+      wikipediaTitle: person.wikipediaTitle ?? undefined,
+    });
   } catch (err) {
     return serviceUnavailable("Person lookup failed", err);
   }
