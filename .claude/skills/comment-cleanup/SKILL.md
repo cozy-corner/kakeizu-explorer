@@ -39,8 +39,9 @@ buries the real change in noise. What supplies the diff differs by input:
 
 The **reader** this test assumes: fluent in the language and libraries in play, but
 _not_ in this project's domain or its other modules. "Recoverable" always means
-recoverable by _that_ reader — it's why domain semantics (家督, 養子) stay while a
-plain-language because goes.
+recoverable by _that_ reader — it's why a domain-grounded _reason_ (why the code treats
+諸説 or 家督 the way it does) stays, while a plain-language because — or a bare gloss of the
+term itself — goes.
 
 For every comment, ask: **could that reader recover this comment's justification by
 reading the visible code, or does it live _outside_ the code entirely?**
@@ -52,8 +53,11 @@ reading the visible code, or does it live _outside_ the code entirely?**
 - **Outside the visible code** → keep it (compressed — see below). Only a handful of
   things qualify: an **external fact** the code can't encode (a library's guarantee, a
   browser quirk, `dagre` doesn't promise X), a **rejected alternative** and why it fails
-  (the code shows the road taken, never the one refused), **domain semantics** a
-  non-expert couldn't derive (家督, 養子, patrilineal reduction), a **caller-side
+  (the code shows the road taken, never the one refused), a **domain-grounded rationale**
+  — a why that turns on a domain fact a non-expert couldn't supply (諸説 disputed parentage
+  → keep both fathers; 家督 succession is not descent → drop it); the domain term rides
+  along in the reason, it is never kept as a bare gloss (P22 = father, 家督 = house-headship
+  — that meaning is a constant / external rule, not a comment), a **caller-side
   precondition** the body can't show ("caller holds the lock", "input validated
   upstream"), or the **contract of a public API** (a caller reads the signature, not the
   body). Nothing else.
@@ -79,9 +83,9 @@ non-local _why_: a why explains **why the code is shaped this way**; an invarian
 | **what-restate** — prose translation of one statement (`// increment i` over `i++`) | yes                         | delete             |
 | **derivable why** — a because whose reasoning is visible in the code below it       | yes                         | delete             |
 | **invariant declaration** — "X always holds here"                                   | should be code, not prose   | delete (see below) |
-| **external / rejected-alt / domain / public-contract**                              | no — lives outside the code | keep, compressed   |
+| **external / rejected-alt / domain-rationale / public-contract**                    | no — lives outside the code | keep, compressed   |
 
-### Judge at the sentence level, not the block level
+### Judge below the block: sentence, then clause
 
 Apply the one question to **each sentence**, not to the comment as a whole. A real
 _why_ does not grant amnesty to a restating sentence sitting next to it. The most
@@ -98,6 +102,41 @@ The second sentence earns its place; the first is exactly what `colX.set(col, x)
 Keeping the block whole because "it contains a why" leaves the restatement behind —
 delete the first sentence, keep the rest. Same for a trailing "…, so we do X" tacked
 onto a description: keep the _so-clause_, drop the description.
+
+**Go below the sentence: a restating clause or parenthetical embedded _inside_ a
+kept why-sentence still gets cut.** The common miss is an enumeration glued mid-sentence
+— you keep the sentence for its why and the list rides along:
+
+```ts
+// every persisted attribute (label, sex, nationality, birthYear) is
+// captured once via attrs.ts        ← keep the why "captured once"; cut the list
+```
+
+The parenthetical just names the fields of a type (`RawNode`) — self-evident from the
+type, so it's inventory the code already holds: **recoverable from the type → cut it,
+keep the why** ("captured once"). (It also drifts — a reviewer flags it as _incomplete_
+when a field is added, and the fix is to delete the list, not complete it — but
+recoverability is the reason; drift is only the symptom.)
+
+A domain-identifier gloss — `// P22 = father`, `(P22/P25/P40 = father/mother/child)` —
+maps an opaque token to its meaning. That meaning's home is a **named constant** (`const
+FATHER = "P22"`), which resolves it once, in the identifier, with no lookup and no drift.
+So:
+
+- The gloss **duplicates a constant** that already carries the meaning, or **repeats**
+  another gloss: pure what-restatement → cut.
+- **No constant exists** and the code uses the raw token: the gloss is a
+  **missing-constant smell**. The fix is the constant (a code change, out of scope) — do
+  NOT just delete the gloss and leave every reader to look the token up externally each
+  time; that trade is worse than the comment. Keep the **single** definitional gloss at
+  one place, note it wants a constant, and cut only its repeats elsewhere.
+
+What stays regardless is domain-grounded _rationale_, not the term: keep "keep BOTH fathers
+— 諸説 (disputed), picking one fabricates a bloodline"; a bare "P22 = father" is never kept
+_for itself_ — the term only rides along inside a why.
+
+Cut only inside **implementation** comments — a public-API contract doc may legitimately
+enumerate its params/fields (see the Exception on public API).
 
 ### Compress the padded block
 
@@ -202,10 +241,12 @@ reading the function recovers it. Do **not** delete these.
 ```
 
 The only things that qualify: an **external fact / constraint** (a library or platform
-guarantee the code can't encode), a **rejected alternative** and why it fails, **domain
-semantics** a non-expert wouldn't know (家督, 養子, patrilineal reduction), or a **public
-API contract**. A bare "so that…/because…" whose answer is in the code is NOT one of
-these — see the derivable-why section above.
+guarantee the code can't encode), a **rejected alternative** and why it fails, a
+**domain-grounded rationale** (a why that turns on a domain fact, like the
+disputed-parentage line above — not a bare gloss of a term; `P22 = father` / `家督 =
+house-headship` is a constant or external rule, not a keep), or a **public API contract**.
+A bare "so that…/because…" whose answer is in the code is NOT one of these — see the
+derivable-why section above.
 
 ## Invariants belong in code, not comments
 
@@ -272,20 +313,28 @@ already in the file, so the body is the documentation.
 ## The gray zone — labels
 
 Terse labels on control flow are the hard case. Some merely re-say the condition in
-English; those go. A few name a _domain concept_ the code can't — those can stay, but
-they still have to clear the zero-based bar.
+English; those go. A label survives only when it carries a domain-grounded _reason_ for
+the branch — a why that turns on a domain fact the code can't supply. Merely _naming_ the
+domain concept the branch acts on is a gloss, and a gloss is a cut (its home is a constant
+or the term itself, not a comment).
 
 ```ts
 // not a co-located couple          ← delete: just re-says `mp.col !== fp.col`
 if (mp.col !== fp.col) continue;
 
 // married-in: patrilineal view drops a mother's descent, so she has no parent edge
-if (!hasParentEdge(p)) continue;    ← keep: names 家督/血統 semantics the code can't
+if (!hasParentEdge(p)) continue;    ← keep: the domain *reason* the branch exists
 ```
+
+The second stays not because it names 家督/血統, but because it states _why_ the branch
+skips these nodes — the patrilineal reduction drops a married-in mother's descent, so she
+has no parent edge — a domain fact a non-expert couldn't recover from the code. A bare
+`// married-in` label naming the concept without the reason would go.
 
 The test for a label: strip it, and ask whether a reader who knows TypeScript but not
 this domain would still understand _why_ the branch exists. If the code alone answers
-that, the label was restatement — delete it. Only genuine domain meaning survives.
+that, the label was restatement — delete it. Only a domain-grounded reason survives;
+naming the concept alone does not.
 
 Because we start from zero, **when you can't articulate what a label adds beyond the
 code, delete it** — an undefendable comment hasn't earned its line. Don't keep a
