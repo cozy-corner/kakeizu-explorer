@@ -1,4 +1,4 @@
-// Disposable spike diagnostic (PR2 follow-up): do the "bridge" relatives that
+// Disposable spike diagnostic: do the "bridge" relatives that
 // RELAXED mode adds actually have ja.wikipedia articles? This matters for the
 // right pane (Wikipedia view) when walking through them.
 //

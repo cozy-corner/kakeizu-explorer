@@ -33,8 +33,7 @@ export default function Home({
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
   // Starts true when a `?id=` deep link is present so the pane shows a loader
-  // (not the empty-state prompt) from the first render; the effect below flips
-  // it off once the person resolves.
+  // (not the empty-state prompt) from the first render.
   const [seeding, setSeeding] = useState(!!deepLinkId);
   // Set once any explicit selection re-roots the view, so a slower deep-link
   // lookup that resolves afterwards doesn't clobber the user's choice.
@@ -68,8 +67,6 @@ export default function Home({
 
   // Stable identity so GraphPane's cytoscape effect doesn't rebuild on every
   // parent render (it lists these callbacks as dependencies).
-  // Choosing a person re-roots the ego view: new anchor and, until it fires, its
-  // own current. Also leaves path mode (a path node tap re-anchors the same way).
   const selectPerson = useCallback((person: FocusPerson) => {
     deepLinkSuperseded.current = true;
     setFocus(person);
@@ -222,9 +219,8 @@ export default function Home({
               </div>
             </section>
             <section className="w-1/2 overflow-auto">
-              {/* Path mode reads the destination; ego mode reads the current
-                  (last-fired) person, falling back to the anchor before the first
-                  fire. Stateless iframe: changing person navigates it in place. */}
+              {/* Stateless iframe: changing the person prop navigates it in
+                  place. */}
               <ArticlePane person={pathTarget ?? current ?? focus} />
             </section>
           </>

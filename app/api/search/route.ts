@@ -4,21 +4,20 @@ import { runQuery, serviceUnavailable } from "@/lib/api";
 import { personsToSearchResult, type PersonRow } from "@/lib/graph";
 
 // Reads the query string and hits the DB at request time, so opt out of static
-// optimization (build-time execution).
+// optimization.
 export const dynamic = "force-dynamic";
 
 const LIMIT = 50;
 
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
-  // Skip the DB scan when there's nothing to match.
   if (!q) {
     return NextResponse.json(personsToSearchResult([], 0));
   }
 
   try {
-    // Rank by degree (COUNT { (p)--() }) — a good popularity proxy in this data
-    // — so notable people surface first.
+    // Rank by degree — a good popularity proxy in this data — so notable people
+    // surface first.
     const rows = await runQuery<PersonRow & { total: number }>(
       // neo4j.int: a plain JS number binds as a Cypher Float, which LIMIT rejects.
       `MATCH (p:Person)

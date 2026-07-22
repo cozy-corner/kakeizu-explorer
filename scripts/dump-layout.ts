@@ -119,8 +119,8 @@ const label = (id: string) =>
   graph.nodes.find((n) => n.qid === id)?.label ?? id;
 const r = (n: number) => Math.round(n);
 
-// cytoscape taxi (rightward, turn 50%): a line from (sx,sy) to (tx,ty) goes right
-// to the half-x, turns vertically, then right again. Two bend points when sy≠ty.
+// Reproduces cytoscape's taxi routing (rightward, turn 50%): one jog through the
+// half-x when sy≠ty, else straight.
 const taxiPoints = (s: Pos, t: Pos): Pos[] => {
   const mx = s.x + (t.x - s.x) / 2;
   return s.y === t.y ? [s, t] : [s, { x: mx, y: s.y }, { x: mx, y: t.y }, t];
@@ -128,8 +128,7 @@ const taxiPoints = (s: Pos, t: Pos): Pos[] => {
 const fmt = (pts: Pos[]) => pts.map((p) => `(${r(p.x)},${r(p.y)})`).join(" → ");
 const COL = NODE_SIZE + RANK_SEP; // one generation's x-stride
 
-// Build the structured data once; prose and --json render from the same arrays so
-// the two views can't drift.
+// Both prose and --json render from these arrays, so the two outputs can't drift.
 type NodeOut = { id: string; label: string; x: number; y: number };
 type DroppedAdoption = {
   source: string;
@@ -170,7 +169,6 @@ const droppedOut: DroppedAdoption[] = dropped.map((e) => ({
   targetLabel: label(e.target),
 }));
 
-// Single-source the taxi/cols/bends math so the two callers below can't drift.
 type Endpoint = { id: string; label: string; pos: Pos };
 const descentLine = (
   from: Endpoint,
@@ -189,7 +187,7 @@ const descentLine = (
     adoptive,
     path,
     cols: Math.round((to.pos.x - from.pos.x) / COL),
-    bends: path.length - 2, // taxiPoints: 2 pts straight, 4 pts one jog
+    bends: path.length - 2,
   };
 };
 

@@ -1,8 +1,7 @@
-// A person's Wikidata QID, branded so it can't be mixed up with a JunctionId — the
-// synthetic id of a couple's midpoint node. The layout's coordinate maps are keyed
-// by PersonId; the brand stops a junction id (a cytoscape-only address) being used
-// as a key. Raw DB rows carry plain strings; the brand is applied once at the layout
-// boundary (buildFamilyGraph / the view's readPositions), never sprinkled around.
+// A person's Wikidata QID, branded so it can't be swapped for a JunctionId (a
+// couple-midpoint node's synthetic id) as a key into the layout's PersonId-keyed
+// coordinate maps. The brand is applied once at the layout boundary
+// (buildFamilyGraph / the view's readPositions), never sprinkled around.
 export type PersonId = string & { readonly __brand: "PersonId" };
 export type JunctionId = string & { readonly __brand: "JunctionId" };
 
@@ -38,11 +37,10 @@ export type GraphNode = {
   sex?: Sex;
   wikipediaTitle?: string;
   // Distinct people this person is directly related to in the DB, independent of
-  // how much of the graph is drawn — the ego view shows it as a badge so a hidden
-  // hub reads even when only a few edges are on screen. Two counts so the badge can
-  // follow the adoption toggle: `degree` is blood + marriage only, matching the
-  // blood view; `degreeWithAdoptions` also counts adoptive ties. Only the neighbors
-  // API populates them.
+  // how much of the graph is drawn — shown as an ego-view badge so a hidden hub
+  // reads even with few edges on screen. Two counts so the badge follows the
+  // adoption toggle: `degree` is blood + marriage only; `degreeWithAdoptions` also
+  // counts adoptive ties. Only the neighbors API populates them.
   degree?: number;
   degreeWithAdoptions?: number;
 };
@@ -62,9 +60,9 @@ export type Graph = { nodes: GraphNode[]; edges: GraphEdge[] };
 export type SearchResult = Graph & { total: number };
 
 // The sole constructor for a JunctionId — the cytoscape id of the invisible anchor
-// at a couple's midpoint. Single-sourced (it was an exported const, then briefly an
-// inline build in two files) so the live view and the offline dump-layout tool emit
-// byte-identical ids; a drift would silently desync the layout-debug dump.
+// at a couple's midpoint. Single-sourced so the live view and the offline
+// dump-layout tool emit byte-identical ids; a drift would silently desync the
+// layout-debug dump.
 export const JUNCTION_PREFIX = "__junction__";
 export const junctionId = (father: PersonId, mother: PersonId): JunctionId =>
   `${JUNCTION_PREFIX}|${father}|${mother}` as JunctionId;
@@ -85,7 +83,7 @@ const pairKey = (a: string, b: string): string =>
 // The father→child edges a descent junction absorbs: the ego view hides each and
 // draws a junction→child line in its place. Single-sourced so the live view and the
 // offline dump hide the same set — a per-file reimplementation is what let
-// dump-layout drift (see #57).
+// dump-layout drift.
 export const junctionHiddenEdgeIds = (
   junctions: readonly { father: PersonId; children: readonly PersonId[] }[],
 ): Set<string> => {
@@ -122,7 +120,7 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
   // (drawn as a double line), not part of the patrilineal blood-descent reduction,
   // and deliberately don't influence the father/mother/couple logic.
   const adoptive: GraphEdge[] = [];
-  const couple = new Set<string>(); // unordered pairs already linked as spouses
+  const couple = new Set<string>();
   for (const e of graph.edges) {
     if (e.type === "PARENT_OF") {
       const list = parentsOf.get(e.target) ?? [];
@@ -163,10 +161,9 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
 // descent line) but the LAYOUT still needs. Feeding these to dagre (hidden, type
 // "LAYOUT") co-ranks a couple that shares a visible child: the mother is pulled
 // into the father's generation column instead of floating off in her own family's
-// column, and children land one column to the right of BOTH parents. Derived as
-// "every PARENT_OF edge minus the ones patrilinealEdges keeps", so it tracks the
-// reduction rules automatically. Callers that already computed the drawn edges
-// pass them in to avoid reducing the same graph twice.
+// column, and children land one column to the right of BOTH parents. Callers that
+// already computed the drawn edges pass them in to avoid reducing the same graph
+// twice.
 export function layoutOnlyEdges(
   graph: Graph,
   drawnEdges: GraphEdge[] = patrilinealEdges(graph),
@@ -284,7 +281,7 @@ export function withoutAdoptions(graph: Graph, focus: PersonId): Graph {
 
 // Resolved kinship indices for one ego view, built once at the layout boundary so
 // the placement passes read father/spouse/adoptive lookups instead of each
-// re-scanning edges (coLocatedCouples alone used to re-derive them on every call).
+// re-scanning edges.
 //
 // `graph` is the UNREDUCED ego graph; `drawnEdges` is the patrilineal-reduced,
 // sibling-adoption-stripped set the passes actually draw and pack on. The two are
@@ -371,7 +368,6 @@ export function personsToGraph(rows: PersonRow[]): Graph {
   };
 }
 
-// Beside the other row→Graph builders so the route doesn't assemble SearchResult inline.
 export function personsToSearchResult(
   rows: PersonRow[],
   total: number,
@@ -434,7 +430,7 @@ export function neighborsToGraph(rows: NeighborRow[]): Graph {
   return { nodes: [...nodes.values()], edges: [...edges.values()] };
 }
 
-// Accretion merge for the growing ego graph (issue #49): union of two graphs,
+// Accretion merge for the growing ego graph: union of two graphs,
 // deduped by the same keys neighborsToGraph uses — node=qid, edge=source|type|target
 // — so a person or edge returned by several fires collapses to one. `b` wins on key
 // collision, but labels/sex are stable per qid so which wins doesn't matter.

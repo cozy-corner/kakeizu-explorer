@@ -55,9 +55,8 @@ export type FocusPerson = {
 const COL = NODE_SIZE + RANK_SEP;
 const ANIM_MS = 300;
 
-// The node's on-screen label: the name, with the DB degree appended as a badge
-// when known. `label` stays the pure name (article pane / focus callbacks read it);
-// only this display string carries the number.
+// `label` stays the pure name (article pane / focus callbacks read it); only the
+// returned display string appends the DB degree badge, and only when it's known.
 function nodeDisp(label: string, degree: number | undefined): string {
   return degree === undefined ? label : `${label}  ${degree}`;
 }
@@ -69,10 +68,9 @@ export function GraphPane(props: {
   onSelect: (person: FocusPerson) => void;
   onCurrent: (person: FocusPerson) => void;
 }) {
-  // Mounted with a key derived from focus + pathTo (see page.tsx), so each instance
-  // is single-mode: path view (one-shot shortest path) or ego view (accretion). The
-  // two diverged enough — persistent, growing cytoscape vs. rebuilt-per-fetch — that
-  // they're separate components rather than one branchy effect.
+  // Keyed on focus + pathTo (see page.tsx) so each instance is single-mode. Path view
+  // (one-shot) and ego view (accretion) diverged enough — persistent, growing cytoscape
+  // vs. rebuilt-per-fetch — to be separate components rather than one branchy effect.
   return props.pathTo ? (
     <PathPane
       focus={props.focus}
@@ -89,7 +87,7 @@ export function GraphPane(props: {
 }
 
 // ---------------------------------------------------------------------------
-// Path view: unchanged one-shot render of the shortest path between two people.
+// Path view: one-shot render of the shortest path between two people.
 // ---------------------------------------------------------------------------
 function PathPane({
   focus,
@@ -133,8 +131,7 @@ function PathPane({
         data: {
           id: n.qid,
           label: n.label,
-          disp: n.label, // path view shows no degree badge; disp is just the name
-          // Carried so a tap can re-focus with the canonical article title (below).
+          disp: n.label, // path view shows no degree badge
           wikipediaTitle: n.wikipediaTitle,
           sex: n.sex,
           focus: n.qid === focus.qid || n.qid === pathTo.qid ? 1 : 0,
@@ -163,8 +160,7 @@ function PathPane({
   }, [graph, focus.qid, pathTo.qid, onSelect]);
 
   const loading = !graph && !error;
-  // A path request that finds nothing returns an empty graph (vs. a missing-person
-  // 404, which throws above); distinguish it so the user sees a clear message.
+  // An empty graph means no path found (a missing person 404s above instead).
   const noPath = !!graph && graph.nodes.length === 0;
 
   return (
@@ -190,34 +186,34 @@ function PathPane({
 }
 
 // ---------------------------------------------------------------------------
-// Ego view: accretion navigation (issue #49). The anchor (`focus`) is the fixed
-// layout root; firing a node (tap / Enter) fetches its direct neighbours, merges
-// them into a growing graph, and re-runs the existing layout pipeline with the
-// anchor as focusId — animating positions instead of rebuilding, never recentering.
+// Ego view: accretion navigation. The anchor (`focus`) is the fixed layout root;
+// firing a node (tap / Enter) fetches its direct neighbours, merges them into a
+// growing graph, and re-runs the layout pipeline with the anchor as focusId —
+// animating positions instead of rebuilding, never recentering.
 // ---------------------------------------------------------------------------
 
-// Everything the live cytoscape needs to draw one layout state, computed on a
-// throwaway headless cy so the live one's current positions survive for animation.
+// One layout state for the live cytoscape to draw, computed on a throwaway headless
+// cy so the live one's current positions survive for animation.
 type EgoPlan = {
   personIds: string[];
   labels: Map<string, string>;
-  degrees: Map<string, number | undefined>; // person qid → DB total degree, for the badge
-  // ja.wikipedia sitelink per person, so a fired node can open the canonical article.
+  degrees: Map<string, number | undefined>;
+  // ja.wikipedia sitelink, so a fired node can open the canonical article.
   wikipediaTitles: Map<string, string | undefined>;
-  sexes: Map<string, Sex | undefined>; // person qid → sex, for the node's shape/colour
-  positions: Map<string, Pos>; // person + junction id → pixels
-  // Drawn person edges; the ones in `hiddenEdgeIds` are kept but hidden (replaced
-  // by a midpoint junction line), matching the previous renderer.
+  sexes: Map<string, Sex | undefined>;
+  positions: Map<string, Pos>;
+  // Drawn person edges; those in `hiddenEdgeIds` are kept but hidden (replaced by a
+  // midpoint junction line).
   personEdges: { id: string; source: string; target: string; type: string }[];
   hiddenEdgeIds: Set<string>;
   junctions: { id: JunctionId; pos: Pos }[];
   descentEdges: { id: string; source: JunctionId; target: PersonId }[];
-  spouseBows: Map<string, number>; // spouse edge id → bow distance
+  spouseBows: Map<string, number>;
 };
 
-// Deterministic reproduction of the ego layout (mirrors GraphPane's original inline
-// pass and scripts/dump-layout.ts): run dagre + the placement passes on a headless
-// cy, then hand back positions and the draw plan. Pure over (graph, focus).
+// Deterministic reproduction of the ego layout (kept in sync with
+// scripts/dump-layout.ts): run dagre + the placement passes on a headless cy, then
+// hand back positions and the draw plan. Pure over (graph, focus).
 function computeEgoPlan(
   graph: Graph,
   focus: PersonId,
@@ -273,8 +269,8 @@ function computeEgoPlan(
     }
   }
 
-  // Release the throwaway instance: styleEnabled headless cytoscape starts an
-  // animation loop that leaks across the per-fire/per-toggle recomputes otherwise.
+  // Release the throwaway instance: styleEnabled headless cytoscape starts an animation
+  // loop that otherwise leaks across recomputes.
   cy.destroy();
   return {
     personIds: g.nodes.map((n) => n.qid),
@@ -303,9 +299,8 @@ function computeEgoPlan(
   };
 }
 
-// Apply a plan to the live cytoscape: reconcile elements (add new, drop stale),
-// animate existing nodes to their new positions, and sprout new nodes out of
-// `emergeFrom` (the fired node) so a branch reads as growing. No dagre runs here.
+// Sprout new nodes out of `emergeFrom` (the fired node) so a branch reads as growing;
+// reconcile and animate the rest. No dagre runs here.
 function renderEgoPlan(
   cy: Core,
   plan: EgoPlan,
@@ -339,8 +334,8 @@ function renderEgoPlan(
         n.animate({ position: pos }, { duration: ANIM_MS });
       else n.position(pos);
     } else {
-      // Refresh disp so the badge follows the adoption toggle: the same node's
-      // degree differs between the blood and adoption views.
+      // Refresh disp so the badge follows the adoption toggle: a node's degree differs
+      // between the blood and adoption views.
       existing.data("disp", disp);
       if (opts.animate)
         existing
@@ -350,8 +345,8 @@ function renderEgoPlan(
     }
   }
 
-  // Junctions are invisible anchors for the descent lines; snap them (no animation
-  // to a point nobody sees) so the child edges route from the right midpoint.
+  // Junctions are invisible anchors for descent lines; snap them (no animation to a
+  // point nobody sees) so child edges route from the right midpoint.
   for (const j of plan.junctions) {
     const existing = cy.getElementById(j.id);
     if (existing.empty())
@@ -421,9 +416,9 @@ function EgoPane({
     cy.getElementById(cursorRef.current).addClass("cursor");
   }, []);
 
-  // Set up the persistent cytoscape once per anchor, wire input, and auto-fire the
-  // anchor. Deliberately excludes showAdoptions from deps — toggling it re-renders
-  // the accumulated graph (separate effect below) without tearing down accretion.
+  // Set up the persistent cytoscape once per anchor and auto-fire it. Deliberately omits
+  // showAdoptions from deps — toggling it re-renders the accumulated graph (separate
+  // effect below) without tearing down accretion.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -437,12 +432,10 @@ function EgoPane({
     let destroyed = false;
 
     async function fire(id: PersonId) {
-      // Per-fire token (not per-mount): rapid taps/Enters each bump it, so only
-      // the latest-issued fire applies its result below.
       const seq = ++fireSeqRef.current;
       try {
-        // Seed the initial auto-fire with 2 hops for a richer first view; every
-        // later fire adds just the fired person's direct neighbours (1 hop).
+        // Seed the initial auto-fire with 2 hops for a richer first view; later fires
+        // add just the fired person's direct neighbours.
         const firstRender = graphRef.current.nodes.length === 0;
         const hops = firstRender ? 2 : 1;
         const res = await fetch(
@@ -452,8 +445,8 @@ function EgoPane({
         if (!res.ok)
           throw new Error(`グラフの取得に失敗しました (${res.status})`);
         const g = (await res.json()) as Graph;
-        // Superseded by a newer fire (or unmounted): drop this one so a slow
-        // response can't clobber the current node, camera, or render.
+        // Superseded by a newer fire (or unmounted): drop this one so a slow response
+        // can't clobber the current node, camera, or render.
         if (destroyed || seq !== fireSeqRef.current) return;
         graphRef.current = mergeGraph(graphRef.current, g);
         const firedEl = cy.getElementById(id);
@@ -489,8 +482,8 @@ function EgoPane({
       }
     }
 
-    // Returns whether the cursor actually moved; the caller expands (fires) the
-    // current node when there is nothing further in that direction (an edge node).
+    // Returns whether the cursor moved; the caller fires (expands) the current node
+    // when nothing lies further in that direction.
     function moveCursor(dir: "h" | "j" | "k" | "l"): boolean {
       const cur = cy.getElementById(cursorRef.current);
       if (cur.empty()) return false;
@@ -528,7 +521,7 @@ function EgoPane({
 
     function onKey(e: KeyboardEvent) {
       // App-level shortcut on window (not the container) so it works regardless of
-      // where focus landed — but never while the user is typing in the search box.
+      // where focus landed — but not while the user is typing in a form control.
       const t = e.target;
       if (
         t instanceof HTMLElement &&
@@ -540,8 +533,6 @@ function EgoPane({
       ) {
         return;
       }
-      // At an edge (no node further in this direction) the move fails, so expand
-      // the current node instead — walking into the void grows the tree.
       switch (e.key) {
         case "h":
         case "ArrowLeft":
@@ -564,7 +555,7 @@ function EgoPane({
           if (!moveCursor("k")) fire(cursorRef.current);
           break;
         case "Enter":
-        case " ": // Space fires, same as Enter
+        case " ":
           e.preventDefault();
           fire(cursorRef.current);
           break;

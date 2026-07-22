@@ -1,4 +1,4 @@
-// Diagnostic (issue #16): the saved raw graph is already fully traversed, so a
+// Diagnostic: the saved raw graph is already fully traversed, so a
 // re-run discovers 0 new nodes and only exercises the edge-loop. To find the
 // Amdahl fraction anyway, measure the per-batch UNIT cost of each WDQS stage on
 // real QIDs — cold (WDQS_NOCACHE=1) — then combine with expected batch counts.

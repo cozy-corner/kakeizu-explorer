@@ -1,18 +1,15 @@
 import { pushInto, type FamilyGraph, type PersonId } from "./graph";
 
-// Plain-data view of cytoscape's "graph + coordinates": placement rules operate
-// on these instead of touching the renderer, so they're unit-testable. The view
-// reads dagre's output into a Positions map, runs these, and writes back. Keyed by
-// PersonId: every node placed here is a real person, never a junction.
+// Plain-data view of cytoscape's "graph + coordinates" so the placement rules run
+// off the renderer and stay unit-testable. Keyed by PersonId: every node here is a
+// real person, never a junction.
 export type Pos = { x: number; y: number };
 export type Positions = Map<PersonId, Pos>; // insertion order mirrors cy.nodes()
 
-// Structural coordinate the placement passes actually work in. `col` is the
-// generation column (dagre's rank, keyed by round(x) — uniform within a rank);
-// `order` is the row index y/row, a real number so dagre's gaps, a tucked spouse
-// (+1) and a couple midpoint (x.5) are all expressed without pixel arithmetic.
-// readPlacement projects pixels in; project sends them back out. Keeping the rules
-// in this space drops `row` from every pass and centralises the round(x).
+// Structural coordinate the placement passes work in. `col` is the generation
+// column (dagre's rank, keyed by round(x) — uniform within a rank); `order` is the
+// row index y/row, a real number so dagre's gaps, a tucked spouse (+1) and a couple
+// midpoint (x.5) are all expressed without pixel arithmetic.
 export type Placement = { col: number; order: number };
 export type Placements = Map<PersonId, Placement>;
 
@@ -28,17 +25,16 @@ export function readPlacement(
   const colX = new Map<number, number>();
   for (const [id, p] of pos) {
     const col = Math.round(p.x);
-    if (!colX.has(col)) colX.set(col, p.x); // x is uniform within a column
+    if (!colX.has(col)) colX.set(col, p.x);
     placements.set(id, { col, order: p.y / row });
   }
   return { placements, colX };
 }
 
 // Structural → pixel: x from the column's captured value, y back to order×row.
-// Every col a pass emits is copied from a placement readPlacement seeded, so it's
-// always a colX key. Throw on a miss rather than emitting an x: a TS `!` is erased
-// at runtime and would yield x: undefined; falling back to pl.col would project the
-// bucket index as a pixel — both hide a column-bookkeeping bug as a far-left ghost.
+// Throw on a miss rather than emitting an x: a TS `!` is erased at runtime and
+// would yield x: undefined; falling back to pl.col would project the bucket index
+// as a pixel — both hide a column-bookkeeping bug as a far-left ghost.
 export function projectOne(
   pl: Placement,
   colX: Map<number, number>,
@@ -71,13 +67,8 @@ function clonePlacements(p: Placements): Placements {
   );
 }
 
-// Resolve who tucks beside whom, as host → its directly-attached spouse ids:
-// a married-in spouse rides beside the in-tree partner it married (preferring the
-// focus when it married more than one in-tree relative), and the focus's own
-// spouse rides beside the focus even when that spouse heads their own blood line.
-// Transitive co-spouses are reached by walking the map (a tucked spouse may host
-// its own). Depends only on edges, the present node set, and the focus column —
-// not on order — so it's stable however the tidy layout stacks the column.
+// Reads only edges + the focus column, never order — so it's stable however the
+// tidy pass later stacks the column.
 function tuckHosts(
   place: Placements,
   fam: FamilyGraph,
@@ -99,13 +90,11 @@ function tuckHosts(
     pushInto(attached, host, id);
   }
 
-  // The focus's own spouse should sit beside them, but a spouse who heads their
-  // own blood line is not married-in, so the loop above skipped them. Attach each
-  // such focus-spouse to the focus so the walk tucks them in. Only same-column
-  // spouses: one in another column has no shared child co-ranking them beside the
-  // focus, and a blood parent/child of the focus is always in an adjacent column
-  // anyway (LR layout), so the check also keeps us from pulling blood kin out of
-  // their block.
+  // The focus's own spouse who heads their own blood line isn't married-in, so the
+  // loop above skipped them; attach them here. Restrict to same-column spouses: the
+  // guard keeps us from pulling blood kin out of their block, since blood
+  // parent/child sit in an adjacent column (LR layout) and an off-column spouse has
+  // no shared child to co-rank it beside the focus.
   const focus = place.get(focusId);
   if (focus && !fam.isMarriedIn(focusId)) {
     for (const sp of fam.spouseOf.get(focusId) ?? []) {
@@ -118,8 +107,7 @@ function tuckHosts(
   return attached;
 }
 
-// Flatten a host's tuck chain in DFS pre-order, host first: a tucked-in spouse
-// may itself host co-spouses, so this walks the whole `attached` subtree.
+// A tucked spouse may itself host co-spouses, so walk the whole `attached` subtree.
 function tuckChain(
   attached: Map<PersonId, PersonId[]>,
   root: PersonId,
@@ -147,12 +135,11 @@ type Subtree = {
   bottom: Map<number, number>;
 };
 
-// Stack sibling subtrees top-to-bottom, each shifted just enough to clear the
-// running contour of the ones above by one row in every shared column. Direct
-// siblings always share their own column (children of one parent sit one column
-// right of it), so that column pins the ordering; deeper generations extend the
-// contour rightward and keep cousin subtrees from overlapping. Returns each
-// subtree's shifted node row plus the merged order map and contour.
+// Stack sibling subtrees top-to-bottom, each shifted to clear the running contour
+// of the ones above by one row in every shared column. Direct siblings share their
+// own column (children sit one column right of their parent), so that column pins
+// the ordering; deeper generations extend the contour rightward, keeping cousin
+// subtrees from overlapping.
 function stackSubtrees(subs: Subtree[]): {
   rows: number[];
   order: Map<PersonId, number>;
@@ -164,9 +151,6 @@ function stackSubtrees(subs: Subtree[]): {
   const bottom = new Map<number, number>();
   const rows: number[] = [];
   for (const sub of subs) {
-    // Clear the running contour by one row in every shared column; an unshared
-    // column contributes -Infinity so it never binds, and the 0 floor keeps a
-    // subtree from sliding up.
     const shift = Math.max(
       0,
       ...[...sub.top].map(([col, t]) => {
@@ -201,10 +185,9 @@ function orderDescentForest(
   const attached = tuckHosts(place, fam, focusId);
   const tucked = new Set<PersonId>([...attached.values()].flat());
 
-  // child → the one parent that owns its tree position; the first present parent
-  // (blood before adoptive) wins, any others are cross-links the layout ignores. A
-  // tucked spouse isn't placed as its own blood parent's child — the couple it
-  // rides in owns its row, so that ancestor edge stays a cross-link.
+  // child → the one parent that owns its tree position: first present parent wins
+  // (blood before adoptive), others are cross-links. A tucked spouse isn't filed as
+  // its blood parent's child — the couple it rides in owns its row.
   const inputOrder = new Map(
     [...place.keys()].map((id, i) => [id, i] as const),
   );
@@ -225,8 +208,7 @@ function orderDescentForest(
   const laidOut = new Set<PersonId>();
   const layout = (node: PersonId): Subtree => {
     // Guard against a malformed ancestry cycle in the drawn edges (Wikidata can
-    // record a person as their own ancestor): revisiting a node would recurse
-    // forever. A node is legitimately laid out once, so a repeat means a cycle.
+    // record a person as their own ancestor): revisiting a node would recurse forever.
     if (laidOut.has(node))
       return { row: 0, order: new Map(), top: new Map(), bottom: new Map() };
     laidOut.add(node);
@@ -234,10 +216,10 @@ function orderDescentForest(
     const couple = tuckChain(attached, node); // [node, ...tucked spouses]
     const spouses = couple.slice(1);
     const k = spouses.length;
-    // A couple's children hang from ALL its members: a spouse who married in but
-    // heads their own line (drawn as the father of the couple's child) contributes
-    // that child, so the whole couple centers on it instead of the spouse drifting
-    // off to head a separate subtree. Merge across members back into reading order.
+    // A couple's children hang from ALL its members: a married-in spouse who heads
+    // their own line (drawn as father of the couple's child) contributes that child,
+    // so the whole couple centers on it instead of the spouse drifting off to head a
+    // separate subtree.
     const kids = couple
       .flatMap((m) => childrenOf.get(m) ?? [])
       .sort((a, b) => inputOrder.get(a)! - inputOrder.get(b)!);
@@ -260,7 +242,7 @@ function orderDescentForest(
     order.set(node, row);
     spouses.forEach((s, idx) => {
       order.set(s, row + 1 + idx);
-      coupleCol.set(s, col); // a tucked spouse joins its host's column
+      coupleCol.set(s, col);
     });
     // The node's own column sits one generation left of every child, so it's never
     // already in the child-derived contour — set it outright.
@@ -269,21 +251,19 @@ function orderDescentForest(
     return { row, order, top, bottom };
   };
 
-  // Every node that isn't someone's tree-child and isn't a tucked spouse roots its
-  // own subtree — including a childless loner, an off-host married-in spouse, or a
-  // disputed second father whose child the layout filed under the first. Rooting
-  // them all keeps the whole graph in one normalized order frame, so nothing is
-  // left stranded at a stale dagre row where it could overlap a tidy-placed node.
+  // Every non-child, non-tucked node roots its own subtree (a childless loner, an
+  // off-host married-in spouse, a disputed second father whose child was filed under
+  // the first) — so the whole graph lands in one normalized frame instead of
+  // stranding some at a stale dagre row that could overlap a tidy-placed node.
   const ordered = [...place.keys()].sort(
     (a, b) => inputOrder.get(a)! - inputOrder.get(b)!,
   );
   const rootSubs = ordered
     .filter((n) => !tucked.has(n) && !placedAsChild.has(n))
     .map(layout);
-  // A closed ancestry cycle (every member is placedAsChild, so none is a root)
-  // is unreached by the pass above; lay out each still-unplaced node as its own
-  // root so it too lands in the normalized frame instead of keeping stale dagre
-  // coordinates. `laidOut` skips cycle members already covered by an earlier entry.
+  // A closed ancestry cycle has no root (every member is placedAsChild), so the
+  // pass above misses it; lay out each still-unplaced node as its own root so it
+  // lands in the normalized frame instead of keeping stale dagre coordinates.
   const cycleSubs = ordered
     .filter((n) => !tucked.has(n) && !laidOut.has(n))
     .map(layout);
@@ -301,7 +281,7 @@ function orderDescentForest(
 // Partition the placed nodes into the rigid blocks that must move together when a
 // floating line is pulled: the drawn descent forest (blood + adoptive parent edges)
 // unioned with tuck links, so a married-in spouse rides in the same block as the host
-// it tucks beside. Returns each node mapped to its block's representative.
+// it tucks beside.
 function descentComponents(
   place: Placements,
   fam: FamilyGraph,
@@ -379,7 +359,7 @@ function pullFloatingComponents(
   if (!place.has(focusId)) return place; // no anchor tree to pull toward
 
   const componentOf = descentComponents(place, fam, focusId);
-  const focusComponent = componentOf.get(focusId); // the anchor tree; never moves
+  const focusComponent = componentOf.get(focusId); // the anchor tree
 
   // Every component's shift and off-grid gate read this frozen column per node, not the
   // live `place` a prior slide mutated — so a chain of non-focus components (B married
@@ -479,9 +459,8 @@ const BLOCK_X_RADIUS = 24; // a node within this of the mid-x sits on the line
 // own co-spouses is fine, so co-spouses don't count as in the way. The bow's sign
 // follows source→target so it always bends left, clear of the right-hand labels.
 //
-// Runs on projected pixels (post-project), not placements: the block test is a
-// pixel proximity check (BLOCK_X_RADIUS in px, the mid-x between two columns), so
-// it stays in pixel space and needs no row.
+// Runs on projected pixels, not placements: the block test is a pixel proximity
+// check (BLOCK_X_RADIUS px, the mid-x between two columns), so no row is needed.
 //
 // Returns the couple (source, target) and the bow, not a cytoscape edge id: building
 // the `source|SPOUSE_OF|target` address is the view's job, so lib/layout never holds
@@ -517,22 +496,19 @@ export function spouseRouting(
   });
 }
 
-// An invisible anchor placed at the midpoint of a couple so the descent line
-// sprouts from between the parents (the genealogy T-join) instead of from the
-// father alone. The view projects `pos` to pixels, adds a node there, draws
-// junction→child edges, and hides the original father→child edges. The cytoscape
-// ids (the junction's own JunctionId, the hidden `father|PARENT_OF|child` keys) are
-// the view's to build from these fields — lib/layout stays free of concat keys.
+// An invisible anchor at a couple's midpoint so the descent line sprouts from
+// between the parents (the genealogy T-join) instead of from the father alone. The
+// cytoscape ids (the junction's JunctionId, the hidden `father|PARENT_OF|child`
+// keys) are the view's to build from these fields — lib/layout stays free of concat
+// keys.
 export type DescentJunction = {
   father: PersonId;
   mother: PersonId;
   pos: Placement;
-  children: PersonId[]; // child ids to connect from the junction
+  children: PersonId[];
 };
 
-// A co-located couple and the drawn children that hang from their midpoint. The
-// shared resolution behind both the rendered junction and the only-child centering
-// nudge, so the two always agree on which couples qualify.
+// A co-located couple and the drawn children that hang from their midpoint.
 type CoupleGroup = {
   father: PersonId;
   mother: PersonId;
@@ -540,15 +516,13 @@ type CoupleGroup = {
   mid: Placement;
 };
 
-// For each drawn father→child line whose child also has exactly one in-view
-// mother sharing the father's column, group the children under their parents'
-// midpoint. `fam.trueParentsOf` is the UNREDUCED parentage so a mother dropped by
-// the patrilineal view is still recoverable; `fam.fatherOf` is the reduced set so
-// this covers only lines actually drawn. Skipped (father→child left alone) when
-// parentage is
-// ambiguous — a child with more than one drawn father, or none or several in-view
-// mothers, or parents not sharing a column — so an uncertain couple never invents
-// a false midpoint.
+// For each drawn father→child line whose child has exactly one in-view mother in
+// the father's column, group the children under their parents' midpoint.
+// `fam.trueParentsOf` is the UNREDUCED parentage so a mother dropped by the
+// patrilineal view is still recoverable; `fam.fatherOf` is the reduced set so this
+// covers only lines actually drawn. Skipped when parentage is ambiguous — more than
+// one drawn father, none or several in-view mothers, or parents not sharing a column
+// — so an uncertain couple never invents a false midpoint.
 //
 // Polygamy falls back to father-origin too: a father with two or more distinct
 // in-view mothers is dropped. The midpoint convention (descent out of the gap
@@ -570,10 +544,7 @@ function coLocatedCouples(
   const parentsOf = fam.trueParentsOf;
   const drawnFathersOf = fam.fatherOf;
 
-  // Resolve each drawn father→child line to its co-located couple, when parentage
-  // is unambiguous: exactly one drawn father, exactly one in-view mother, both in
-  // the same column. `mid`/`gap` are captured now so the gating below needs no
-  // further placement lookups.
+  // Capture `mid`/`gap` now so the gating below needs no further placement lookups.
   type Candidate = {
     father: PersonId;
     mother: PersonId;
@@ -582,8 +553,6 @@ function coLocatedCouples(
     gap: number;
   };
   const candidates: Candidate[] = [];
-  // Iterate drawn father→child pairs grouped by child (patrilinealEdges already
-  // emits them child-grouped, so this matches the old per-edge order).
   for (const [child, fathers] of drawnFathersOf) {
     if (fathers.length !== 1) continue;
     const father = fathers[0];
@@ -594,7 +563,7 @@ function coLocatedCouples(
     );
     if (mothers.length !== 1) continue;
     const mp = placements.get(mothers[0])!;
-    if (mp.col !== fp.col) continue; // not a co-located couple
+    if (mp.col !== fp.col) continue;
     candidates.push({
       father,
       mother: mothers[0],
@@ -617,7 +586,7 @@ function coLocatedCouples(
   const byCouple = new Map<string, CoupleGroup>();
   for (const c of candidates) {
     if (polygamous.has(c.father)) continue;
-    if (c.gap > 1.5) continue; // not an adjacent pair
+    if (c.gap > 1.5) continue;
     const key = `${c.father}|${c.mother}`;
     const group = byCouple.get(key) ?? {
       father: c.father,

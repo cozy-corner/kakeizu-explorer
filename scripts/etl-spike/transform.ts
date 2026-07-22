@@ -1,8 +1,5 @@
-// T stage (issue #44): pure-local transform, ZERO WDQS. Reads the raw-*.json the
-// extract stage captured and emits the load inputs (nodes.json / parent_of.json /
-// spouse_of.json / sibling_of.json / adopted_of.json). Replaces the former
-// filter-foreign.ts (foreign pruning) and fetch-adoptions.ts (adoptive split),
-// which each re-queried Wikidata; the same logic now runs over raw attributes.
+// T stage: pure-local transform, ZERO WDQS. Reads the extract stage's raw-*.json and
+// emits the load inputs (nodes / parent_of / spouse_of / sibling_of / adopted_of).
 //
 // Run (after fetch.ts + traverse.ts): bun run scripts/etl-spike/transform.ts
 //                                     (then load.ts)
@@ -32,11 +29,9 @@ async function main() {
   const sibling = await readRaw<RawPair[]>(RAW_SIBLING);
   const adoptions = await readRaw<RawAdoptiveEdge[]>(RAW_ADOPTIONS);
 
-  // Foreign pruning (broad rule): a node is foreign — and removed — iff it has a
-  // nationality (P27) but none of its citizenships is Japanese, where Japanese =
-  // P27 ∋ Q17 OR one of its P27's countries (P27→P17) is Q17. Untagged bridge
-  // relatives (no P27) and dual nationals (Japan + other) are kept. Birthplace is
-  // deliberately unused. Same rule as the former filter-foreign.ts, now local.
+  // Foreign = has a P27 nationality but none is Japanese (P27 ∋ Q17, or a P27 country
+  // via P27→P17 is Q17). No-P27 bridge relatives and Japan+other dual nationals are
+  // kept; birthplace is deliberately unused.
   const isJapanese = (n: RawNode) =>
     n.nationalities.includes(JAPAN) || n.nationalityCountries.includes(JAPAN);
   const isForeign = (n: RawNode) =>
@@ -48,24 +43,19 @@ async function main() {
 
   const keptSpouse = spouse.filter((e) => keep2(e.a, e.b));
   const keptSibling = sibling.filter((e) => keep2(e.a, e.b));
-  // Adoptive relations restricted to in-graph nodes (matches fetch-adoptions.ts's
-  // known.has(o) guard).
+  // Restricted to in-graph nodes (parity with fetch-adoptions.ts's known.has(o) guard).
   const keptAdoptions = adoptions.filter((e) => keep2(e.from, e.to));
 
-  // Drop deprecated parent edges (issue #43): Wikidata records a parent link as
-  // two unsynced statements (child-side P22/P25, parent-side P40); truthy keeps
-  // the edge if EITHER side's best rank is non-deprecated, so a normal
-  // parent-side P40 leaks a father the child side deprecated as wrong (disputed
-  // parentage / rumored-illegitimate-child claims). Exclude the pair when either
-  // side's rank is deprecated. undefined != deprecated (a missing statement
-  // didn't deprecate anything), so those stay.
+  // Wikidata records a parent link as two unsynced statements (child-side P22/P25,
+  // parent-side P40); a truthy query keeps the edge if EITHER side's best rank is
+  // non-deprecated, so a parent-side P40 can leak a father the child side deprecated
+  // as wrong (disputed parentage / rumored-illegitimate-child). Drop the pair when
+  // either side's rank is deprecated.
   const isDeprecatedParent = (e: RawParentEdge) =>
     e.childSideRank === "deprecated" || e.parentSideRank === "deprecated";
 
-  // Adoptive split (consistent orientation): every adoptive parent→child edge is
-  // an ADOPTIVE_PARENT_OF and is removed from the biological PARENT_OF spine —
-  // both fetch- and traverse-discovered alike (see PR notes: this drops the old
-  // asymmetry where traverse-found adoptions leaked into the spine).
+  // Adoptive edges (however discovered — fetch- or traverse-found) are split out of
+  // the biological PARENT_OF spine and kept only as ADOPTIVE_PARENT_OF.
   const adoptiveKeys = new Set(keptAdoptions.map((e) => `${e.from}->${e.to}`));
   const spine = parent.filter(
     (e) =>
@@ -91,9 +81,9 @@ async function main() {
   await out("adopted_of.json", keptAdoptions);
 
   const foreign = nodes.length - keptNodes.length;
-  // Mirror the spine gate so this counts only edges dropped FOR deprecation, not
-  // ones the adoptive split already removed (kept exact even though the two sets
-  // don't overlap in practice: an adoptive key implies a non-deprecated statement).
+  // Mirror the spine gate so this counts only deprecation-drops, not adoptive
+  // removals — exact even though in practice the two never overlap (an adoptive key
+  // implies a non-deprecated statement).
   const deprecated = parent.filter(
     (e) =>
       keep2(e.from, e.to) &&

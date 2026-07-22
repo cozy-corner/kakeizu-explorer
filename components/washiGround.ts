@@ -1,11 +1,9 @@
 import type { CSSProperties } from "react";
 
-// Paper-fibre texture over the 生成り ground so it reads as unbleached paper,
-// not a flat fill. Grayscale fractal noise at low opacity, kept subtle enough
-// not to compete with the graph. Defined here (TS) rather than as a class in
-// globals.css because Turbopack doesn't hot-reload the CSS entry in dev, so
-// tuning it there needs a server restart; a TS constant hot-reloads. Shared by
-// the body ground (layout) and the graph canvas (GraphPane).
+// Paper-fibre texture over the 生成り ground, kept subtle so it doesn't compete
+// with the graph. Defined in TS, not a globals.css class, because Turbopack
+// doesn't hot-reload the CSS entry in dev (a TS constant does).
+// Shared by the body ground (layout) and the graph canvas (GraphPane).
 export const washiGround: CSSProperties = {
   backgroundColor: "var(--color-washi)",
   backgroundImage:

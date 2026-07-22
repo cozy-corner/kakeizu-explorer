@@ -3,7 +3,7 @@ import { runQuery, serviceUnavailable } from "@/lib/api";
 import { pathToGraph, type PathRow } from "@/lib/graph";
 
 // Reads the query string and hits the DB at request time, so opt out of static
-// optimization (build-time execution).
+// optimization.
 export const dynamic = "force-dynamic";
 
 // shortestPath is native Cypher (no GDS plugin). The hop cap bounds the search;

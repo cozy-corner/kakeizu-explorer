@@ -32,8 +32,7 @@ const obj = (m: Positions) => Object.fromEntries(m);
 const pos = (entries: [string, [number, number]][]): Positions =>
   new Map(entries.map(([id, [x, y]]) => [pid(id), { x, y }]));
 
-// The passes now work in {col, order} space. These wrappers keep the assertions in
-// pixels: read dagre's pixel input into a placement, run the pass, project back.
+// The passes work in {col, order} space; these wrappers keep the assertions in pixels.
 const place = (input: Positions, f: FamilyGraph, focus: string): Positions => {
   const { placements, colX } = readPlacement(input, ROW);
   return project(placeNodes(placements, f, pid(focus)), colX, ROW);
@@ -49,7 +48,7 @@ const junctions = (f: FamilyGraph, input: Positions) => {
   }));
 };
 
-// The passes now take a resolved FamilyGraph. For pack/route cases only the drawn
+// The passes take a resolved FamilyGraph. For pack/route cases only the drawn
 // edges matter (sex/true-parentage go unused); couple cases also pass the unreduced
 // graph so trueParentsOf can recover a dropped mother.
 const fam = (drawn: GraphEdge[], g: Graph = { nodes: [], edges: [] }) =>
@@ -78,8 +77,8 @@ test("isMarriedIn: an adopted child is not married-in (adoptive parent places it
 });
 
 test("placeNodes: a parent centers on its children, packed one row apart", () => {
-  // F parents A and B. The tidy layout ignores dagre's row gap and packs the
-  // siblings one ROW apart, then centers F on their midpoint — not on dagre's y.
+  // The tidy layout discards dagre's row gap: siblings pack one ROW apart and F
+  // centers on their midpoint, not on dagre's y.
   const edges: GraphEdge[] = [
     { source: "F", target: "A", type: "PARENT_OF" },
     { source: "F", target: "B", type: "PARENT_OF" },
@@ -98,9 +97,8 @@ test("placeNodes: a parent centers on its children, packed one row apart", () =>
 });
 
 test("placeNodes: a married-in spouse joins the host's column, and their child centers on the couple", () => {
-  // W married F but dagre left her in her own column (x=200); she has no parent
-  // edge, so she tucks one ROW below F in F's column. Their lone child C then
-  // sits on the couple's midpoint (half a row below F), so its descent is straight.
+  // W has no parent edge, so she tucks one ROW below F in F's column; their lone
+  // child C then sits on the couple's midpoint, so its descent is straight.
   const edges: GraphEdge[] = [
     { source: "F", target: "C", type: "PARENT_OF" },
     { source: "F", target: "W", type: "SPOUSE_OF" },
@@ -134,8 +132,6 @@ test("placeNodes: a spouse married to two in-tree relatives tucks beside the foc
     ["W", [0, 200]],
   ]);
 
-  // W ends one ROW below F2 (92), proving the focus won the host tie; C2 sits on
-  // the F2+W midpoint (69).
   expect(obj(place(input, fam(edges), "F2"))).toEqual({
     F1: { x: 0, y: 0 },
     C1: { x: 100, y: 0 },
@@ -147,7 +143,7 @@ test("placeNodes: a spouse married to two in-tree relatives tucks beside the foc
 
 test("placeNodes: the focus's own spouse who heads a blood line is tucked beside the focus", () => {
   // FO and S are spouses, both with their own descent (not married-in), in the
-  // same column. The focus-spouse rule tucks S right below FO (46); FO's siblings
+  // same column. The focus-spouse rule tucks S right below FO; FO's siblings
   // X, Y then pack below the couple, and PA centers on the FO..Y span.
   const edges: GraphEdge[] = [
     { source: "PA", target: "FO", type: "PARENT_OF" },
@@ -201,9 +197,9 @@ test("placeNodes: a reverse-direction SPOUSE_OF tucks the focus-spouse once, not
 });
 
 test("placeNodes: an adoptive parent of the focus drops below the sibling cluster", () => {
-  // AP enters in the parent column on FO's row (overlapping the blood father PA).
-  // It is moved below FO's tidy column cluster (FO=0, sibling X=46), landing at 92,
-  // still in the parent column so its arrow keeps pointing right.
+  // AP enters in the parent column on FO's row (overlapping the blood father PA),
+  // then moves below FO's tidy column cluster — still in the parent column, so its
+  // arrow keeps pointing right.
   const edges: GraphEdge[] = [
     { source: "PA", target: "FO", type: "PARENT_OF" },
     { source: "PA", target: "X", type: "PARENT_OF" },
@@ -225,8 +221,8 @@ test("placeNodes: an adoptive parent of the focus drops below the sibling cluste
 });
 
 test("placeNodes: multiple adoptive parents are stacked one ROW apart below the cluster", () => {
-  // AP1, AP2 both enter on FO's row in the parent column; both drop below FO's tidy
-  // column cluster (FO=0, sib=46) and stack in edge order: 92, then 138.
+  // AP1, AP2 both enter on FO's row in the parent column, then drop below FO's tidy
+  // column cluster and stack in edge order.
   const edges: GraphEdge[] = [
     { source: "PA", target: "FO", type: "PARENT_OF" },
     { source: "PA", target: "sib", type: "PARENT_OF" },
@@ -370,7 +366,6 @@ test("spouseRouting: a co-spouse between the partners does not block", () => {
 });
 
 test("spouseRouting: the bow sign follows the source→target vertical direction", () => {
-  // Source below target: the bow flips negative.
   const edges: GraphEdge[] = [{ source: "S", target: "T", type: "SPOUSE_OF" }];
   const input = pos([
     ["S", [0, 200]],
@@ -691,8 +686,8 @@ test("descentJunctions: parents in different columns are not treated as a couple
 test("placeNodes: the focus's blood-line spouse rides along, keeping their child centered", () => {
   // Couple F+M's only child is the focus FO. FO's spouse S heads her own blood
   // line (not married-in), yet the focus-spouse rule tucks her into FO's couple
-  // block, so FO stays centered on the F+M midpoint (23) and S rides one ROW below
-  // it (69). S's own father PS is a cross-link, rooting its own (childless) subtree.
+  // block, so FO stays centered on the F+M midpoint and S rides one ROW below it.
+  // S's own father PS is a cross-link, rooting its own (childless) subtree.
   const drawn: GraphEdge[] = [
     { source: "F", target: "FO", type: "PARENT_OF" },
     { source: "F", target: "M", type: "SPOUSE_OF" },

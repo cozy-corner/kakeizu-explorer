@@ -1,10 +1,6 @@
-// Shared E-stage sweeps (issue #44). Every attribute we persist is fetched here,
-// so fetch.ts and traverse.ts fill raw-*.json the same way as they discover
-// nodes/edges. This folds three former per-stage re-queries of the same nodes
-// (label inline in fetch.ts, P21 in add-sex.ts, P27 in traverse.ts+filter-foreign.ts)
-// into one node sweep, and the two former reified parent passes (fetch.ts's
-// EXCLUDE_ADOPTIVE + fetch-adoptions.ts) into one edge sweep. It only fetches;
-// deciding which edges exist stays with the callers' truthy queries.
+// Shared E-stage sweeps: every persisted attribute is fetched here, in one node
+// sweep and one edge sweep. It only fetches; deciding which edges exist stays
+// with the callers' truthy queries.
 
 import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
 import { chunk, qid, sparql, sparqlValues } from "./wdqs";
@@ -37,12 +33,10 @@ const pushUniq = (arr: string[], v: string) => {
 };
 
 // label (ja,en) + sex (P21) + nationalities (P27) + nationality countries
-// (P27→P17) + ja.wikipedia title (sitelink schema:name) for a set of qids. Same
-// values the old separate stages fetched, now captured once. Nodes with no label
-// fall back to their qid (matches the old `label ?? id` / `l || q`); nodes with
-// no P27 get empty arrays (kept as bridge relatives by foreign-pruning, which
-// only removes nodes that HAVE a nationality); nodes with no ja.wikipedia article
-// get no wikipediaTitle (the article pane falls back to label).
+// (P27→P17) + ja.wikipedia title (sitelink schema:name) for a set of qids.
+// Nodes with no label fall back to their qid; nodes with no P27 get empty arrays
+// (kept as bridge relatives by foreign-pruning, which only removes nodes that
+// HAVE a nationality); nodes with no ja.wikipedia article get no wikipediaTitle.
 export async function fetchNodeAttrs(
   qids: string[],
 ): Promise<Map<string, RawNode>> {
@@ -56,10 +50,8 @@ export async function fetchNodeAttrs(
     }
     return n;
   };
-  // The 5 per-batch queries are independent and distinct batches touch disjoint
-  // qids, so fetch concurrently (issue #16). Rows are still folded in the fixed
-  // order below, so the "first wins" merges (sex, wikipediaTitle) stay
-  // deterministic regardless of completion order.
+  // Rows are folded in the fixed order below so the "first wins" merges (sex,
+  // wikipediaTitle) stay deterministic regardless of completion order.
   await Promise.all(
     chunk(qids, NODE_BATCH).map(async (b) => {
       const values = sparqlValues(b);
@@ -93,7 +85,6 @@ export async function fetchNodeAttrs(
       }
       for (const r of sexes) {
         const n = ensure(r.item!.value);
-        // First P21 wins; non male/female (intersex, trans, …) → "other".
         if (n.sex === undefined) n.sex = SEX_QID[qid(r.sex!.value)] ?? "other";
       }
       for (const r of nats) {
@@ -102,7 +93,6 @@ export async function fetchNodeAttrs(
       for (const r of countries) {
         pushUniq(ensure(r.item!.value).nationalityCountries, qid(r.c!.value));
       }
-      // First title wins.
       for (const r of titles) {
         const n = ensure(r.item!.value);
         if (n.wikipediaTitle === undefined) n.wikipediaTitle = r.title!.value;
@@ -127,14 +117,13 @@ interface ParentStatement {
 // Reified P22/P25/P40 statements for the given subjects, in ONE pass carrying
 // rank + P1039 + P1480. `wikibase:rank` sits INSIDE each UNION branch so ?st is
 // bound to the subject's statement, not scanned across all statements (an
-// unbound ?st 504s — see memory wdqs-rank-inside-union). This replaces both the
-// EXCLUDE_ADOPTIVE subquery and fetch-adoptions.ts's separate reified fetch.
+// unbound ?st 504s).
 async function fetchParentStatements(
   subjects: string[],
 ): Promise<ParentStatement[]> {
   const byStatement = new Map<string, ParentStatement>();
-  // Disjoint subjects → disjoint statements, so fetch concurrently (issue #16)
-  // but fold in batch order to keep byStatement deterministic.
+  // Fold in batch order to keep byStatement deterministic regardless of
+  // completion order.
   const rowsByBatch = await Promise.all(
     chunk(subjects, EDGE_BATCH).map((b) =>
       sparql(`
@@ -190,22 +179,19 @@ function adoptiveKey(subj: string, obj: string, role: string): string | null {
   return from === to ? null : `${from}->${to}`;
 }
 
-// Split truthy parent→child edges into biological + adoptive, and annotate the
-// biological ones — all from ONE reified P22/P25/P40 sweep (issue #44: extract
-// each statement once, don't re-query the same reified form). Adoption recorded
-// via P1038 (generic "relative") can't come from parent statements, so it's the
-// lone extra sweep. Replaces the former annotateParentEdges + fetchAdoptiveEdges,
-// which swept P22/P25/P40 reified twice.
+// Split truthy parent→child edges into biological + adoptive and annotate the
+// biological ones, all from ONE reified P22/P25/P40 sweep. Adoption recorded via
+// P1038 (generic "relative") can't come from parent statements, so it's the lone
+// extra sweep.
 export async function fetchParentAndAdoptions(
   subjects: string[],
   truthyEdges: { from: string; to: string }[],
 ): Promise<{ parent: RawParentEdge[]; adoptions: RawAdoptiveEdge[] }> {
-  // The reified parent sweep and the P1038 sweep are independent (issue #16).
   const [statements, p1038] = await Promise.all([
     fetchParentStatements(subjects),
     fetchP1038Adoptions(subjects),
   ]);
-  const adoptionKeys = new Set<string>(); // `from->to`, deduped
+  const adoptionKeys = new Set<string>();
   for (const e of adoptiveFromStatements(statements)) adoptionKeys.add(e);
   for (const e of p1038) adoptionKeys.add(e);
   return {
@@ -217,11 +203,10 @@ export async function fetchParentAndAdoptions(
   };
 }
 
-// Attach each truthy edge's reified rank/role/sourcing. Truthy decides which
-// edges exist (unchanged); statements only supply attributes. role/sourcing come
-// only from non-deprecated statements so this metadata can't disagree with the
-// authoritative adoptive set. NOTE: the split uses `adoptions`, not this `role` —
-// role is per-edge annotation for later #43/presumed work.
+// Attach each truthy edge's reified rank/role/sourcing; truthy decides which
+// edges exist, statements only supply attributes. role/sourcing come only from
+// non-deprecated statements so this metadata can't disagree with the
+// authoritative adoptive set.
 function annotateFromStatements(
   edges: { from: string; to: string }[],
   statements: ParentStatement[],
@@ -265,9 +250,8 @@ function annotateFromStatements(
 }
 
 // Adoptive edges recorded inside the P22/P25/P40 statements we already fetched
-// (P1039 ∈ KINSHIP, non-deprecated), oriented adoptiveParent→child by role — the
-// same orientation the former fetch-adoptions.ts used. Derived in-memory; no
-// extra WDQS. Returns `from->to` keys.
+// (P1039 ∈ KINSHIP, non-deprecated), oriented adoptiveParent→child by role.
+// Derived in-memory; no extra WDQS. Returns `from->to` keys.
 function adoptiveFromStatements(statements: ParentStatement[]): string[] {
   const out: string[] = [];
   for (const s of statements) {
@@ -292,7 +276,6 @@ function adoptiveFromStatements(statements: ParentStatement[]): string[] {
 async function fetchP1038Adoptions(subjects: string[]): Promise<string[]> {
   const kinshipValues = sparqlValues(KINSHIP);
   const out: string[] = [];
-  // Batches are independent; fetch concurrently (issue #16), fold in batch order.
   const rowsByBatch = await Promise.all(
     chunk(subjects, EDGE_BATCH).map((b) =>
       sparql(`
