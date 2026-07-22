@@ -1,6 +1,6 @@
 ---
 name: comment-cleanup
-description: Use to correct over-commenting in this repo — code comments that merely restate what the code already says (labels on obvious assignments, control-flow conditions, loop bounds) or narrate line-by-line. Deletes pure what-comments, rewrites partly-useful ones into the non-obvious why, and normalizes Japanese code comments to English. Trigger whenever the user asks to clean up / prune / fix / 訂正する comments, remove redundant or excessive comments, or review comments for a diff or a set of files. Runs on the uncommitted diff by default, or on a diff range (e.g. `main...HEAD`) or paths you pass it. Comments only — it never changes code behavior. NOT for writing new docs or prose.
+description: Use to correct over-commenting in this repo — comments that restate what the code already says (labels on obvious assignments, control-flow conditions, loop bounds), narrate line-by-line, spell out a "why" a reader could recover from the code itself, assert an invariant the code should enforce instead, or pad one real point with sentences of structural narration. Deletes pure what-comments AND code-recoverable why-comments, compresses padded blocks down to the load-bearing point, and normalizes Japanese code comments to English. Trigger whenever the user asks to clean up / prune / fix / 訂正する comments, remove redundant or excessive comments, cut comment volume, or review comments for a diff or a set of files. Runs on the uncommitted diff by default, or on a diff range (e.g. `main...HEAD`) or paths you pass it. Comments only — it never changes code behavior. NOT for writing new docs or prose.
 ---
 
 # Cleaning up over-commenting
@@ -37,15 +37,49 @@ buries the real change in noise. What supplies the diff differs by input:
 
 ## The one question
 
-For every comment, the comment must justify why it exists. Ask: **would a competent
-reader who deleted this comment actually lose something the code doesn't say?**
+The **reader** this test assumes: fluent in the language and libraries in play, but
+_not_ in this project's domain or its other modules. "Recoverable" always means
+recoverable by _that_ reader — it's why domain semantics (家督, 養子) stay while a
+plain-language because goes.
 
-- **No** → the comment failed to justify itself. Delete it (or, if it holds a fragment
-  of real rationale buried in restatement, rewrite it down to just that rationale).
-- **Yes** → it's carrying non-obvious information the code can't. Keep it.
+For every comment, ask: **could that reader recover this comment's justification by
+reading the visible code, or does it live _outside_ the code entirely?**
 
-That's the whole rule. Note the default answer is _delete_ — a comment you can't
-clearly defend has not earned its line. Everything below is calibration.
+- **Recoverable from the code** → delete it. This is the whole point most cleanups miss:
+  it applies to a _why_ just as much as a _what_. A "we do X so that Y" whose Y is right
+  there in the next three lines is a restatement wearing a because. The code is the
+  proof; the comment is a slower copy of it.
+- **Outside the visible code** → keep it (compressed — see below). Only a handful of
+  things qualify: an **external fact** the code can't encode (a library's guarantee, a
+  browser quirk, `dagre` doesn't promise X), a **rejected alternative** and why it fails
+  (the code shows the road taken, never the one refused), **domain semantics** a
+  non-expert couldn't derive (家督, 養子, patrilineal reduction), a **caller-side
+  precondition** the body can't show ("caller holds the lock", "input validated
+  upstream"), or the **contract of a public API** (a caller reads the signature, not the
+  body). Nothing else.
+
+The bar is "無いと困る" — would a reader be _stuck_ without it, or merely told again what
+they just read? Default is _delete_. Everything below calibrates the things that fool
+people into keeping — derivable whys, invariant declarations, padded blocks — and the
+one thing that fools people into deleting: a real non-local fact they couldn't articulate
+on the spot (keep-and-flag it; see below).
+
+One case the headline test alone gets wrong, resolved by the invariant section below: an
+**invariant declaration** ("this can never miss") is often true _because of code
+elsewhere_, so the headline test would say "outside the code → keep." It still goes —
+because its correct home is a `throw`/type/assert, not prose. The line vs a kept
+non-local _why_: a why explains **why the code is shaped this way**; an invariant merely
+**asserts a fact the code should check**. When unsure which you're holding, see
+"Invariants belong in code."
+
+### The taxonomy — the four core kinds (stale / label / partial-value cases follow below)
+
+| Comment                                                                             | Recoverable?                | Verdict            |
+| ----------------------------------------------------------------------------------- | --------------------------- | ------------------ |
+| **what-restate** — prose translation of one statement (`// increment i` over `i++`) | yes                         | delete             |
+| **derivable why** — a because whose reasoning is visible in the code below it       | yes                         | delete             |
+| **invariant declaration** — "X always holds here"                                   | should be code, not prose   | delete (see below) |
+| **external / rejected-alt / domain / public-contract**                              | no — lives outside the code | keep, compressed   |
 
 ### Judge at the sentence level, not the block level
 
@@ -64,6 +98,45 @@ The second sentence earns its place; the first is exactly what `colX.set(col, x)
 Keeping the block whole because "it contains a why" leaves the restatement behind —
 delete the first sentence, keep the rest. Same for a trailing "…, so we do X" tacked
 onto a description: keep the _so-clause_, drop the description.
+
+### Compress the padded block
+
+The volume problem in this repo is rarely a stray what-comment — it's a five-to-eight
+line block wrapped around _one_ load-bearing sentence. Every sentence is "not wrong", so
+a block-level judgment keeps the whole paragraph. Run the sentence test on each one and
+almost all of it is derivable narration of the code below.
+
+```ts
+// Resolve who tucks beside whom, as host → its directly-attached spouse ids:      ← derivable (the code does this)
+// a married-in spouse rides beside the in-tree partner it married (preferring the  ← derivable
+// focus when it married more than one in-tree relative), and the focus's own       ← derivable
+// spouse rides beside the focus even when that spouse heads their own blood line.   ← derivable
+// Transitive co-spouses are reached by walking the map (a tucked spouse may host    ← derivable
+// its own). Depends only on edges, the present node set, and the focus column —     ← KEEP: the one
+// not on order — so it's stable however the tidy layout stacks the column.          ← non-local why
+function tuckHosts(...)
+
+// compressed to the load-bearing sentence:
+// Reads only edges + the focus column, never order — so it's stable however the
+// tidy pass later stacks the column.
+function tuckHosts(...)
+```
+
+The six description sentences retrace what the function body plainly does. The survivor
+isn't the "reads only edges" phrasing — you _can_ see which variables the body touches.
+It's the **consequence that points elsewhere**: the ordering-independence _holds despite
+a later pass (the tidy layout) that this function can't see_, and that constraint is what
+a future editor would break by making it depend on order. Keep the block only for that
+kind of reach-outside-the-function fact, phrased as the constraint, not the var list.
+
+Compress hard: a kept block should be one or two sentences, not a paragraph.
+
+**Guard against over-cutting.** "Default is delete" governs comments you can fully
+account for. If a block plainly gestures at code _elsewhere_ — another pass, another
+module, a caller — but you can't crisply name the property, that's a signal you may be
+missing a real non-local fact, not proof there is none. **Keep-and-flag** it (leave it,
+note it to the user) rather than delete. Only delete a block outright when every sentence
+is accounted for by the visible code.
 
 ## Delete: pure what-comments
 
@@ -87,21 +160,83 @@ Signals a comment is pure-what: it's a prose translation of one statement; it re
 the identifiers already on the line; removing it loses nothing a reader couldn't
 recover in one glance.
 
-## Keep: non-obvious why
+## Delete: derivable why
 
-These survive because the code can't express them. Do **not** delete these.
+The trap. A comment in "because / so that" form _feels_ load-bearing, but if its
+reasoning is sitting in the code right below it, deleting it loses nothing — the reader
+reconstructs it in one read. A because is not a free pass; it has to point _outside_ the
+code to earn its line.
 
 ```ts
-// A Driver owns a connection pool, so create exactly one per process.
-// dagre's per-rank x is not guaranteed to be a fixed multiple, so capture it here.
-// A child with two recorded fathers keeps BOTH rather than picking one — avoids a
-// non-deterministic choice between disputed parents.
+// an unshared column contributes -Infinity so it never binds   ← delete: derivable why
+const shift = Math.max(
+  0,
+  ...tops.map(([c, t]) => (bottom.has(c) ? bottom.get(c)! + 1 - t : -Infinity)),
+);
 ```
 
-What makes a comment worth keeping: a rationale ("so that…", "because…"), a gotcha or
-constraint ("dagre doesn't guarantee…"), a workaround and the reason for it, domain
-semantics a non-expert wouldn't know (家督, 養子, patrilineal reduction), or a pointer
-to why an obvious-looking alternative was _not_ taken.
+The `-Infinity` in the ternary _is_ "never binds" — the comment is a prose trace of the
+expression, and a reader who knows the language recovers it in one read. → delete.
+(Note: a clause like "the 0 floor keeps a subtree from sliding up" is borderline — the
+`Math.max(0, …)` shows the clamp, but "sliding up" edges toward layout intent. When a
+clause reaches for intent that isn't in the code, treat it as a why and run the outside-
+the-code test on it, rather than assuming it's pure mechanics.)
+
+Test for a why: cover the comment and read only the code. If you can state the same
+rationale from the code alone, the comment was derivable — delete it. Keep it only when
+the code cannot get you there.
+
+## Keep: non-obvious why
+
+These survive because their justification is **not in the code at all** — no amount of
+reading the function recovers it. Do **not** delete these.
+
+```ts
+// dagre's per-rank x is not guaranteed to be a fixed multiple, so capture it here.
+//   ↑ external fact about dagre — nowhere in this code
+// falling back to col would project the bucket index as a pixel — a far-left ghost.
+//   ↑ a rejected alternative; the code only shows the path taken
+// A child with two recorded fathers keeps BOTH rather than picking one — avoids a
+// non-deterministic choice between disputed parents.
+//   ↑ domain reason (disputed parentage) the code can't state
+```
+
+The only things that qualify: an **external fact / constraint** (a library or platform
+guarantee the code can't encode), a **rejected alternative** and why it fails, **domain
+semantics** a non-expert wouldn't know (家督, 養子, patrilineal reduction), or a **public
+API contract**. A bare "so that…/because…" whose answer is in the code is NOT one of
+these — see the derivable-why section above.
+
+## Invariants belong in code, not comments
+
+A comment that _declares_ an invariant — "X is always true here", "this can never miss",
+"the list is non-empty by now" — is not a why. It's an assertion, and an assertion's
+home is the code: a `throw`, a type, a guard, a validation. So:
+
+```ts
+// Every col a pass emits is always a colX key, so this lookup can never miss.
+//   ↑ delete: the invariant is already enforced two lines down —
+const x = colX.get(col);
+if (x === undefined) throw new Error(`column ${col} not present`); // ← this IS the invariant
+```
+
+- If the code **already enforces** the invariant (a `throw`, a schema, a type), the
+  comment restates it → delete.
+- If the code **could** enforce it locally but doesn't, the fix is to add the
+  `assert`/`throw` — a code change, out of scope. Still delete the comment; don't leave
+  an unenforced promise in prose. Flag it to the user if it looks load-bearing.
+
+**Do NOT lump caller-side preconditions in here.** A precondition the body _cannot_
+enforce — "caller must hold the lock", "input is already validated upstream", "list is
+non-empty because the caller guarantees it" — is an **outside-the-code fact** (a contract
+with the caller), not a local invariant. It's in the keep list; **keep it** (compressed),
+don't delete. The test: could this function _add a `throw`_ to check it? If yes → local
+invariant, delete the prose. If the guarantee lives at the call site and the body has
+nothing to assert → precondition, keep it.
+
+The other thing near an invariant that survives is the **why of a non-obvious enforcement
+choice** — e.g. why a `throw` beats a silent fallback (a rejected alternative), which
+lives outside the code. Keep that; drop the "always holds" sentence.
 
 ## Exception: doc comments on public API
 
@@ -200,6 +335,17 @@ code comment is written in Japanese, translate it to English as part of the clea
 _unless_ it's a domain term with no clean English equivalent (家督, 養子, 養父, QID
 labels), which stay as-is inside an otherwise-English comment. Don't touch comments in
 `.md` docs; those are meant to be Japanese.
+
+## Red flags — you're keeping a comment you should cut
+
+| Thought                                        | Reality                                                                                       |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| "It's a why, not a what"                       | A why whose answer is in the code is derivable — delete it. Only outside-the-code whys stay.  |
+| "It explains the reasoning"                    | If reading the code gives the same reasoning, the comment is a slow copy. Cover it and check. |
+| "Every sentence is technically true"           | True ≠ load-bearing. Judge each sentence; a padded block of true sentences still goes.        |
+| "It documents an important invariant"          | Invariants live in `throw`/type/assert, not prose. Delete the declaration.                    |
+| "Deleting this feels aggressive"               | Zero-based: undefendable = delete. Aggression isn't the test; "無いと困る" is.                |
+| "The block contains a real why, keep it whole" | Compress to that one sentence; don't keep six for the sake of one.                            |
 
 ## Finish
 
