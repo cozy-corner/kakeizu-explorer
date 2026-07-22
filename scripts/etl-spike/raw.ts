@@ -2,7 +2,7 @@
 // stages filter locally with zero WDQS re-visits. fetch.ts / traverse.ts fill
 // these; transform.ts and load.ts only read them. Which edges/nodes exist comes
 // from truthy `wdt:`; reified `p:/ps:/pq:` only attaches per-statement attributes
-// (rank, P1039, P1480) to the truthy parent→child edges.
+// to the truthy parent→child edges.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
