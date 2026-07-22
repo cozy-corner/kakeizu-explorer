@@ -36,6 +36,9 @@ export default function Home({
   // (not the empty-state prompt) from the first render; the effect below flips
   // it off once the person resolves.
   const [seeding, setSeeding] = useState(!!deepLinkId);
+  // Set once any explicit selection re-roots the view, so a slower deep-link
+  // lookup that resolves afterwards doesn't clobber the user's choice.
+  const deepLinkSuperseded = useRef(false);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
@@ -68,6 +71,7 @@ export default function Home({
   // Choosing a person re-roots the ego view: new anchor and, until it fires, its
   // own current. Also leaves path mode (a path node tap re-anchors the same way).
   const selectPerson = useCallback((person: FocusPerson) => {
+    deepLinkSuperseded.current = true;
     setFocus(person);
     setCurrent(person);
     setPathTarget(null);
@@ -100,7 +104,7 @@ export default function Home({
         if (!res.ok)
           throw new Error(`人物の取得に失敗しました (${res.status})`);
         const person = (await res.json()) as FocusPerson;
-        if (!cancelled) selectPerson(person);
+        if (!cancelled && !deepLinkSuperseded.current) selectPerson(person);
       } catch (err) {
         if (!cancelled)
           setError(
