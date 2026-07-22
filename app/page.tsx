@@ -1,11 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { ArticlePane } from "@/components/ArticlePane";
 import { GraphPane, type FocusPerson } from "@/components/GraphPane";
 import type { SearchResult } from "@/lib/graph";
 
-export default function Home() {
+export default function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  // Read `?id=` from the search-params prop (not window.location): resolved on
+  // the server too, so a deep link renders its loading state in the first paint
+  // — no flash of the empty-state prompt, no hydration mismatch.
+  const idParam = use(searchParams).id;
+  const deepLinkId = typeof idParam === "string" ? idParam.trim() : "";
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,9 +32,10 @@ export default function Home() {
   const [showAdoptions, setShowAdoptions] = useState(false);
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
-  // True while resolving a `?id=` deep link on mount, so the pane shows a loader
-  // instead of the empty-state prompt.
-  const [seeding, setSeeding] = useState(false);
+  // Starts true when a `?id=` deep link is present so the pane shows a loader
+  // (not the empty-state prompt) from the first render; the effect below flips
+  // it off once the person resolves.
+  const [seeding, setSeeding] = useState(!!deepLinkId);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
@@ -73,18 +84,19 @@ export default function Home() {
     setResults(null);
   }, []);
 
-  // Deep link: `?id=Qxxx` opens that person's ego graph directly. Read on the
-  // client (the param isn't known at SSR) and resolve to a full FocusPerson so
-  // the graph and article render with the real label/title, no placeholder flash.
+  // Deep link: `?id=Qxxx` opens that person's ego graph directly. Resolve the id
+  // to a full FocusPerson before seeding so the graph and article render with the
+  // real label/title, no placeholder flash.
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("id")?.trim();
-    if (!id) return;
+    if (!deepLinkId) return;
     let cancelled = false;
     (async () => {
-      setSeeding(true);
       try {
-        const res = await fetch(`/api/person/${encodeURIComponent(id)}`);
-        if (res.status === 404) throw new Error(`人物が見つかりません (${id})`);
+        const res = await fetch(
+          `/api/person/${encodeURIComponent(deepLinkId)}`,
+        );
+        if (res.status === 404)
+          throw new Error(`人物が見つかりません (${deepLinkId})`);
         if (!res.ok)
           throw new Error(`人物の取得に失敗しました (${res.status})`);
         const person = (await res.json()) as FocusPerson;
@@ -101,7 +113,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [selectPerson]);
+  }, [deepLinkId, selectPerson]);
 
   return (
     <div className="flex h-full flex-1 flex-col">
