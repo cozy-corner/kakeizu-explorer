@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArticlePane } from "@/components/ArticlePane";
 import { GraphPane, type FocusPerson } from "@/components/GraphPane";
 import type { SearchResult } from "@/lib/graph";
@@ -22,6 +22,9 @@ export default function Home() {
   const [showAdoptions, setShowAdoptions] = useState(false);
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
+  // True while resolving a `?id=` deep link on mount, so the pane shows a loader
+  // instead of the empty-state prompt.
+  const [seeding, setSeeding] = useState(false);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +72,36 @@ export default function Home() {
     setPathTarget(person);
     setResults(null);
   }, []);
+
+  // Deep link: `?id=Qxxx` opens that person's ego graph directly. Read on the
+  // client (the param isn't known at SSR) and resolve to a full FocusPerson so
+  // the graph and article render with the real label/title, no placeholder flash.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id")?.trim();
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      setSeeding(true);
+      try {
+        const res = await fetch(`/api/person/${encodeURIComponent(id)}`);
+        if (res.status === 404) throw new Error(`人物が見つかりません (${id})`);
+        if (!res.ok)
+          throw new Error(`人物の取得に失敗しました (${res.status})`);
+        const person = (await res.json()) as FocusPerson;
+        if (!cancelled) selectPerson(person);
+      } catch (err) {
+        if (!cancelled)
+          setError(
+            err instanceof Error ? err.message : "人物の取得に失敗しました",
+          );
+      } finally {
+        if (!cancelled) setSeeding(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectPerson]);
 
   return (
     <div className="flex h-full flex-1 flex-col">
@@ -179,6 +212,8 @@ export default function Home() {
               <ArticlePane person={pathTarget ?? current ?? focus} />
             </section>
           </>
+        ) : seeding ? (
+          <p className="text-muted m-auto">読み込み中…</p>
         ) : (
           <p className="text-muted m-auto">
             人物を検索して選択すると家系グラフと記事を表示します
