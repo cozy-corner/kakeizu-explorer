@@ -1,11 +1,21 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { ArticlePane } from "@/components/ArticlePane";
 import { GraphPane, type FocusPerson } from "@/components/GraphPane";
 import type { SearchResult } from "@/lib/graph";
 
-export default function Home() {
+export default function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  // Read `?id=` from the search-params prop (not window.location): resolved on
+  // the server too, so a deep link renders its loading state in the first paint
+  // — no flash of the empty-state prompt, no hydration mismatch.
+  const idParam = use(searchParams).id;
+  const deepLinkId = typeof idParam === "string" ? idParam.trim() : "";
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,6 +32,13 @@ export default function Home() {
   const [showAdoptions, setShowAdoptions] = useState(false);
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
+  // Starts true when a `?id=` deep link is present so the pane shows a loader
+  // (not the empty-state prompt) from the first render; the effect below flips
+  // it off once the person resolves.
+  const [seeding, setSeeding] = useState(!!deepLinkId);
+  // Set once any explicit selection re-roots the view, so a slower deep-link
+  // lookup that resolves afterwards doesn't clobber the user's choice.
+  const deepLinkSuperseded = useRef(false);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
@@ -54,6 +71,7 @@ export default function Home() {
   // Choosing a person re-roots the ego view: new anchor and, until it fires, its
   // own current. Also leaves path mode (a path node tap re-anchors the same way).
   const selectPerson = useCallback((person: FocusPerson) => {
+    deepLinkSuperseded.current = true;
     setFocus(person);
     setCurrent(person);
     setPathTarget(null);
@@ -69,6 +87,37 @@ export default function Home() {
     setPathTarget(person);
     setResults(null);
   }, []);
+
+  // Deep link: `?id=Qxxx` opens that person's ego graph directly. Resolve the id
+  // to a full FocusPerson before seeding so the graph and article render with the
+  // real label/title, no placeholder flash.
+  useEffect(() => {
+    if (!deepLinkId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/person/${encodeURIComponent(deepLinkId)}`,
+        );
+        if (res.status === 404)
+          throw new Error(`人物が見つかりません (${deepLinkId})`);
+        if (!res.ok)
+          throw new Error(`人物の取得に失敗しました (${res.status})`);
+        const person = (await res.json()) as FocusPerson;
+        if (!cancelled && !deepLinkSuperseded.current) selectPerson(person);
+      } catch (err) {
+        if (!cancelled)
+          setError(
+            err instanceof Error ? err.message : "人物の取得に失敗しました",
+          );
+      } finally {
+        if (!cancelled) setSeeding(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [deepLinkId, selectPerson]);
 
   return (
     <div className="flex h-full flex-1 flex-col">
@@ -179,6 +228,8 @@ export default function Home() {
               <ArticlePane person={pathTarget ?? current ?? focus} />
             </section>
           </>
+        ) : seeding ? (
+          <p className="text-muted m-auto">読み込み中…</p>
         ) : (
           <p className="text-muted m-auto">
             人物を検索して選択すると家系グラフと記事を表示します
