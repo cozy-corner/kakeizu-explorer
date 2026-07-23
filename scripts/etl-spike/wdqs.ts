@@ -1,18 +1,14 @@
 // Polite Wikidata Query Service (WDQS) client shared by the ETL spike scripts.
 //
-// Retry etiquette (general best practice for a shared public endpoint):
-//  - retry ONLY transient failures: network exceptions, HTTP 5xx, and 429
-//  - never retry other 4xx (bad query / 431) — a retry won't fix them
-//  - honor the server's Retry-After header when present (most important manner)
-//  - otherwise exponential backoff (base 1s, ×2, capped) with full jitter
-//  - cap total attempts
-//  - identify ourselves with a descriptive User-Agent (WDQS requirement)
-//  - POST so long VALUES lists don't overflow the URL (HTTP 431)
+// Retries transient failures (network errors, HTTP 5xx, 429, and a malformed body
+// on a 200) with exponential backoff + full jitter, honoring a Retry-After header
+// when present; never retries other 4xx. Identifies itself with a descriptive
+// User-Agent (a WDQS requirement) and POSTs so long VALUES lists don't overflow
+// the URL (431).
 //
 // Result cache: every successful query is memoized to data/.cache/<sha1>.json,
-// keyed by the exact query string. Re-runs (e.g. after a transient 504) replay
-// cached queries instantly and never re-hit WDQS for data already fetched.
-// Disable with WDQS_NOCACHE=1.
+// keyed by the exact query string, so re-runs never re-hit WDQS for data already
+// fetched. Disable with WDQS_NOCACHE=1.
 
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -45,9 +41,8 @@ const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 30_000;
 const CACHE_DIR = join(import.meta.dirname, "data", ".cache");
 const CACHE_ENABLED = process.env.WDQS_NOCACHE !== "1";
-// Cap in-flight WDQS requests (issue #16): callers Promise.all freely and this
-// gate, not the call sites, keeps us polite to the shared endpoint. Modest to
-// avoid inducing 429/504. Fail fast on a non-positive-integer override —
+// Cap in-flight WDQS requests: callers Promise.all freely and this gate keeps us
+// polite to the shared endpoint. Fail fast on a non-positive-integer override —
 // NaN/0/negative would make acquire() wait forever and silently hang the ETL.
 const MAX_CONCURRENCY = Number(process.env.WDQS_CONCURRENCY ?? "3");
 if (!Number.isInteger(MAX_CONCURRENCY) || MAX_CONCURRENCY < 1) {
@@ -58,15 +53,14 @@ if (!Number.isInteger(MAX_CONCURRENCY) || MAX_CONCURRENCY < 1) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Exponential backoff with full jitter: random delay in [0, base*2^attempt].
+// Exponential backoff with full jitter.
 function backoffDelay(attempt: number): number {
   const ceiling = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * 2 ** attempt);
   return Math.random() * ceiling;
 }
 
-// Global concurrency gate: at most MAX_CONCURRENCY requests run at once. release
-// hands its slot directly to the next waiter, so `active` never dips between a
-// release and the resumed acquire.
+// Global concurrency gate. release hands its slot directly to the next waiter,
+// so `active` never dips between a release and the resumed acquire.
 let active = 0;
 const waiters: (() => void)[] = [];
 async function acquire(): Promise<void> {
@@ -82,9 +76,9 @@ function release(): void {
   else active--;
 }
 
-// Shared cooperative backoff (issue #16): on a 429/5xx one worker records a
-// pause here and every worker awaits it before its next attempt, so the pool
-// behaves like one polite client instead of N racing retries.
+// Shared cooperative backoff: on a 429/5xx one worker records a pause here and
+// every worker awaits it before its next attempt, so the pool behaves like one
+// polite client instead of N racing retries.
 let pausedUntil = 0;
 async function respectSharedPause(): Promise<void> {
   const wait = pausedUntil - Date.now();
@@ -112,7 +106,7 @@ async function cacheGet(path: string): Promise<Binding[] | null> {
   try {
     return JSON.parse(await readFile(path, "utf8")) as Binding[];
   } catch {
-    return null; // cache miss (file absent / unreadable)
+    return null;
   }
 }
 
@@ -138,7 +132,7 @@ async function request(query: string): Promise<Binding[]> {
         body: `query=${encodeURIComponent(query)}`,
       });
     } catch (err) {
-      // Network-level failure (connection reset, DNS, etc.) — transient.
+      // Network-level failure — transient.
       lastError = err;
       if (attempt < MAX_ATTEMPTS - 1) {
         await sleep(backoffDelay(attempt));
@@ -168,8 +162,7 @@ async function request(query: string): Promise<Binding[]> {
     }
 
     // Parse INSIDE the try: a truncated/broken 200 body makes JSON.parse throw,
-    // and this used to sit outside the retry loop where one bad body killed the
-    // whole ETL. Parallelism makes such large fragile responses more likely.
+    // and should be retried rather than kill the whole ETL.
     try {
       const text = await res.text();
       return (JSON.parse(text) as { results: { bindings: Binding[] } }).results
@@ -188,8 +181,8 @@ async function request(query: string): Promise<Binding[]> {
   );
 }
 
-// Run `request` under the global concurrency gate. Cache hits skip this — they
-// touch no network, so they shouldn't consume a slot.
+// Cache hits skip this — they touch no network, so they shouldn't consume a
+// concurrency slot.
 async function gatedRequest(query: string): Promise<Binding[]> {
   await acquire();
   try {

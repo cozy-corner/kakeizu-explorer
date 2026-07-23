@@ -1,21 +1,20 @@
-// Disposable ETL spike (PR2): fetch real family relations from Wikidata and dump
-// them to raw-*.json. The goal is to validate data viability (connectivity +
-// path quality), NOT production quality — see docs/specs/mvp-tasks.md (PR2).
+// Disposable ETL spike: fetch real family relations from Wikidata and dump them to
+// raw-*.json. Goal is to validate data viability (connectivity + path quality), NOT
+// production quality — see docs/specs/mvp-tasks.md.
 //
 // Run (strict, design-faithful population):  bun run scripts/etl-spike/fetch.ts
 // Run (relaxed, include bridge relatives):   SPIKE_RELAX=1 bun run scripts/etl-spike/fetch.ts
 //
-// Two modes, to test the connectivity question:
+// Two modes test the connectivity question:
 //  - STRICT  (default): both endpoints of every edge are Japanese humans
-//    (P31=Q5 ∧ P27=Q17). This matches the design's "JP population" core (§6).
-//  - RELAXED (SPIKE_RELAX=1): at least one endpoint is a Japanese human; the
-//    other may be any human. This pulls in non-JP-tagged relatives as bridge
-//    nodes — a candidate fix if the strict graph turns out too fragmented.
+//    (P31=Q5 ∧ P27=Q17), the design's "JP population" core (§6).
+//  - RELAXED (SPIKE_RELAX=1): at least one endpoint is a Japanese human, the other
+//    any human — pulls in non-JP-tagged bridge relatives if the strict graph is too
+//    fragmented.
 //
-// Extraction (issue #44): topology comes from truthy `wdt:` (unchanged — it
-// decides which edges exist); every persisted attribute (label, sex, nationality,
-// per-edge rank/P1039/P1480) is captured once via attrs.ts into raw-*.json. The
-// adoptive split and foreign pruning are now pure-local transforms over that raw.
+// Topology comes from truthy `wdt:` (decides which edges exist); every persisted
+// attribute is captured once via attrs.ts. The adoptive split and foreign pruning
+// are pure-local transforms downstream.
 
 import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
 import {
@@ -33,9 +32,8 @@ import { qid, sparql } from "./wdqs";
 
 const RELAX = process.env.SPIKE_RELAX === "1";
 
-// Parent → child, normalized from P22 (father) / P25 (mother) / P40 (child).
-// Truthy only — no adoptive exclusion here anymore. transform.ts removes the
-// adoptive edges locally, using the authoritative raw-adoptions.json set.
+// Parent → child from P22 (father) / P25 (mother) / P40 (child). Truthy only; the
+// adoptive split happens downstream in transform.ts over raw-adoptions.json.
 async function fetchParentPairs(): Promise<{ from: string; to: string }[]> {
   const queries = RELAX
     ? [
@@ -70,8 +68,8 @@ async function fetchParentPairs(): Promise<{ from: string; to: string }[]> {
   return edges;
 }
 
-// Symmetric relation (spouse / sibling): canonicalize the pair (sorted) so
-// A-B and B-A collapse to one edge. Truthy — rank/qualifiers not needed here.
+// Symmetric relation (spouse / sibling): sort each pair so A-B and B-A collapse to
+// one edge. Truthy — rank/qualifiers not needed here.
 async function fetchSymmetricPairs(property: string): Promise<RawPair[]> {
   const queries = RELAX
     ? [

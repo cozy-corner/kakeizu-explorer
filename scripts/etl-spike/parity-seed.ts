@@ -1,20 +1,15 @@
-// Parity guard for the #44 extract-unification refactor. Behavior-preserving is
-// the whole claim, so prove it mechanically instead of by eye: on a small seed
-// neighborhood, compute the load inputs the NEW way (raw capture + local
-// transform) and the OLD way (the pre-#44 WDQS queries, inlined here), then diff
-// the node / spine / adopted / sex sets. Seed-scoped so it stays cheap and
-// cache-friendly — it does NOT run the full population pipeline.
+// Parity guard for the extract-unification refactor. Behavior-preserving is the whole
+// claim, so prove it mechanically: on a small seed neighborhood, compute the load
+// inputs the NEW way (raw capture + local transform) and the OLD way (the pre-refactor
+// WDQS queries, inlined here), then diff the node / spine / adopted / sex sets.
+// Seed-scoped to stay cheap and cache-friendly — NOT the full population pipeline.
 //
 // Run: bun run scripts/etl-spike/parity-seed.ts
 //
-// Scope — what this proves and what it does NOT:
-//  - PROVES data-path equivalence on a FIXED node set: given the same nodes,
-//    old and new agree on foreign-pruning, the spine, the adoptive set, and sex.
-//  - Does NOT certify node MEMBERSHIP: both paths run over the same `ids`, so the
-//    two intended #44 divergences — traverse-discovered adoptions no longer
-//    leaking into the spine, and adoptive-only nodes (whose sole family link is
-//    an adoption) now being kept instead of dropped — cannot appear here.
-//    Both are deliberate consequences of handling adoptions consistently.
+// Proves data-path equivalence on a FIXED node set; does NOT certify node MEMBERSHIP:
+// both paths run over the same `ids`, so the two intended divergences — traverse-found
+// adoptions no longer leaking into the spine, and adoptive-only nodes now kept instead
+// of dropped — cannot appear here.
 
 import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
 import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
@@ -48,10 +43,10 @@ async function neighborhood(): Promise<string[]> {
   return [...nodes];
 }
 
-// ---- OLD path: the pre-#44 queries, scoped to the node set N. ----
+// ---- OLD path: the pre-refactor queries, scoped to the node set N. ----
 
 async function oldSpine(ids: string[]): Promise<Set<string>> {
-  // truthy P22/P25/P40 among N, with the old EXCLUDE_ADOPTIVE reified subquery.
+  // Truthy P22/P25/P40 among N, minus the EXCLUDE_ADOPTIVE reified subquery.
   const excludeAdoptive = `FILTER NOT EXISTS {
     VALUES ?k { ${KV} }
     { ?c p:P22 ?st. ?st ps:P22 ?p. ?st pq:P1039 ?k. }
@@ -171,7 +166,6 @@ async function main() {
   const ids = await neighborhood();
   console.log(`Seed neighborhood: ${ids.length} nodes\n`);
 
-  // OLD
   const oForeign = await oldForeign(ids);
   const oKept = new Set(ids.filter((q) => !oForeign.has(q)));
   const keep2 = (kept: Set<string>, e: string) => {
@@ -186,7 +180,6 @@ async function main() {
   );
   const oSex = await oldSex([...oKept]);
 
-  // NEW
   const attrs = await fetchNodeAttrs(ids);
   const rawNodes = ids.map((q) => rawNodeOr(q, attrs));
   const nKept = new Set(

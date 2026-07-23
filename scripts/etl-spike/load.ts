@@ -1,4 +1,4 @@
-// Disposable ETL spike (PR2): load the fetched JSON into local Neo4j.
+// Disposable ETL spike: load the fetched JSON into local Neo4j.
 // Idempotent — wipes the existing :Person graph first so re-runs stay clean.
 //
 // Run (after fetch.ts): bun run scripts/etl-spike/load.ts
@@ -14,10 +14,9 @@ async function readJson<T>(name: string): Promise<T> {
   return JSON.parse(await readFile(join(DATA_DIR, name), "utf8")) as T;
 }
 
-// adopted_of.json is produced by transform.ts. A MISSING file is benign (a
-// partial pipeline run before the transform stage) ⇒ empty; a parse error or I/O
-// fault must surface, or a corrupted adopted_of.json would silently drop every
-// adoption edge.
+// adopted_of.json (from transform.ts) may be absent on a partial pipeline run
+// ⇒ empty; but a parse/IO error must surface, else a corrupted file would
+// silently drop every adoption edge.
 async function readJsonOpt<T>(name: string, fallback: T): Promise<T> {
   try {
     return await readJson<T>(name);
@@ -27,7 +26,6 @@ async function readJsonOpt<T>(name: string, fallback: T): Promise<T> {
   }
 }
 
-// UNWIND a list of rows through a Cypher statement in chunks to bound memory.
 async function batched(
   session: Session,
   rows: unknown[],
@@ -69,11 +67,9 @@ async function main() {
     );
 
     console.log(`Loading ${nodes.length} nodes…`);
-    // sex comes from raw now (issue #44); r.sex is null for nodes Wikidata has no
-    // P21 for, and SET …= null leaves the property unset — same as the old
-    // add-sex.ts, which only tagged nodes that had a sex. r.wikipediaTitle (issue
-    // #47) is null for nodes with no ja.wikipedia article; SET …= null likewise
-    // leaves it unset so the article pane falls back to label.
+    // r.sex / r.wikipediaTitle are null when Wikidata has no P21 / no ja.wikipedia;
+    // SET …= null leaves the property unset (Cypher), so the article pane falls
+    // back to label.
     await batched(
       session,
       nodes,

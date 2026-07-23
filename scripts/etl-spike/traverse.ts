@@ -1,17 +1,9 @@
-// Disposable spike experiment (PR2): seed-and-traverse instead of nationality
-// filtering. Start from the RELAXED graph (Japanese seeds + their 1-hop
-// relatives) and expand the NON-Japanese frontier outward, pulling in family
-// relations regardless of nationality — the model proposed after we found the
-// P27 filter severs real lineages (信長's paternal line: 11/13 ancestors have
-// ja articles but only 1 has P27).
-//
-// Each round logs: nodes added, ja-article ratio of the new nodes (a proxy for
-// "is this still Japanese lineage, or leaking into world royalty?"), total size.
-//
-// Extraction (issue #44): the frontier is decided LOCALLY from raw nationality
-// (narrow rule: P27 ∋ Q17) — no P27 sweep. Newly discovered nodes/edges get their
-// attributes captured once via attrs.ts, extending raw-*.json in the same shape
-// fetch.ts wrote. Topology still comes from truthy `wdt:`.
+// Disposable spike: seed-and-traverse instead of P27 nationality filtering.
+// Start from the RELAXED graph (Japanese seeds + 1-hop relatives) and expand the
+// non-Japanese frontier outward, pulling in family regardless of nationality —
+// the P27 filter severs real lineages (信長's paternal line: 11/13 ancestors have
+// ja articles but only 1 has P27). Frontier decided locally from raw nationality
+// (narrow rule: P27 ∋ Q17), no P27 sweep; topology still from truthy `wdt:`.
 //
 // Run: ROUNDS=1 bun run scripts/etl-spike/traverse.ts   (then transform.ts …)
 
@@ -33,16 +25,14 @@ import {
 import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 
 const ROUNDS = Number(process.env.ROUNDS ?? "1");
-// Diagnostic (issue #16): cap the starting frontier to time a representative
-// slice without a full cold run. 0 = no cap (normal behavior).
+// Diagnostic: cap the starting frontier to time a representative slice without a
+// full cold run.
 const FRONTIER_CAP = Number(process.env.FRONTIER_CAP ?? "0");
 const EDGE_BATCH = 120;
 const SIZE_CAP = 200_000;
 
-// Wall-clock accounting per stage (issue #16, diagnostic): a cold run
-// (WDQS_NOCACHE=1) reveals which stage dominates — the Amdahl fraction that
-// bounds any parallelization win. Warm cache makes every stage instant, so the
-// numbers only mean anything with the cache disabled. Never touches the output.
+// Per-stage wall-clock, diagnostic only: meaningful just with WDQS_NOCACHE=1, since
+// a warm cache makes every stage instant.
 const timings = new Map<string, number>();
 const addTiming = (stage: string, ms: number) =>
   timings.set(stage, (timings.get(stage) ?? 0) + ms);
@@ -87,8 +77,8 @@ async function main() {
     }
   };
 
-  // Frontier = current non-Japanese nodes (narrow rule, computed locally from raw
-  // nationality — Japanese seeds were already fully expanded by the RELAXED fetch).
+  // Non-Japanese nodes only (narrow rule): the Japanese seeds were already fully
+  // expanded by the upstream RELAXED fetch.
   const isJp = (q: string) =>
     (nodeById.get(q)?.nationalities ?? []).includes("Q17");
   let frontier = [...known].filter((q) => !isJp(q));
@@ -102,10 +92,8 @@ async function main() {
     const roundNewNodes: string[] = [];
     const batches = chunk(frontier, EDGE_BATCH);
     const tEdge = performance.now();
-    // Fetch every batch concurrently (issue #16), fold in batch order so
-    // aggregation stays deterministic. Enumerate the 5 family predicates with
-    // VALUES ?p instead of a 5-way UNION — far lighter for Blazegraph, which
-    // 504s on the UNION form.
+    // Fold batches in order so aggregation stays deterministic. Enumerate the family
+    // predicates with VALUES ?p instead of a 5-way UNION — Blazegraph 504s on UNION.
     const rowsByBatch = await Promise.all(
       batches.map((b) =>
         sparql(`
@@ -136,18 +124,17 @@ async function main() {
     }
     addTiming("edge-loop", performance.now() - tEdge);
 
-    // Capture attributes for the new nodes (label/sex/nationality) — needed both
-    // for the next frontier's narrow rule and for local foreign-pruning later.
+    // New nodes' attributes feed both the next frontier's narrow rule and local
+    // foreign-pruning later.
     const attrs = await timed("attrs", () => fetchNodeAttrs(roundNewNodes));
     for (const q of roundNewNodes) {
       nodeById.set(q, rawNodeOr(q, attrs));
       allNewNodes.push(q);
     }
 
-    // ja-article ratio (leak proxy), now local instead of a WDQS sweep:
-    // fetchNodeAttrs set wikipediaTitle from the same ja.wikipedia sitelink, and
-    // every ja article carries a schema:name (verified), so `wikipediaTitle !==
-    // undefined` ⟺ "has a ja article".
+    // ja-article ratio, a leak proxy. Every ja article carries a schema:name, from
+    // which fetchNodeAttrs set wikipediaTitle, so `wikipediaTitle !== undefined` ⟺
+    // "has a ja article".
     const jaCount = roundNewNodes.filter(
       (q) => nodeById.get(q)?.wikipediaTitle !== undefined,
     ).length;
@@ -166,9 +153,9 @@ async function main() {
     if (known.size > SIZE_CAP) break;
   }
 
-  // One reified sweep over the union of (a) all new nodes — so every new node's
-  // adoptive statements are derived — and (b) both endpoints of the new parent
-  // pairs — so parent-side (P40, on the possibly-old parent) rank is annotated.
+  // One reified sweep over both all new nodes (to derive their adoptive statements)
+  // and both endpoints of the new parent pairs (to annotate parent-side P40 rank,
+  // which may sit on an already-known parent).
   const subjects = new Set<string>(allNewNodes);
   for (const e of newParentPairs) {
     subjects.add(e.from);

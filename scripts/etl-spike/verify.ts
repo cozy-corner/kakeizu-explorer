@@ -1,4 +1,4 @@
-// Disposable ETL spike (PR2): the actual go/no-go checks.
+// Disposable ETL spike: the actual go/no-go checks.
 //   1. Connectivity — what fraction of nodes is the largest weakly connected
 //      component (gds.wcc)? If most people sit in one big component, "walking
 //      from person to person" works.
@@ -13,7 +13,7 @@ import { getDriver } from "../../lib/neo4j";
 
 const GRAPH = "spike";
 
-// Known figures (qids from design §6) to probe path existence/quality.
+// Known figures to probe path existence/quality.
 const PEOPLE: Record<string, string> = {
   信長: "Q171411",
   家康: "Q171977",

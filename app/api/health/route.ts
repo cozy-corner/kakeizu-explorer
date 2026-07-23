@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { runQuery, serviceUnavailable } from "@/lib/api";
 
-// Hits the DB at request time, so opt out of static optimization (build-time execution).
+// Hits the DB at request time, so opt out of static optimization.
 export const dynamic = "force-dynamic";
 
 export async function GET() {

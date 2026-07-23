@@ -1,13 +1,8 @@
-// Raw extraction schema (issue #44): the E stage persists every attribute it
-// touches here, ONCE, so the T stages filter locally with zero WDQS re-visits.
-// Node discovery (fetch.ts, traverse.ts) fills these; the transform
-// (transform.ts) and loader (load.ts) only read them.
-//
-// Design constraint (behavior-preserving refactor): the extraction logic that
-// decides WHICH edges/nodes exist is unchanged — spine/spouse/sibling still come
-// from truthy `wdt:`. Reified `p:/ps:/pq:` is used only to ATTACH per-statement
-// attributes (rank, P1039, P1480) to the already-truthy parent→child edges, and
-// to fold the two former reified passes into one.
+// Raw extraction schema: the E stage persists every attribute ONCE here, so the T
+// stages filter locally with zero WDQS re-visits. fetch.ts / traverse.ts fill
+// these; transform.ts and load.ts only read them. Which edges/nodes exist comes
+// from truthy `wdt:`; reified `p:/ps:/pq:` only attaches per-statement attributes
+// to the truthy parent→child edges.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -35,11 +30,10 @@ export interface RawNode {
 }
 
 // A truthy parent→child edge, annotated from its reified statement(s). `role`
-// (P1039) marks adoptive kinship; `*SideRank` carry the ranks of the child-side
-// (P22/P25) and parent-side (P40) statements so #43 (deprecated父辺 removal) can
-// stay a pure-local transform later. `sourcing` are P1480 QIDs (presumed, etc.),
-// captured for the future presumed-suppression transform. #44 itself only uses
-// `role` + non-deprecated for the adoptive split.
+// (P1039) marks adoptive kinship; `*SideRank` carry the child-side (P22/P25) and
+// parent-side (P40) statement ranks, so deprecated-父辺 removal can stay a local
+// transform. `sourcing` are P1480 QIDs (presumed, etc.), for a later
+// presumed-suppression transform.
 export interface RawParentEdge {
   from: string; // parent
   to: string; // child
@@ -63,9 +57,8 @@ export interface RawAdoptiveEdge {
   to: string;
 }
 
-// A node's captured attributes, or an empty-attribute default keyed by qid (for
-// a node Wikidata returned nothing for). One place for the default shape so it
-// stays correct if RawNode grows fields.
+// A node's captured attributes, or an empty-attribute default keyed by qid (for a
+// node Wikidata returned nothing for).
 export const rawNodeOr = (q: string, attrs: Map<string, RawNode>): RawNode =>
   attrs.get(q) ?? {
     qid: q,

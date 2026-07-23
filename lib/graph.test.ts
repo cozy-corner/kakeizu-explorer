@@ -17,8 +17,7 @@ import {
 
 test("maps person rows into graph nodes, preserving qid, label and wikipediaTitle", () => {
   const graph = personsToGraph([
-    // wikipediaTitle differs from label (disambiguation) — the article pane must
-    // open the canonical title, not the label.
+    // Disambiguation title: the pane must open the canonical wikipediaTitle, not the label.
     { qid: "Q171411", label: "織田信長", wikipediaTitle: "織田信長 (人物)" },
     // No ja.wikipedia article → null from the DB → undefined so the pane falls
     // back to label.
@@ -49,7 +48,7 @@ test("neighbors: builds nodes and edges, mapping the relationship type and wikip
       aQid: "Q171411",
       aLabel: "織田信長",
       aSex: null,
-      aWikipediaTitle: "織田信長 (人物)", // differs from label
+      aWikipediaTitle: "織田信長 (人物)",
       aDegree: 11,
       aDegreeWithAdoptions: 12,
       type: "PARENT_OF",
@@ -118,7 +117,6 @@ test("neighbors: dedupes repeated nodes and edges", () => {
       bSex: null,
       bWikipediaTitle: null,
     },
-    // Same node reached again via a different walk, plus the same edge repeated.
     {
       aQid: "Q171411",
       aLabel: "織田信長",
@@ -200,12 +198,11 @@ test("neighbors: returns an empty graph when the person is not found", () => {
 });
 
 test("path: builds an ordered node chain and edges from hop rows", () => {
-  // One row per relationship, in path order: 信長 -[SPOUSE_OF]- 帰蝶 -[PARENT_OF]- 家康.
   const graph = pathToGraph([
     {
       sourceQid: "Q171411",
       sourceLabel: "織田信長",
-      sourceWikipediaTitle: "織田信長 (人物)", // differs from label
+      sourceWikipediaTitle: "織田信長 (人物)",
       targetQid: "Q231562",
       targetLabel: "濃姫",
       targetWikipediaTitle: null, // no article → falls back to label
@@ -240,7 +237,6 @@ test("path: returns an empty graph when there is no path", () => {
 });
 
 test("merge: unions nodes and edges, deduping the overlap", () => {
-  // Two hops-1 fires that share the middle person and the A→B edge.
   const a: Graph = {
     nodes: [
       { qid: "A", label: "甲" },
@@ -342,7 +338,7 @@ test("patrilineal: falls back to any parent when no father is known", () => {
   const graph: Graph = {
     nodes: [
       { qid: "M", label: "母", sex: "female" },
-      { qid: "C", label: "子" }, // child of a mother only
+      { qid: "C", label: "子" },
     ],
     edges: [{ source: "M", target: "C", type: "PARENT_OF" }],
   };
@@ -386,7 +382,6 @@ test("patrilineal: an unknown-sex parent is kept as a descent line, not hidden",
     ],
   };
 
-  // Only the confirmed mother is dropped; the unknown-sex parent stays the line.
   expect(patrilinealEdges(graph)).toEqual([
     { source: "F", target: "C", type: "PARENT_OF" },
     { source: "F", target: "M", type: "SPOUSE_OF" },
@@ -406,8 +401,7 @@ test("patrilineal: a spouse-less mother is linked to the father via her shared c
     ],
   };
 
-  // Mother→child is dropped; a co-parent SPOUSE_OF is synthesized so she sits
-  // beside the father instead of floating.
+  // A co-parent SPOUSE_OF is synthesized so she sits beside the father instead of floating.
   expect(patrilinealEdges(graph)).toEqual([
     { source: "F", target: "C", type: "PARENT_OF" },
     { source: "F", target: "M", type: "SPOUSE_OF" },
@@ -448,8 +442,6 @@ test("layout-only: surfaces the dropped mother→child edge so the couple co-ran
 });
 
 test("layout-only: no extra edges when every parent is already a drawn line", () => {
-  // No father → both parents stay drawn; two fathers → both stay drawn. Nothing
-  // is dropped, so there is no hidden edge to add.
   const motherOnly: Graph = {
     nodes: [
       { qid: "M", label: "母", sex: "female" },
@@ -510,11 +502,11 @@ test("sibling adoptive: keeps an adoption where an endpoint has no in-view blood
   // 吉宗→雲松院) that must both rank and draw.
   const adoptiveParentUnpinned: GraphEdge[] = [
     { source: "P", target: "C", type: "PARENT_OF" },
-    { source: "AP", target: "C", type: "ADOPTIVE_PARENT_OF" }, // AP has no blood parent
+    { source: "AP", target: "C", type: "ADOPTIVE_PARENT_OF" },
   ];
   const adoptedChildUnpinned: GraphEdge[] = [
     { source: "P", target: "F", type: "PARENT_OF" },
-    { source: "F", target: "AC", type: "ADOPTIVE_PARENT_OF" }, // AC has no blood parent
+    { source: "F", target: "AC", type: "ADOPTIVE_PARENT_OF" },
   ];
 
   expect(siblingAdoptiveEdges(adoptiveParentUnpinned)).toEqual([]);
@@ -522,8 +514,7 @@ test("sibling adoptive: keeps an adoption where an endpoint has no in-view blood
 });
 
 test("ego drawn: patrilineal reduction with sibling adoptions dropped", () => {
-  // 頼職→吉宗 shape: the sibling adoption is dropped from the drawn set, the blood
-  // descent lines stay. This is the composition the ego view and dump-layout share.
+  // egoDrawnEdges is the composition the ego view and dump-layout share.
   const graph: Graph = {
     nodes: [
       { qid: "P", label: "父", sex: "male" },
@@ -632,7 +623,6 @@ test("ego drawn: drops an adoptive edge between a married couple, keeps the marr
 });
 
 test("ego drawn: co-parenting (no recorded marriage) still reclassifies the adoptive edge as a spouse", () => {
-  // The adopter and adoptee share a child but have no recorded SPOUSE_OF.
   // patrilinealEdges synthesizes a co-parent marriage, and that synthesized edge
   // is enough to treat the pair as spouses — sharing a child means they ARE the
   // reproductive couple, so spouse placement (not adopted-child) is correct.

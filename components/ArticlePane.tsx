@@ -1,11 +1,9 @@
 import type { GraphNode } from "@/lib/graph";
 
-// Embed the live ja.wikipedia article so it reads directly in the pane, with no
-// click-through to a separate tab. The article title is the Wikidata sitelink
-// (`wikipediaTitle`, the canonical page title), falling back to the person's
-// `label` when Wikidata records no ja.wikipedia article for them — /wiki/{title}
-// resolves redirects/normalization itself and renders Wikipedia's own "no
-// article" page on a miss.
+// Embeds the person's ja.wikipedia article inline. /wiki/{title} resolves
+// redirects/normalization itself and renders Wikipedia's own "no article" page
+// on a miss, so the `wikipediaTitle` (Wikidata sitelink) → `label` fallback
+// needs no validation here.
 export function ArticlePane({
   person,
 }: {
