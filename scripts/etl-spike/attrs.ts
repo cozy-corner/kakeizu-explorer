@@ -121,8 +121,8 @@ interface ParentStatement {
   parent: string;
   side: "child" | "parent";
   rank: Rank;
-  roles: string[]; // KINSHIP_ROLE
-  sourcing: string[]; // SOURCING_CIRCUMSTANCES
+  roles: string[];
+  sourcing: string[];
 }
 
 // Reified father/mother/child statements for the given subjects, in ONE pass

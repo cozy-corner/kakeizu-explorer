@@ -15,7 +15,7 @@ export const SIBLING = "P3373";
 // Node attributes.
 export const SEX = "P21";
 export const CITIZENSHIP = "P27";
-export const COUNTRY = "P17"; // country of a citizenship (P27→P17)
+export const COUNTRY = "P17"; // country of a citizenship (CITIZENSHIP→COUNTRY path)
 export const INSTANCE_OF = "P31";
 
 // Reified kinship, carried as qualifiers on a statement.
