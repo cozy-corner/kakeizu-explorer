@@ -15,8 +15,8 @@ description: >-
   single-file edits, for design-discussion-only with no implementation, or for
   merely fetching or displaying a PR's reviews without acting on them — those
   belong to design or pr-reviews respectively. Delegates each phase to the focused
-  skills (design, verify, simplify, comment-cleanup, code-review, pr-reviews) and may
-  fan out to parallel agents.
+  skills (design, verify, simplify, comment-cleanup, code-review, pr-reviews, pr-tasks,
+  receiving-code-review) and may fan out to parallel agents.
 ---
 
 # Issue → PR
@@ -105,7 +105,10 @@ Two passes over the diff, each owned by a focused skill:
   own. When its findings come back, do the part it can't: **triage every finding**
   with the rubric below. Apply the valid ones (one commit per finding), and for each
   rejection say _why_ in your summary. Don't silently drop a finding and don't
-  reflexively apply one.
+  reflexively apply one. The rubric classifies; **receiving-code-review** owns _how
+  you engage_ each finding — verify against the real code before implementing, push
+  back with technical reasoning when a finding is wrong, and never answer a reviewer
+  (human or bot) with performative agreement or thanks.
 
 Order matters: simplify first so comment-cleanup and code-review judge the final code,
 not code you're about to rewrite; comment-cleanup before code-review so the review
@@ -141,10 +144,22 @@ Launch one bounded background waiter — a `gh pr checks <n>` loop that returns
 when the check leaves `pending`, capped at ~15 min — so the harness notifies you
 on completion. If it times out, tell the user; don't re-arm. Then fetch.
 
-Fetch the PR's comments and bot review with the **pr-reviews** skill (handles
-pagination + CodeRabbit nitpicks). Run the **same triage rubric** on every finding.
-Apply the valid ones; for the rejected ones, reply on the PR with the reason so the
-bot doesn't re-raise them on the next push. Re-run the guard after any change.
+Then work the findings in three steps, each owned by a skill:
+
+- **pr-reviews** — fetch the PR's comments and bot review (handles pagination,
+  CodeRabbit nitpicks, and drops already-resolved threads). It writes
+  `PR-{n}-reviews.md`.
+- **pr-tasks** — turn that reviews file into a tracked checklist `PR-{n}-tasks.md`,
+  one item per finding with its file:line and a Commit field. This is the ledger you
+  triage against, so nothing is silently dropped and each applied fix records its
+  commit.
+- triage + reply — run the **same triage rubric** on every task, engaging each the
+  **receiving-code-review** way: verify against the real code first, apply the valid
+  ones (recording the commit on the task), and for the rejected ones push back with
+  the technical reason. Reply **in the comment thread** (`gh api
+repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies`), not as a top-level PR
+  comment, so the bot doesn't re-raise them on the next push. Re-run the guard after
+  any change.
 
 ---
 
@@ -168,6 +183,11 @@ history, in this cadence:
 - **Phase 5 — push.** Only when the user has said to proceed to a PR.
 
 ## The triage rubric (Phases 3 and 6)
+
+This rubric is the _classification_ half; **receiving-code-review** is the
+_reception_ half — the discipline of verifying before implementing, evaluating each
+suggestion against THIS codebase, and answering with technical reasoning rather than
+performative agreement. Use them together on every finding in both phases.
 
 A reviewer — human or bot — surfaces _candidates_. Your job is to decide which a
 maintainer would actually act on. For each finding, verify against the real code

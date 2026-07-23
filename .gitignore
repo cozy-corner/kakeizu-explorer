@@ -43,3 +43,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# brainstorming visual companion (ephemeral mockups)
+.superpowers/
+
+# pr-reviews / pr-tasks intermediate files (regenerate from the PR)
+/PR-*-reviews.md
+/PR-*-tasks.md
