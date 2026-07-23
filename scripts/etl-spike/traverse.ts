@@ -8,6 +8,7 @@
 // Run: ROUNDS=1 bun run scripts/etl-spike/traverse.ts   (then transform.ts …)
 
 import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
+import { CHILD, FATHER, MOTHER, SIBLING, SPOUSE } from "./properties";
 import {
   RAW_ADOPTIONS,
   RAW_NODES,
@@ -99,7 +100,7 @@ async function main() {
         sparql(`
         SELECT ?s ?p ?o WHERE {
           VALUES ?s { ${sparqlValues(b)} }
-          VALUES ?p { wdt:P22 wdt:P25 wdt:P40 wdt:P26 wdt:P3373 }
+          VALUES ?p { wdt:${FATHER} wdt:${MOTHER} wdt:${CHILD} wdt:${SPOUSE} wdt:${SIBLING} }
           ?s ?p ?o.
         }`),
       ),
@@ -115,9 +116,9 @@ async function main() {
           roundNewNodes.push(o);
         }
         const p = r.p!.value;
-        if (p.endsWith("P22") || p.endsWith("P25")) addParent(o, s);
-        else if (p.endsWith("P40")) addParent(s, o);
-        else if (p.endsWith("P26")) addSym(spouseKeys, rawSpouse, s, o);
+        if (p.endsWith(FATHER) || p.endsWith(MOTHER)) addParent(o, s);
+        else if (p.endsWith(CHILD)) addParent(s, o);
+        else if (p.endsWith(SPOUSE)) addSym(spouseKeys, rawSpouse, s, o);
         else addSym(siblingKeys, rawSibling, s, o);
       }
       if (known.size > SIZE_CAP) break;
@@ -154,7 +155,7 @@ async function main() {
   }
 
   // One reified sweep over both all new nodes (to derive their adoptive statements)
-  // and both endpoints of the new parent pairs (to annotate parent-side P40 rank,
+  // and both endpoints of the new parent pairs (to annotate parent-side CHILD rank,
   // which may sit on an already-known parent).
   const subjects = new Set<string>(allNewNodes);
   for (const e of newParentPairs) {

@@ -28,29 +28,38 @@ import {
   rawNodeOr,
   writeRaw,
 } from "./raw";
+import {
+  CHILD,
+  CITIZENSHIP,
+  FATHER,
+  INSTANCE_OF,
+  MOTHER,
+  SIBLING,
+  SPOUSE,
+} from "./properties";
 import { qid, sparql } from "./wdqs";
 
 const RELAX = process.env.SPIKE_RELAX === "1";
 
-// Parent → child from P22 (father) / P25 (mother) / P40 (child). Truthy only; the
-// adoptive split happens downstream in transform.ts over raw-adoptions.json.
+// Parent → child edges. Truthy only; the adoptive split happens downstream in
+// transform.ts over raw-adoptions.json.
 async function fetchParentPairs(): Promise<{ from: string; to: string }[]> {
   const queries = RELAX
     ? [
         `SELECT ?p ?c WHERE {
-           ?c wdt:P31 wd:Q5; wdt:P27 wd:Q17.
-           { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c }
-           ?p wdt:P31 wd:Q5. }`,
+           ?c wdt:${INSTANCE_OF} wd:Q5; wdt:${CITIZENSHIP} wd:Q17.
+           { ?c wdt:${FATHER} ?p } UNION { ?c wdt:${MOTHER} ?p } UNION { ?p wdt:${CHILD} ?c }
+           ?p wdt:${INSTANCE_OF} wd:Q5. }`,
         `SELECT ?p ?c WHERE {
-           ?p wdt:P31 wd:Q5; wdt:P27 wd:Q17.
-           { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c }
-           ?c wdt:P31 wd:Q5. }`,
+           ?p wdt:${INSTANCE_OF} wd:Q5; wdt:${CITIZENSHIP} wd:Q17.
+           { ?c wdt:${FATHER} ?p } UNION { ?c wdt:${MOTHER} ?p } UNION { ?p wdt:${CHILD} ?c }
+           ?c wdt:${INSTANCE_OF} wd:Q5. }`,
       ]
     : [
         `SELECT ?p ?c WHERE {
-           { ?c (wdt:P22|wdt:P25) ?p. } UNION { ?p wdt:P40 ?c. }
-           ?c wdt:P31 wd:Q5; wdt:P27 wd:Q17.
-           ?p wdt:P31 wd:Q5; wdt:P27 wd:Q17. }`,
+           { ?c (wdt:${FATHER}|wdt:${MOTHER}) ?p. } UNION { ?p wdt:${CHILD} ?c. }
+           ?c wdt:${INSTANCE_OF} wd:Q5; wdt:${CITIZENSHIP} wd:Q17.
+           ?p wdt:${INSTANCE_OF} wd:Q5; wdt:${CITIZENSHIP} wd:Q17. }`,
       ];
   const seen = new Set<string>();
   const edges: { from: string; to: string }[] = [];
@@ -74,17 +83,17 @@ async function fetchSymmetricPairs(property: string): Promise<RawPair[]> {
   const queries = RELAX
     ? [
         `SELECT ?a ?b WHERE {
-           ?a wdt:P31 wd:Q5; wdt:P27 wd:Q17. ?a wdt:${property} ?b.
-           ?b wdt:P31 wd:Q5. }`,
+           ?a wdt:${INSTANCE_OF} wd:Q5; wdt:${CITIZENSHIP} wd:Q17. ?a wdt:${property} ?b.
+           ?b wdt:${INSTANCE_OF} wd:Q5. }`,
         `SELECT ?a ?b WHERE {
-           ?b wdt:P31 wd:Q5; wdt:P27 wd:Q17. ?a wdt:${property} ?b.
-           ?a wdt:P31 wd:Q5. }`,
+           ?b wdt:${INSTANCE_OF} wd:Q5; wdt:${CITIZENSHIP} wd:Q17. ?a wdt:${property} ?b.
+           ?a wdt:${INSTANCE_OF} wd:Q5. }`,
       ]
     : [
         `SELECT ?a ?b WHERE {
            ?a wdt:${property} ?b.
-           ?a wdt:P31 wd:Q5; wdt:P27 wd:Q17.
-           ?b wdt:P31 wd:Q5; wdt:P27 wd:Q17. }`,
+           ?a wdt:${INSTANCE_OF} wd:Q5; wdt:${CITIZENSHIP} wd:Q17.
+           ?b wdt:${INSTANCE_OF} wd:Q5; wdt:${CITIZENSHIP} wd:Q17. }`,
       ];
   const seen = new Set<string>();
   const edges: RawPair[] = [];
@@ -110,9 +119,9 @@ async function main() {
   );
   const parentPairs = await fetchParentPairs();
   console.log(`  PARENT_OF (truthy): ${parentPairs.length}`);
-  const spouse = await fetchSymmetricPairs("P26");
+  const spouse = await fetchSymmetricPairs(SPOUSE);
   console.log(`  SPOUSE_OF: ${spouse.length}`);
-  const sibling = await fetchSymmetricPairs("P3373");
+  const sibling = await fetchSymmetricPairs(SIBLING);
   console.log(`  SIBLING_OF: ${sibling.length}`);
 
   const nodeIds = new Set<string>();

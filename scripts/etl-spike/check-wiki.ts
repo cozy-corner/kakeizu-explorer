@@ -3,14 +3,15 @@
 // right pane (Wikipedia view) when walking through them.
 //
 // For every loaded node we ask Wikidata two yes/no questions:
-//   - P27=Q17?            → has Japanese nationality tag (core, not a bridge)
-//   - has ja.wikipedia?   → right pane would show a real article
-// Then we report ja-article coverage split by core vs. bridge (no P27 tag).
+//   - citizenship = Japan? → has Japanese nationality tag (core, not a bridge)
+//   - has ja.wikipedia?     → right pane would show a real article
+// Then we report ja-article coverage split by core vs. bridge (no citizenship tag).
 //
 // Run: bun run scripts/etl-spike/check-wiki.ts
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { CITIZENSHIP } from "./properties";
 import { sparql } from "./wdqs";
 
 const DATA_DIR = join(import.meta.dirname, "data");
@@ -34,7 +35,7 @@ async function main() {
     const rows = await sparql(`
       SELECT ?item ?jp ?ja WHERE {
         VALUES ?item { ${values} }
-        BIND(EXISTS { ?item wdt:P27 wd:Q17 } AS ?jp)
+        BIND(EXISTS { ?item wdt:${CITIZENSHIP} wd:Q17 } AS ?jp)
         BIND(EXISTS {
           ?art schema:about ?item; schema:isPartOf <https://ja.wikipedia.org/>
         } AS ?ja)

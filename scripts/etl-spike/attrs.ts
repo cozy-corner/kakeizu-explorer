@@ -3,6 +3,17 @@
 // with the callers' truthy queries.
 
 import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
+import {
+  CHILD,
+  CITIZENSHIP,
+  COUNTRY,
+  FATHER,
+  KINSHIP_ROLE,
+  MOTHER,
+  RELATIVE,
+  SEX,
+  SOURCING_CIRCUMSTANCES,
+} from "./properties";
 import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 import type { Rank, RawAdoptiveEdge, RawNode, RawParentEdge, Sex } from "./raw";
 
@@ -32,9 +43,9 @@ const pushUniq = (arr: string[], v: string) => {
   if (!arr.includes(v)) arr.push(v);
 };
 
-// label (ja,en) + sex (P21) + nationalities (P27) + nationality countries
-// (P27→P17) + ja.wikipedia title (sitelink schema:name) for a set of qids.
-// Nodes with no label fall back to their qid; nodes with no P27 get empty arrays
+// label (ja,en) + sex + nationalities + nationality countries (citizenship →
+// country) + ja.wikipedia title (sitelink schema:name) for a set of qids.
+// Nodes with no label fall back to their qid; nodes with no citizenship get empty arrays
 // (kept as bridge relatives by foreign-pruning, which only removes nodes that
 // HAVE a nationality); nodes with no ja.wikipedia article get no wikipediaTitle.
 export async function fetchNodeAttrs(
@@ -63,13 +74,13 @@ export async function fetchNodeAttrs(
        SERVICE wikibase:label { bd:serviceParam wikibase:language "ja,en". } }`,
         ),
         sparql(
-          `SELECT ?item ?sex WHERE { VALUES ?item { ${values} } ?item wdt:P21 ?sex. }`,
+          `SELECT ?item ?sex WHERE { VALUES ?item { ${values} } ?item wdt:${SEX} ?sex. }`,
         ),
         sparql(
-          `SELECT ?item ?nat WHERE { VALUES ?item { ${values} } ?item wdt:P27 ?nat. }`,
+          `SELECT ?item ?nat WHERE { VALUES ?item { ${values} } ?item wdt:${CITIZENSHIP} ?nat. }`,
         ),
         sparql(
-          `SELECT ?item ?c WHERE { VALUES ?item { ${values} } ?item wdt:P27/wdt:P17 ?c. }`,
+          `SELECT ?item ?c WHERE { VALUES ?item { ${values} } ?item wdt:${CITIZENSHIP}/wdt:${COUNTRY} ?c. }`,
         ),
         // schema:name on the ja.wikipedia sitelink is the canonical article title
         // (only present for items that have such an article).
@@ -102,22 +113,22 @@ export async function fetchNodeAttrs(
   return out;
 }
 
-// One reified parent statement (a single P22/P25/P40 claim), grouped by its
-// statement node. `side` records who asserted it: child-side = the child's
-// P22/P25 → parent; parent-side = the parent's P40 → child.
+// One reified parent statement (a single father/mother/child claim), grouped by
+// its statement node. `side` records who asserted it: child-side = the child's
+// FATHER/MOTHER → parent; parent-side = the parent's CHILD → child.
 interface ParentStatement {
   child: string;
   parent: string;
   side: "child" | "parent";
   rank: Rank;
-  roles: string[]; // P1039
-  sourcing: string[]; // P1480
+  roles: string[]; // KINSHIP_ROLE
+  sourcing: string[]; // SOURCING_CIRCUMSTANCES
 }
 
-// Reified P22/P25/P40 statements for the given subjects, in ONE pass carrying
-// rank + P1039 + P1480. `wikibase:rank` sits INSIDE each UNION branch so ?st is
-// bound to the subject's statement, not scanned across all statements (an
-// unbound ?st 504s).
+// Reified father/mother/child statements for the given subjects, in ONE pass
+// carrying rank + KINSHIP_ROLE + SOURCING_CIRCUMSTANCES. `wikibase:rank` sits
+// INSIDE each UNION branch so ?st is bound to the subject's statement, not
+// scanned across all statements (an unbound ?st 504s).
 async function fetchParentStatements(
   subjects: string[],
 ): Promise<ParentStatement[]> {
@@ -130,17 +141,17 @@ async function fetchParentStatements(
       SELECT ?st ?child ?parent ?side ?rank ?role ?circ WHERE {
         VALUES ?s { ${sparqlValues(b)} }
         {
-          { ?s p:P22 ?st. ?st ps:P22 ?o. ?st wikibase:rank ?rank.
+          { ?s p:${FATHER} ?st. ?st ps:${FATHER} ?o. ?st wikibase:rank ?rank.
             BIND(?s AS ?child) BIND(?o AS ?parent) BIND("child" AS ?side) }
           UNION
-          { ?s p:P25 ?st. ?st ps:P25 ?o. ?st wikibase:rank ?rank.
+          { ?s p:${MOTHER} ?st. ?st ps:${MOTHER} ?o. ?st wikibase:rank ?rank.
             BIND(?s AS ?child) BIND(?o AS ?parent) BIND("child" AS ?side) }
           UNION
-          { ?s p:P40 ?st. ?st ps:P40 ?o. ?st wikibase:rank ?rank.
+          { ?s p:${CHILD} ?st. ?st ps:${CHILD} ?o. ?st wikibase:rank ?rank.
             BIND(?s AS ?parent) BIND(?o AS ?child) BIND("parent" AS ?side) }
         }
-        OPTIONAL { ?st pq:P1039 ?role. }
-        OPTIONAL { ?st pq:P1480 ?circ. }
+        OPTIONAL { ?st pq:${KINSHIP_ROLE} ?role. }
+        OPTIONAL { ?st pq:${SOURCING_CIRCUMSTANCES} ?circ. }
       }`),
     ),
   );
@@ -171,7 +182,7 @@ async function fetchParentStatements(
 }
 
 // Orient one adoptive relation to adoptiveParent→child and return its `from->to`
-// key (null for a self-loop). P1039 gives the OBJECT's kinship TO the SUBJECT, so
+// key (null for a self-loop). KINSHIP_ROLE gives the OBJECT's kinship TO the SUBJECT, so
 // 養父/養母 (PARENT_ROLE) ⇒ the object is the adoptive parent (obj→subj); every
 // other kinship ⇒ the object is the adoptive child (subj→obj).
 function adoptiveKey(subj: string, obj: string, role: string): string | null {
@@ -180,9 +191,9 @@ function adoptiveKey(subj: string, obj: string, role: string): string | null {
 }
 
 // Split truthy parent→child edges into biological + adoptive and annotate the
-// biological ones, all from ONE reified P22/P25/P40 sweep. Adoption recorded via
-// P1038 (generic "relative") can't come from parent statements, so it's the lone
-// extra sweep.
+// biological ones, all from ONE reified father/mother/child sweep. Adoption
+// recorded via RELATIVE (generic "relative") can't come from parent statements,
+// so it's the lone extra sweep.
 export async function fetchParentAndAdoptions(
   subjects: string[],
   truthyEdges: { from: string; to: string }[],
@@ -249,15 +260,15 @@ function annotateFromStatements(
   });
 }
 
-// Adoptive edges recorded inside the P22/P25/P40 statements we already fetched
-// (P1039 ∈ KINSHIP, non-deprecated), oriented adoptiveParent→child by role.
+// Adoptive edges recorded inside the father/mother/child statements we already
+// fetched (KINSHIP_ROLE ∈ KINSHIP, non-deprecated), oriented adoptiveParent→child by role.
 // Derived in-memory; no extra WDQS. Returns `from->to` keys.
 function adoptiveFromStatements(statements: ParentStatement[]): string[] {
   const out: string[] = [];
   for (const s of statements) {
     if (s.rank === "deprecated") continue;
-    // Recover the reified subject/object: P22/P25 assert on the child, P40 on the
-    // parent.
+    // Recover the reified subject/object: FATHER/MOTHER assert on the child, CHILD
+    // on the parent.
     const subj = s.side === "child" ? s.child : s.parent;
     const obj = s.side === "child" ? s.parent : s.child;
     for (const k of s.roles) {
@@ -269,10 +280,10 @@ function adoptiveFromStatements(statements: ParentStatement[]): string[] {
   return out;
 }
 
-// Adoptions recorded via P1038 (generic "relative" + P1039) — the only adoptive
-// source not reachable from the parent statements, so the lone extra sweep.
-// `wikibase:rank` sits after the pattern because `pq:P1039 ?k` (VALUES ?k) binds
-// ?st to a small set — the 504 risk is only an unrestricted ?st. Returns keys.
+// Adoptions recorded via RELATIVE (generic "relative" + KINSHIP_ROLE) — the only
+// adoptive source not reachable from the parent statements, so the lone extra sweep.
+// `wikibase:rank` sits after the pattern because the KINSHIP_ROLE qualifier (VALUES
+// ?k) binds ?st to a small set — the 504 risk is only an unrestricted ?st. Returns keys.
 async function fetchP1038Adoptions(subjects: string[]): Promise<string[]> {
   const kinshipValues = sparqlValues(KINSHIP);
   const out: string[] = [];
@@ -282,8 +293,8 @@ async function fetchP1038Adoptions(subjects: string[]): Promise<string[]> {
       SELECT ?s ?o ?k WHERE {
         VALUES ?s { ${sparqlValues(b)} }
         VALUES ?k { ${kinshipValues} }
-        ?s p:P1038 ?st. ?st ps:P1038 ?o.
-        ?st pq:P1039 ?k.
+        ?s p:${RELATIVE} ?st. ?st ps:${RELATIVE} ?o.
+        ?st pq:${KINSHIP_ROLE} ?k.
         ?st wikibase:rank ?rank.
         FILTER(?rank != wikibase:DeprecatedRank)
       }`),

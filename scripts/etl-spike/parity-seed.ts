@@ -13,6 +13,18 @@
 
 import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
 import { KINSHIP, PARENT_ROLE } from "./adoption-roles";
+import {
+  CHILD,
+  CITIZENSHIP,
+  COUNTRY,
+  FATHER,
+  KINSHIP_ROLE,
+  MOTHER,
+  RELATIVE,
+  SEX,
+  SIBLING,
+  SPOUSE,
+} from "./properties";
 import { type RawNode, rawNodeOr } from "./raw";
 import { qid, sparql, sparqlValues } from "./wdqs";
 
@@ -33,7 +45,7 @@ async function neighborhood(): Promise<string[]> {
   const rows = await sparql(`
     SELECT ?o WHERE {
       VALUES ?s { ${sparqlValues(SEEDS)} }
-      VALUES ?p { wdt:P22 wdt:P25 wdt:P40 wdt:P26 wdt:P3373 }
+      VALUES ?p { wdt:${FATHER} wdt:${MOTHER} wdt:${CHILD} wdt:${SPOUSE} wdt:${SIBLING} }
       { ?s ?p ?o. } UNION { ?o ?p ?s. }
     }`);
   for (const r of rows) {
@@ -46,17 +58,17 @@ async function neighborhood(): Promise<string[]> {
 // ---- OLD path: the pre-refactor queries, scoped to the node set N. ----
 
 async function oldSpine(ids: string[]): Promise<Set<string>> {
-  // Truthy P22/P25/P40 among N, minus the EXCLUDE_ADOPTIVE reified subquery.
+  // Truthy father/mother/child among N, minus the EXCLUDE_ADOPTIVE reified subquery.
   const excludeAdoptive = `FILTER NOT EXISTS {
     VALUES ?k { ${KV} }
-    { ?c p:P22 ?st. ?st ps:P22 ?p. ?st pq:P1039 ?k. }
-    UNION { ?c p:P25 ?st. ?st ps:P25 ?p. ?st pq:P1039 ?k. }
-    UNION { ?p p:P40 ?st. ?st ps:P40 ?c. ?st pq:P1039 ?k. }
+    { ?c p:${FATHER} ?st. ?st ps:${FATHER} ?p. ?st pq:${KINSHIP_ROLE} ?k. }
+    UNION { ?c p:${MOTHER} ?st. ?st ps:${MOTHER} ?p. ?st pq:${KINSHIP_ROLE} ?k. }
+    UNION { ?p p:${CHILD} ?st. ?st ps:${CHILD} ?c. ?st pq:${KINSHIP_ROLE} ?k. }
     ?st wikibase:rank ?rank. FILTER(?rank != wikibase:DeprecatedRank) }`;
   const rows = await sparql(`
     SELECT ?p ?c WHERE {
       VALUES ?p { ${sparqlValues(ids)} } VALUES ?c { ${sparqlValues(ids)} }
-      { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c }
+      { ?c wdt:${FATHER} ?p } UNION { ?c wdt:${MOTHER} ?p } UNION { ?p wdt:${CHILD} ?c }
       ${excludeAdoptive} }`);
   const out = new Set<string>();
   for (const r of rows) {
@@ -72,11 +84,11 @@ async function oldAdopted(ids: string[]): Promise<Set<string>> {
   const rows = await sparql(`
     SELECT ?s ?o ?k WHERE {
       VALUES ?s { ${sparqlValues(ids)} } VALUES ?k { ${KV} }
-      { { ?s p:P1038 ?st. ?st ps:P1038 ?o. }
-        UNION { ?s p:P22 ?st. ?st ps:P22 ?o. }
-        UNION { ?s p:P25 ?st. ?st ps:P25 ?o. }
-        UNION { ?s p:P40 ?st. ?st ps:P40 ?o. } }
-      ?st pq:P1039 ?k. ?st wikibase:rank ?rank.
+      { { ?s p:${RELATIVE} ?st. ?st ps:${RELATIVE} ?o. }
+        UNION { ?s p:${FATHER} ?st. ?st ps:${FATHER} ?o. }
+        UNION { ?s p:${MOTHER} ?st. ?st ps:${MOTHER} ?o. }
+        UNION { ?s p:${CHILD} ?st. ?st ps:${CHILD} ?o. } }
+      ?st pq:${KINSHIP_ROLE} ?k. ?st wikibase:rank ?rank.
       FILTER(?rank != wikibase:DeprecatedRank) }`);
   const out = new Set<string>();
   for (const r of rows) {
@@ -100,21 +112,24 @@ async function oldForeign(ids: string[]): Promise<Set<string>> {
     return hit;
   };
   const jpNat = await sweep(
-    "{ ?item wdt:P27 wd:Q17. } UNION { ?item wdt:P27/wdt:P17 wd:Q17. }",
+    `{ ?item wdt:${CITIZENSHIP} wd:Q17. } UNION { ?item wdt:${CITIZENSHIP}/wdt:${COUNTRY} wd:Q17. }`,
   );
-  const anyNat = await sweep("?item wdt:P27 [].");
+  const anyNat = await sweep(`?item wdt:${CITIZENSHIP} [].`);
   return new Set(ids.filter((q) => anyNat.has(q) && !jpNat.has(q)));
 }
 
 async function oldSex(ids: string[]): Promise<Map<string, string>> {
-  const SEX: Record<string, string> = { Q6581097: "male", Q6581072: "female" };
+  const SEX_QID: Record<string, string> = {
+    Q6581097: "male",
+    Q6581072: "female",
+  };
   const rows = await sparql(
-    `SELECT ?p ?sex WHERE { VALUES ?p { ${sparqlValues(ids)} } ?p wdt:P21 ?sex. }`,
+    `SELECT ?p ?sex WHERE { VALUES ?p { ${sparqlValues(ids)} } ?p wdt:${SEX} ?sex. }`,
   );
   const out = new Map<string, string>();
   for (const r of rows) {
     const p = qid(r.p!.value);
-    if (!out.has(p)) out.set(p, SEX[qid(r.sex!.value)] ?? "other");
+    if (!out.has(p)) out.set(p, SEX_QID[qid(r.sex!.value)] ?? "other");
   }
   return out;
 }
@@ -127,7 +142,7 @@ async function newTruthyPairs(
   const rows = await sparql(`
     SELECT ?p ?c WHERE {
       VALUES ?p { ${sparqlValues(ids)} } VALUES ?c { ${sparqlValues(ids)} }
-      { ?c wdt:P22 ?p } UNION { ?c wdt:P25 ?p } UNION { ?p wdt:P40 ?c } }`);
+      { ?c wdt:${FATHER} ?p } UNION { ?c wdt:${MOTHER} ?p } UNION { ?p wdt:${CHILD} ?c } }`);
   const out: { from: string; to: string }[] = [];
   const seen = new Set<string>();
   for (const r of rows) {

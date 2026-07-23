@@ -6,6 +6,7 @@
 // Run: WDQS_NOCACHE=1 bun run scripts/etl-spike/bench-stages.ts
 
 import { fetchNodeAttrs, fetchParentAndAdoptions } from "./attrs";
+import { CHILD, FATHER, MOTHER, SIBLING, SPOUSE } from "./properties";
 import { RAW_NODES, type RawNode, readRaw } from "./raw";
 import { sparql, sparqlValues } from "./wdqs";
 
@@ -28,7 +29,7 @@ async function main() {
     sparql(`
       SELECT ?s ?p ?o WHERE {
         VALUES ?s { ${sparqlValues(edge)} }
-        VALUES ?p { wdt:P22 wdt:P25 wdt:P40 wdt:P26 wdt:P3373 }
+        VALUES ?p { wdt:${FATHER} wdt:${MOTHER} wdt:${CHILD} wdt:${SPOUSE} wdt:${SIBLING} }
         ?s ?p ?o. }`),
   );
 
@@ -36,7 +37,7 @@ async function main() {
   const attrs = qids.slice(0, 400);
   await time("attrs (400 subj, 5 queries)", () => fetchNodeAttrs(attrs));
 
-  // final-sweep unit: reified P22/P25/P40 + P1038 over EDGE_BATCH=120 subjects.
+  // final-sweep unit: reified father/mother/child + RELATIVE over EDGE_BATCH=120 subjects.
   await time("final-sweep (120 subj)", () => fetchParentAndAdoptions(edge, []));
 }
 
