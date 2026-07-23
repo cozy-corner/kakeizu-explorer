@@ -1,6 +1,6 @@
 ---
 name: comment-cleanup
-description: Use to correct over-commenting in this repo — comments that restate what the code already says (labels on obvious assignments, control-flow conditions, loop bounds), narrate line-by-line, spell out a "why" a reader could recover from the code itself, assert an invariant the code should enforce instead, or pad one real point with sentences of structural narration. Deletes pure what-comments AND code-recoverable why-comments, compresses padded blocks down to the load-bearing point, and normalizes Japanese code comments to English. Trigger whenever the user asks to clean up / prune / fix / 訂正する comments, remove redundant or excessive comments, cut comment volume, or review comments for a diff or a set of files. Runs on the uncommitted diff by default, or on a diff range (e.g. `main...HEAD`) or paths you pass it. Comments only — it never changes code behavior. NOT for writing new docs or prose.
+description: Use when the user asks to clean up / prune / fix / 訂正する code comments, remove redundant or excessive comments, cut comment volume, or review the comments on a diff or a set of files. Also trigger when a change adds comments that restate what the code already says or over-explain it. Scoped to code comments only — never writes new docs or prose, never changes code behavior.
 ---
 
 # Cleaning up over-commenting
@@ -56,8 +56,9 @@ reading the visible code, or does it live _outside_ the code entirely?**
   (the code shows the road taken, never the one refused), a **domain-grounded rationale**
   — a why that turns on a domain fact a non-expert couldn't supply (諸説 disputed parentage
   → keep both fathers; 家督 succession is not descent → drop it); the domain term rides
-  along in the reason, it is never kept as a bare gloss (P22 = father, 家督 = house-headship
-  — that meaning is a constant / external rule, not a comment), a **caller-side
+  along in the reason, it is not — save the flagged
+  no-constant stopgap below — kept as a bare gloss (P22 = father, 家督 = house-headship;
+  that meaning's home is a constant or external rule, not a comment), a **caller-side
   precondition** the body can't show ("caller holds the lock", "input validated
   upstream"), or the **contract of a public API** (a caller reads the signature, not the
   body). Nothing else.
@@ -68,13 +69,9 @@ people into keeping — derivable whys, invariant declarations, padded blocks �
 one thing that fools people into deleting: a real non-local fact they couldn't articulate
 on the spot (keep-and-flag it; see below).
 
-One case the headline test alone gets wrong, resolved by the invariant section below: an
-**invariant declaration** ("this can never miss") is often true _because of code
-elsewhere_, so the headline test would say "outside the code → keep." It still goes —
-because its correct home is a `throw`/type/assert, not prose. The line vs a kept
-non-local _why_: a why explains **why the code is shaped this way**; an invariant merely
-**asserts a fact the code should check**. When unsure which you're holding, see
-"Invariants belong in code."
+One exception the headline test alone gets wrong — an **invariant declaration** that is
+true because of code _elsewhere_, yet still goes (its home is a `throw`/type/assert, not
+prose) — is handled in "Invariants belong in code" below.
 
 ### The taxonomy — the four core kinds (stale / label / partial-value cases follow below)
 
@@ -108,7 +105,7 @@ kept why-sentence still gets cut.** The common miss is an enumeration glued mid-
 — you keep the sentence for its why and the list rides along:
 
 ```ts
-// every persisted attribute (label, sex, nationality, birthYear) is
+// every persisted attribute (label, sex, nationalities, wikipediaTitle) is
 // captured once via attrs.ts        ← keep the why "captured once"; cut the list
 ```
 
@@ -118,22 +115,16 @@ keep the why** ("captured once"). (It also drifts — a reviewer flags it as _in
 when a field is added, and the fix is to delete the list, not complete it — but
 recoverability is the reason; drift is only the symptom.)
 
-A domain-identifier gloss — `// P22 = father`, `(P22/P25/P40 = father/mother/child)` —
-maps an opaque token to its meaning. That meaning's home is a **named constant** (`const
-FATHER = "P22"`), which resolves it once, in the identifier, with no lookup and no drift.
-So:
-
-- The gloss **duplicates a constant** that already carries the meaning, or **repeats**
-  another gloss: pure what-restatement → cut.
-- **No constant exists** and the code uses the raw token: the gloss is a
-  **missing-constant smell**. The fix is the constant (a code change, out of scope) — do
-  NOT just delete the gloss and leave every reader to look the token up externally each
-  time; that trade is worse than the comment. Keep the **single** definitional gloss at
-  one place, note it wants a constant, and cut only its repeats elsewhere.
-
-What stays regardless is domain-grounded _rationale_, not the term: keep "keep BOTH fathers
-— 諸説 (disputed), picking one fabricates a bloodline"; a bare "P22 = father" is never kept
-_for itself_ — the term only rides along inside a why.
+A domain-identifier gloss — `// P22 = father` — maps an opaque token to its meaning, whose
+real home is a **named constant** (`const FATHER = "P22"`): resolved once, no drift. So if
+a constant (or an earlier gloss) already carries the meaning, the gloss just repeats it →
+cut. If no constant exists and the code uses the raw token, deleting the gloss forces an
+external lookup on every reader — worse than keeping it — so **keep-and-flag** the _single_
+definitional gloss (note it wants a constant) and cut only its repeats. What never gets cut
+is a domain-grounded _rationale_ the term rides inside ("keep BOTH fathers — 諸説 disputed,
+picking one fabricates a bloodline"). Apart from the single no-constant stopgap above, a
+bare "P22 = father" is not kept for itself — and that surviving gloss sits at the point of
+use (beside the raw token), not wherever a rationale happens to mention the term.
 
 Cut only inside **implementation** comments — a public-API contract doc may legitimately
 enumerate its params/fields (see the Exception on public API).
