@@ -55,7 +55,8 @@ reading the visible code, or does it live _outside_ the code entirely?**
   browser quirk, `dagre` doesn't promise X), a **rejected alternative** and why it fails
   (the code shows the road taken, never the one refused), a **domain-grounded rationale**
   — a why that turns on a domain fact a non-expert couldn't supply (諸説 disputed parentage
-  → keep both fathers; 家督 succession is not descent → drop it); the domain term rides
+  → the code keeps both fathers; 家督 succession is not descent → the code drops that edge —
+  the comment explaining either domain-driven choice is the keep); the domain term rides
   along in the reason, it is not — save the flagged
   no-constant stopgap below — kept as a bare gloss (P22 = father, 家督 = house-headship;
   that meaning's home is a constant or external rule, not a comment), a **caller-side
