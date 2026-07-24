@@ -5,7 +5,7 @@
 // For every loaded node we ask Wikidata two yes/no questions:
 //   - citizenship = Japan? → has Japanese nationality tag (core, not a bridge)
 //   - has ja.wikipedia?     → right pane would show a real article
-// Then we report ja-article coverage split by core vs. bridge (no citizenship tag).
+// Then we report ja-article coverage split by core vs. bridge (no Japanese citizenship tag).
 //
 // Run: bun run scripts/etl-spike/check-wiki.ts
 
