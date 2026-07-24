@@ -67,7 +67,7 @@ async function main() {
     );
 
     console.log(`Loading ${nodes.length} nodes…`);
-    // r.sex / r.wikipediaTitle are null when Wikidata has no P21 / no ja.wikipedia;
+    // r.sex / r.wikipediaTitle are null when Wikidata has no sex / no ja.wikipedia;
     // SET …= null leaves the property unset (Cypher), so the article pane falls
     // back to label.
     await batched(

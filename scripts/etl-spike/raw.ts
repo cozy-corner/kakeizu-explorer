@@ -12,15 +12,15 @@ export const DATA_DIR = join(import.meta.dirname, "data");
 export type Sex = "male" | "female" | "other";
 export type Rank = "preferred" | "normal" | "deprecated";
 
-// A person. `nationalities` are P27 target QIDs; `nationalityCountries` are the
-// P27→P17 countries of those citizenships (Edo shogunate → Japan, etc.). Both
+// A person. `nationalities` are citizenship target QIDs; `nationalityCountries`
+// are the countries of those citizenships (Edo shogunate → Japan, etc.). Both
 // are kept because the two nationality rules disagree: traverse's frontier uses
-// the narrow rule (P27 ∋ Q17), foreign-pruning uses the broad rule
-// (P27 ∋ Q17 ∨ P27→P17 ∋ Q17).
+// the narrow rule (citizenship ∋ Q17), foreign-pruning uses the broad rule
+// (citizenship ∋ Q17 ∨ citizenship-country ∋ Q17).
 export interface RawNode {
   qid: string;
   label: string;
-  sex?: Sex; // P21; omitted when Wikidata records none
+  sex?: Sex; // omitted when Wikidata records none
   // ja.wikipedia article title from the Wikidata sitelink (schema:name), so the
   // article pane opens the canonical page instead of guessing from `label`.
   // Omitted when the person has no ja.wikipedia article.
@@ -30,17 +30,17 @@ export interface RawNode {
 }
 
 // A truthy parent→child edge, annotated from its reified statement(s). `role`
-// (P1039) marks adoptive kinship; `*SideRank` carry the child-side (P22/P25) and
-// parent-side (P40) statement ranks, so deprecated-父辺 removal can stay a local
-// transform. `sourcing` are P1480 QIDs (presumed, etc.), for a later
-// presumed-suppression transform.
+// (kinship-role) marks adoptive kinship; `*SideRank` carry the child-side
+// (father/mother) and parent-side (child) statement ranks, so deprecated-父辺
+// removal can stay a local transform. `sourcing` are sourcing-circumstances QIDs
+// (presumed, etc.), for a later presumed-suppression transform.
 export interface RawParentEdge {
   from: string; // parent
   to: string; // child
   childSideRank?: Rank;
   parentSideRank?: Rank;
-  role?: string; // P1039 kinship QID
-  sourcing: string[]; // P1480 QIDs
+  role?: string; // kinship-role QID
+  sourcing: string[]; // sourcing-circumstances QIDs
 }
 
 export interface RawPair {
@@ -50,8 +50,8 @@ export interface RawPair {
 
 // A directed adoptive relation, already oriented adoptiveParent→child. Kept as
 // its own raw stream because adoption is recorded in ways the truthy parent
-// spine can't reach: via P1038 (generic "relative") and via non-best-rank
-// P22/P25/P40 statements. The local split filters these to in-graph nodes.
+// spine can't reach: via RELATIVE (generic "relative") and via non-best-rank
+// father/mother/child statements. The local split filters these to in-graph nodes.
 export interface RawAdoptiveEdge {
   from: string;
   to: string;

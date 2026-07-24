@@ -29,9 +29,9 @@ async function main() {
   const sibling = await readRaw<RawPair[]>(RAW_SIBLING);
   const adoptions = await readRaw<RawAdoptiveEdge[]>(RAW_ADOPTIONS);
 
-  // Foreign = has a P27 nationality but none is Japanese (P27 ∋ Q17, or a P27 country
-  // via P27→P17 is Q17). No-P27 bridge relatives and Japan+other dual nationals are
-  // kept; birthplace is deliberately unused.
+  // Foreign = has a citizenship but none is Japanese (citizenship ∋ Q17, or a
+  // citizenship's country ∋ Q17). Bridge relatives with no citizenship and
+  // Japan+other dual nationals are kept; birthplace is deliberately unused.
   const isJapanese = (n: RawNode) =>
     n.nationalities.includes(JAPAN) || n.nationalityCountries.includes(JAPAN);
   const isForeign = (n: RawNode) =>
@@ -46,9 +46,10 @@ async function main() {
   // Restricted to in-graph nodes (parity with fetch-adoptions.ts's known.has(o) guard).
   const keptAdoptions = adoptions.filter((e) => keep2(e.from, e.to));
 
-  // Wikidata records a parent link as two unsynced statements (child-side P22/P25,
-  // parent-side P40); a truthy query keeps the edge if EITHER side's best rank is
-  // non-deprecated, so a parent-side P40 can leak a father the child side deprecated
+  // Wikidata records a parent link as two unsynced statements (child-side
+  // father/mother, parent-side child); a truthy query keeps the edge if EITHER
+  // side's best rank is non-deprecated, so a parent-side child statement can leak
+  // a father the child side deprecated
   // as wrong (disputed parentage / rumored-illegitimate-child). Drop the pair when
   // either side's rank is deprecated.
   const isDeprecatedParent = (e: RawParentEdge) =>
