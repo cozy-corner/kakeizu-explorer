@@ -33,7 +33,7 @@ async function main() {
         ?s ?p ?o. }`),
   );
 
-  // attrs unit: fetchNodeAttrs over NODE_BATCH=400 subjects (its 5 serial queries).
+  // attrs unit: fetchNodeAttrs over NODE_BATCH=400 subjects (its 5 parallel queries).
   const attrs = qids.slice(0, 400);
   await time("attrs (400 subj, 5 queries)", () => fetchNodeAttrs(attrs));
 
