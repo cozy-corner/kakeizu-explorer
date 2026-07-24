@@ -5,7 +5,7 @@ description: >-
   review-clean PR. It sequences: read the issue/plan and clarify unknowns →
   implement in a git worktree (optionally de-risking a shaky assumption with a
   throwaway probe first) → clean it up with /simplify and comment-cleanup, self-review
-  with /code-review, triaging the findings → verify it works by running it → open the PR →
+  with requesting-code-review, triaging the findings → verify it works by running it → open the PR →
   triage the PR bot's review the same way. Use this whenever the user
   wants to 進める / implement / build / refactor an issue or feature through to a
   PR, or to ACT ON (apply the valid ones, reject the rest with a reason)
@@ -15,8 +15,8 @@ description: >-
   single-file edits, for design-discussion-only with no implementation, or for
   merely fetching or displaying a PR's reviews without acting on them — those
   belong to design or pr-reviews respectively. Delegates each phase to the focused
-  skills (design, verify, simplify, comment-cleanup, code-review, pr-reviews, pr-tasks,
-  receiving-code-review) and may fan out to parallel agents.
+  skills (design, verify, simplify, comment-cleanup, requesting-code-review, pr-reviews,
+  pr-tasks, receiving-code-review) and may fan out to parallel agents.
 ---
 
 # Issue → PR
@@ -100,25 +100,29 @@ Two passes over the diff, each owned by a focused skill:
   trims verbose public-API docs to a minimal contract, drops stale-by-design comments
   (PR/issue numbers, "previously…", phase markers), and normalizes JA code comments to
   English — keeping only the non-obvious _why_. Comments only; it never touches code.
-- **code-review** — `/code-review` is user-invocable only, so **pause and ask the
-  user to run `/code-review medium`** — it fans out finder + verifier agents on its
-  own. When its findings come back, do the part it can't: **triage every finding**
-  with the rubric below. Apply the valid ones (one commit per finding), and for each
-  rejection say _why_ in your summary. Don't silently drop a finding and don't
-  reflexively apply one. The rubric classifies; **receiving-code-review** owns _how
-  you engage_ each finding — verify against the real code before implementing, push
-  back with technical reasoning when a finding is wrong, and never answer a reviewer
-  (human or bot) with performative agreement or thanks.
+- **requesting-code-review** — dispatch the code-reviewer subagent yourself, no
+  user-gated pause: take `BASE_SHA`/`HEAD_SHA` for the committed range and fill the
+  skill's `code-reviewer.md` template, passing the **Phase 1 approved plan** as
+  `{PLAN_OR_REQUIREMENTS}` (plain text — no plan file exists) so the reviewer can flag
+  deviations from what was agreed. It reads only committed diffs, so the
+  feature/simplify/comment-cleanup commits must already be in place. When its findings
+  come back, do the part it can't: **triage every finding** with the rubric below.
+  Apply the valid ones (one commit per finding), and for each rejection say _why_ in
+  your summary. Don't silently drop a finding and don't reflexively apply one. The
+  rubric classifies; **receiving-code-review** owns _how you engage_ each finding —
+  verify against the real code before implementing, push back with technical reasoning
+  when a finding is wrong, and never answer a reviewer (human or bot) with performative
+  agreement or thanks.
 
-Order matters: simplify first so comment-cleanup and code-review judge the final code,
-not code you're about to rewrite; comment-cleanup before code-review so the review
-reads a clean diff. simplify rewrites code, so Phase 4 re-verifies before the PR
+Order matters: simplify first so comment-cleanup and the review judge the final code,
+not code you're about to rewrite; comment-cleanup before the review so it reads a
+clean diff. simplify rewrites code, so Phase 4 re-verifies before the PR
 (comment-cleanup is comment-only — nothing behavioral to re-verify there).
 
 ## Phase 4 — Re-verify (confirm the cleanup preserved behavior)
 
-Phase 2 established that it works; simplify and code-review are behavior-preserving
-_by intent_, not confirmed. Re-run the Phase 2 verification on the paths the cleanup
+Phase 2 established that it works; simplify and the applied review fixes are
+behavior-preserving _by intent_, not confirmed. Re-run the Phase 2 verification on the paths the cleanup
 touched — a rewrite is exactly where preserved behavior quietly breaks.
 
 Scale it to what changed: if the cleanup was purely structural and a parity guard is
@@ -178,8 +182,9 @@ history, in this cadence:
 - **Phase 3 — comment-cleanup.** Pass it the `main...HEAD` range — a bare run reads
   `git diff HEAD`, which is empty once the feature is committed, so it would scope to
   nothing — then commit the cleanup.
-- **Phase 3 — code-review.** One commit per applied finding, so each stays independently
-  reviewable and revertable.
+- **Phase 3 — requesting-code-review.** One commit per applied finding, so each stays
+  independently reviewable and revertable. The reviewer reads a `BASE_SHA..HEAD_SHA`
+  range, so re-running it after fixes means re-taking `HEAD_SHA` to cover them.
 - **Phase 5 — push.** Only when the user has said to proceed to a PR.
 
 ## The triage rubric (Phases 3 and 6)
@@ -214,7 +219,7 @@ task's scope, with a nameable failure. These you fix.
 Two failure modes to avoid, equally: **performative agreement** (applying a
 suggestion because a bot said it, without checking it's real or in scope) and
 **dismissiveness** (rejecting a valid catch because it dents your work). The
-`/code-review` and PR-bot outputs are _inputs to your judgment_, not orders.
+reviewer and PR-bot outputs are _inputs to your judgment_, not orders.
 
 When a finding targets code _you just added_ in this change, it's in scope by
 definition — fix it properly. (E.g. a `colX.get(x)!` non-null assertion was flagged
@@ -225,7 +230,9 @@ as not actually throwing at runtime; that's your own new line, so it got an expl
 
 Phases naturally fan out, and that's encouraged:
 
-- `/code-review` (user-run) already runs parallel finder + verifier agents.
+- The Phase 3 review is a subagent dispatch you own (**requesting-code-review**); a
+  broad review can fan out several reviewers, one per file/angle, since each is just a
+  Task dispatch.
 - A heavy assumption check or a cross-cutting triage can spawn parallel agents
   (see **dispatching-parallel-agents**) — one per file/angle/finding — when the
   work is independent. Keep the _conclusion_, not the file dumps.
