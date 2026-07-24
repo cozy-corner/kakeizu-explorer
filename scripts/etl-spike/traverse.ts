@@ -1,9 +1,10 @@
-// Disposable spike: seed-and-traverse instead of P27 nationality filtering.
+// Disposable spike: seed-and-traverse instead of citizenship nationality filtering.
 // Start from the RELAXED graph (Japanese seeds + 1-hop relatives) and expand the
 // non-Japanese frontier outward, pulling in family regardless of nationality —
-// the P27 filter severs real lineages (信長's paternal line: 11/13 ancestors have
-// ja articles but only 1 has P27). Frontier decided locally from raw nationality
-// (narrow rule: P27 ∋ Q17), no P27 sweep; topology still from truthy `wdt:`.
+// the citizenship filter severs real lineages (信長's paternal line: 11/13 ancestors
+// have ja articles but only 1 has a citizenship tag). Frontier decided locally from
+// raw nationality (narrow rule: citizenship ∋ Q17), no citizenship sweep; topology
+// still from truthy `wdt:`.
 //
 // Run: ROUNDS=1 bun run scripts/etl-spike/traverse.ts   (then transform.ts …)
 

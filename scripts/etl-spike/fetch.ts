@@ -7,7 +7,7 @@
 //
 // Two modes test the connectivity question:
 //  - STRICT  (default): both endpoints of every edge are Japanese humans
-//    (P31=Q5 ∧ P27=Q17), the design's "JP population" core (§6).
+//    (instance-of human ∧ Japanese citizenship), the design's "JP population" core (§6).
 //  - RELAXED (SPIKE_RELAX=1): at least one endpoint is a Japanese human, the other
 //    any human — pulls in non-JP-tagged bridge relatives if the strict graph is too
 //    fragmented.
