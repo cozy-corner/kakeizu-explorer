@@ -95,9 +95,8 @@ async function main() {
     (nodeById.get(q)?.nationalities ?? []).includes("Q17");
   let frontier = [...known].filter((q) => !isJp(q));
 
-  // Per-round pruning uses the same broad rule as transform.ts: foreign = has a
-  // citizenship but none is Japanese (citizenship ∋ Q17, or a citizenship's country
-  // ∋ Q17). Untagged bridge relatives (no citizenship) are kept.
+  // Same broad foreign rule as transform.ts (keep in sync); untagged nodes (no
+  // citizenship) are deliberately kept as bridge relatives, per NOTES.md #2.
   const isForeign = (q: string) => {
     const n = nodeById.get(q);
     if (!n || n.nationalities.length === 0) return false;
@@ -147,8 +146,8 @@ async function main() {
     }
     addTiming("edge-loop", performance.now() - tEdge);
 
-    // New nodes' attributes feed both this round's foreign-pruning and, via broad
-    // citizenship (nationalityCountries), transform.ts's final pass.
+    // Persist new nodes' attributes; transform.ts's final foreign-prune reads them
+    // later (via broad citizenship), and this round's pruning reads them now.
     const attrs = await timed("attrs", () => fetchNodeAttrs(roundNewNodes));
     for (const q of roundNewNodes) {
       nodeById.set(q, rawNodeOr(q, attrs));
@@ -174,8 +173,8 @@ async function main() {
       `Round ${round}: +${total} nodes (ja ${pct(jaPct)}%, foreign ${pct(foreignPct)}%), total ${known.size}`,
     );
     console.log(`  sample new: ${sample}`);
-    // Per-round pruning: this round's foreign nodes stay in the raw output (transform
-    // drops them) but are held out of the next frontier so they can't branch further.
+    // Foreign nodes stay in the raw output (transform drops them) but are held out of
+    // the next frontier so they can't branch into world genealogy.
     frontier = roundNewNodes.filter((q) => !isForeign(q));
     if (known.size > SIZE_CAP) break;
     // Dynamic stop: once a hop's foreign inflow catches its ja articles, deeper hops
