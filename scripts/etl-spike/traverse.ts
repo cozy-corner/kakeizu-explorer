@@ -5,13 +5,19 @@
 // have ja articles but only 1 has a citizenship tag). Frontier decided locally from
 // raw nationality; topology still from truthy `wdt:`.
 //
-// Foreign-pruning runs per round, not as one final pass: a round's new foreign
-// nodes (broad rule: has a citizenship, none Japanese) are recorded but NOT carried
-// into the next frontier, so they can't branch out into world genealogy. Untagged
-// bridge relatives are kept (NOTES.md #2). A node reachable only through a foreign
-// bridge would be severed by transform.ts's foreign-pruning anyway, so not expanding
-// it loses no connected lineage. Traversal then self-converges (the frontier dries
-// up) instead of leaning on SIZE_CAP; MAX_ROUNDS is only a safety ceiling.
+// Foreign-pruning runs per round, not as one final pass: a round's new *tagged*
+// foreign nodes (broad rule: has a citizenship, none Japanese) are recorded but NOT
+// carried into the next frontier. Untagged bridge relatives are kept (NOTES.md #2) —
+// required for medieval Japanese, who carry no citizenship. A node reachable only
+// through a *tagged* foreign bridge would be severed by transform.ts's foreign-prune
+// anyway, so not expanding it loses no connected lineage.
+//
+// This does NOT fully converge. Pre-modern EUROPEAN nobility also carry no citizenship,
+// so they pass the same untagged-bridge exception and — measured past ~ROUNDS 6 — the
+// frontier re-expands into world genealogy (new-node count bottoms then climbs, and
+// additions turn into Scottish/German nobles). Neither prune catches them (both key on
+// P27), so MAX_ROUNDS bounds depth before that drift: it is the effective stop, not a
+// mere ceiling.
 //
 // Run: bun run scripts/etl-spike/traverse.ts   (then transform.ts …)
 
@@ -33,9 +39,10 @@ import {
 } from "./raw";
 import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 
-// Safety ceiling only — the dynamic stop (foreign% ≥ ja%) or a dry frontier
-// normally ends traversal first.
-const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "8");
+// Effective depth bound: measured, the untagged-European drift (see header) sets in
+// past ~ROUNDS 6, and the dynamic stop below can't catch it (leaked nodes are untagged,
+// so foreign% stays low). So this ceiling — not a dry frontier — is what stops it.
+const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "6");
 // Diagnostic: cap the starting frontier to time a representative slice without a
 // full cold run.
 const FRONTIER_CAP = Number(process.env.FRONTIER_CAP ?? "0");
@@ -177,11 +184,11 @@ async function main() {
     // the next frontier so they can't branch into world genealogy.
     frontier = roundNewNodes.filter((q) => !isForeign(q));
     if (known.size > SIZE_CAP) break;
-    // Dynamic stop: once a hop's foreign inflow catches its ja articles, deeper hops
-    // only dilute. Require some foreign inflow — an all-untagged-bridge round (foreign
-    // 0%, ja 0%) is exactly what we want to keep expanding, not a stop signal. Under
-    // pruning this rarely fires; the frontier usually dries up first, so it's a
-    // backstop, not the primary exit.
+    // Dynamic stop: once a hop's TAGGED foreign inflow catches its ja articles, deeper
+    // hops only dilute. Require some foreign inflow — an all-untagged-bridge round
+    // (foreign 0%, ja 0%) is what we want to keep expanding, not a stop signal. This
+    // only catches tagged drift; the untagged-European drift (see header) keeps
+    // foreign% low, so MAX_ROUNDS — not this — is the real bound. A weak backstop.
     if (foreignPct > 0 && foreignPct >= jaPct) break;
   }
 
