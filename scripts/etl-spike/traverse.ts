@@ -178,9 +178,11 @@ async function main() {
     frontier = roundNewNodes.filter((q) => !isForeign(q));
     if (known.size > SIZE_CAP) break;
     // Dynamic stop: once a hop's foreign inflow catches its ja articles, deeper hops
-    // only dilute. Under pruning this rarely fires (foreign% stays low) — the frontier
-    // usually dries up first — so it's a backstop, not the primary exit.
-    if (foreignPct >= jaPct) break;
+    // only dilute. Require some foreign inflow — an all-untagged-bridge round (foreign
+    // 0%, ja 0%) is exactly what we want to keep expanding, not a stop signal. Under
+    // pruning this rarely fires; the frontier usually dries up first, so it's a
+    // backstop, not the primary exit.
+    if (foreignPct > 0 && foreignPct >= jaPct) break;
   }
 
   // One reified sweep over both all new nodes (to derive their adoptive statements)
