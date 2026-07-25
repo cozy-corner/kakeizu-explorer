@@ -43,6 +43,13 @@ import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 // past ~ROUNDS 6, and the dynamic stop below can't catch it (leaked nodes are untagged,
 // so foreign% stays low). So this ceiling — not a dry frontier — is what stops it.
 const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "6");
+// A malformed override (""→0, garbage→NaN, "Infinity") would silently run zero
+// rounds or drop the bound — and the pipeline would then load a wrong-sized graph.
+if (!Number.isInteger(MAX_ROUNDS) || MAX_ROUNDS < 1) {
+  throw new Error(
+    `MAX_ROUNDS must be a positive integer, got ${process.env.MAX_ROUNDS}`,
+  );
+}
 // Diagnostic: cap the starting frontier to time a representative slice without a
 // full cold run.
 const FRONTIER_CAP = Number(process.env.FRONTIER_CAP ?? "0");
