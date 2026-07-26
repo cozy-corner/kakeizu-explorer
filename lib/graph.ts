@@ -103,8 +103,8 @@ export const junctionHiddenEdgeIds = (
 // two recorded fathers (e.g. disputed/uncertain parentage) keeps BOTH rather
 // than arbitrarily picking one — avoiding a non-deterministic choice and an
 // orphaned parent. (For a PATERNAL ego graph the neighbors API resolves the
-// dispute upstream: it drops the focus's child's competing father before this
-// reduction runs, since in that view the focus is the chosen father — see
+// dispute upstream: it never hands over the competing father's edge into the
+// focus's child, since in that view the focus is the chosen father — see
 // app/api/person/[id]/neighbors/route.ts. This function still keeps both when
 // handed both.) Mother→child edges are dropped; instead the mother is linked
 // to the father by SPOUSE_OF so she sits beside him. When no marriage is
