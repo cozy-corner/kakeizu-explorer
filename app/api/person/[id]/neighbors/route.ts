@@ -37,24 +37,30 @@ export async function GET(
     // no recursive in-law expansion.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
-       // Drop the focus's child's competing father (e.g. 近藤能成 vs 頼朝 over
-       // 大友能直, a 落胤説 false bridge to an unrelated line). Exclude the whole
-       // path through him so his kin don't orphan at hops≥3. Gate on explicit
-       // 'male' (not the patrilineal "not female"): a wrong guess here DELETES
-       // nodes. 養父 is ADOPTIVE_PARENT_OF, not PARENT_OF, so untouched.
-       OPTIONAL MATCH (c)-[:PARENT_OF]->(:Person)<-[:PARENT_OF]-(rival:Person)
+       // Drop the competing father EDGE into the focus's child (e.g. 近藤能成 vs
+       // 頼朝 over 大友能直, a 落胤説 false bridge to an unrelated line). Blocking
+       // the edge, not the node: the rival is sometimes the focus's own father
+       // recorded as a parent of the grandchild too (猶子/養女 stored as P22), and
+       // excluding him wholesale severed the real 父→focus edge. Traversal skips
+       // the blocked edges so the rival's kin never enter the node set (they'd
+       // orphan at hops≥3), and drawing skips them so a reachable rival doesn't
+       // get a second descent line into the child. Gate on explicit 'male' (not
+       // the patrilineal "not female"): a wrong guess here DELETES nodes. 養父 is
+       // ADOPTIVE_PARENT_OF, not PARENT_OF, so untouched.
+       OPTIONAL MATCH (c)-[:PARENT_OF]->(:Person)<-[rr:PARENT_OF]-(rival:Person)
        WHERE rival <> c
          AND coalesce(c.sex, '') = 'male' AND coalesce(rival.sex, '') = 'male'
-       WITH c, collect(DISTINCT rival) AS blocked
+       WITH c, collect(DISTINCT rr) AS blockedEdges
        OPTIONAL MATCH path = (c)-[:PARENT_OF*1..${hops}]-(m:Person)
-       WHERE m IS NULL OR none(n IN nodes(path) WHERE n IN blocked)
-       WITH c, collect(DISTINCT m) AS bio
+       WHERE m IS NULL OR none(r IN relationships(path) WHERE r IN blockedEdges)
+       WITH c, blockedEdges, collect(DISTINCT m) AS bio
        OPTIONAL MATCH (c)-[:ADOPTIVE_PARENT_OF]-(ad:Person)
-       WITH c, bio, collect(DISTINCT ad) AS adlist
+       WITH c, blockedEdges, bio, collect(DISTINCT ad) AS adlist
        UNWIND ([c] + bio) AS s
        OPTIONAL MATCH (s)-[:SPOUSE_OF]-(sp:Person)
-       WITH c, bio, adlist, collect(DISTINCT sp) AS splist
-       WITH [c] + [x IN bio WHERE x <> c]
+       WITH c, blockedEdges, bio, adlist, collect(DISTINCT sp) AS splist
+       WITH blockedEdges,
+            [c] + [x IN bio WHERE x <> c]
             + [x IN splist WHERE x <> c AND NOT x IN bio]
             + [x IN adlist WHERE x <> c AND NOT x IN bio AND NOT x IN splist] AS nodes
        UNWIND nodes AS a
@@ -64,7 +70,7 @@ export async function GET(
        // toggle: aDegree is blood + marriage only (the blood view); the second also
        // counts adoptive ties. DISTINCT so two edges to one person (e.g. a spouse who
        // is also co-parent, or an adoptive parent also married in) count once.
-       WITH nodes, a,
+       WITH blockedEdges, nodes, a,
          COUNT {
            MATCH (a)-[:PARENT_OF|SPOUSE_OF]-(x:Person)
            RETURN DISTINCT x
@@ -75,6 +81,7 @@ export async function GET(
          } AS aDegreeWithAdoptions
        OPTIONAL MATCH (a)-[r:PARENT_OF|SPOUSE_OF|ADOPTIVE_PARENT_OF]->(b:Person)
        WHERE b IN nodes
+         AND NOT r IN blockedEdges
          AND (type(r) <> 'ADOPTIVE_PARENT_OF' OR a.qid = $id OR b.qid = $id)
        RETURN a.qid AS aQid, a.label AS aLabel, a.sex AS aSex,
               a.wikipediaTitle AS aWikipediaTitle, aDegree, aDegreeWithAdoptions,
