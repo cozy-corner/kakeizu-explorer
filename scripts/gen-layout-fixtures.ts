@@ -104,8 +104,9 @@ type Spec = { file: string; qid: PersonId; label: string; graph: Graph };
 // Fetched from the live API, then frozen. File name is the QID. Marriage-heavy
 // cross-family figures (お市/浅井長政/北条政子) are kept in so the spouse-routing
 // bow branch is exercised, not just the "no detour" branch. Spouses are expanded
-// only within hops-1 of a blood relative, so no real ego reaches a floating
-// component — pullFloatingComponents is pinned by syn-float-* instead.
+// only within hops-1 of a blood relative, so no real ego's floating component
+// still yields an unambiguous anchored shift — pullFloatingComponents' slide is
+// pinned by syn-float-* instead.
 const realCases: { qid: PersonId; label: string }[] = [
   { qid: "Q171411" as PersonId, label: "織田信長" },
   { qid: "Q171977" as PersonId, label: "徳川家康" },
