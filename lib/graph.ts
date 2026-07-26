@@ -105,9 +105,8 @@ export const junctionHiddenEdgeIds = (
 // orphaned parent. (For a PATERNAL ego graph the neighbors API resolves the
 // dispute upstream: it never hands over the competing father's edge into the
 // focus's child, since in that view the focus is the chosen father — see
-// app/api/person/[id]/neighbors/route.ts. The rival himself may still appear as
-// a node when another path reaches him. This function keeps both when handed
-// both.) Mother→child edges are dropped; instead the mother is linked
+// app/api/person/[id]/neighbors/route.ts. This function still keeps both when
+// handed both.) Mother→child edges are dropped; instead the mother is linked
 // to the father by SPOUSE_OF so she sits beside him. When no marriage is
 // recorded, sharing a child is treated as one (co-parent ⇒ couple) so a
 // spouse-less mother (e.g. an unrecorded concubine) doesn't float. If no father

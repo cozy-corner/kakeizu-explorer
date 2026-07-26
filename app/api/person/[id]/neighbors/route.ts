@@ -38,15 +38,15 @@ export async function GET(
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
        // Drop the competing father EDGE into the focus's child (e.g. 近藤能成 vs
-       // 頼朝 over 大友能直, a 落胤説 false bridge to an unrelated line). Blocking
-       // the edge, not the node: the rival is sometimes the focus's own father
-       // recorded as a parent of the grandchild too (猶子/養女 stored as P22), and
-       // excluding him wholesale severed the real 父→focus edge. Traversal skips
-       // the blocked edges so the rival's kin never enter the node set (they'd
-       // orphan at hops≥3), and drawing skips them so a reachable rival doesn't
-       // get a second descent line into the child. Gate on explicit 'male' (not
-       // the patrilineal "not female"): a wrong guess here DELETES nodes. 養父 is
-       // ADOPTIVE_PARENT_OF, not PARENT_OF, so untouched.
+       // 頼朝 over 大友能直, a 落胤説 false bridge to an unrelated line). Per-edge,
+       // not per-node: the rival is sometimes the focus's own father, recorded as
+       // a parent of the grandchild too (猶子/養女 stored as P22), so dropping the
+       // node would sever the real 父→focus edge. Traversal skips these edges so
+       // the rival's kin never enter the node set (they'd orphan at hops≥3);
+       // drawing skips them too, since a rival reachable by another path would
+       // otherwise still get a descent line into the child. Gate on explicit
+       // 'male' (not the patrilineal "not female"): a wrong guess here DELETES a
+       // real descent edge. 養父 is ADOPTIVE_PARENT_OF, not PARENT_OF, so untouched.
        OPTIONAL MATCH (c)-[:PARENT_OF]->(:Person)<-[rr:PARENT_OF]-(rival:Person)
        WHERE rival <> c
          AND coalesce(c.sex, '') = 'male' AND coalesce(rival.sex, '') = 'male'
