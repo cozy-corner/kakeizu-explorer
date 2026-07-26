@@ -103,7 +103,9 @@ type Spec = { file: string; qid: PersonId; label: string; graph: Graph };
 
 // Fetched from the live API, then frozen. File name is the QID. Marriage-heavy
 // cross-family figures (お市/浅井長政/北条政子) are kept in so the spouse-routing
-// bow branch is exercised, not just the "no detour" branch.
+// bow branch is exercised, not just the "no detour" branch. Since spouses are
+// expanded only within hops-1 of a blood relative, no real ego reaches a floating
+// component any more — pullFloatingComponents is pinned by syn-float-* instead.
 const realCases: { qid: PersonId; label: string }[] = [
   { qid: "Q171411" as PersonId, label: "織田信長" },
   { qid: "Q171977" as PersonId, label: "徳川家康" },
@@ -141,6 +143,42 @@ const syntheticSpecs: Spec[] = [
     graph: {
       nodes: ns("AP2", "AP1", "PA", "F", "sib"),
       edges: [AP("AP1", "F"), AP("AP2", "F"), P("PA", "F"), P("PA", "sib")],
+    },
+  },
+  {
+    // X heads its own line (XP gives it a parent edge, so tuckHosts won't tuck it)
+    // and reaches the focus tree only by marrying sib, one column to its right —
+    // the unambiguous bridge pullFloatingComponents slides the whole float along.
+    file: "syn-float-slides-to-spouse",
+    qid: "FO" as PersonId,
+    label: "syn: float slides to spouse column",
+    graph: {
+      nodes: ns("GP", "PA", "FO", "sib", "XP", "X"),
+      edges: [
+        P("GP", "PA"),
+        P("PA", "FO"),
+        P("PA", "sib"),
+        P("XP", "X"),
+        SP("X", "sib"),
+      ],
+    },
+  },
+  {
+    // As above plus a child under X, so the slide would push xc onto a column no
+    // node occupies — the off-grid gate declines and leaves the marriage line long.
+    file: "syn-float-off-grid",
+    qid: "FO" as PersonId,
+    label: "syn: float slide blocked off-grid",
+    graph: {
+      nodes: ns("GP", "PA", "FO", "sib", "XP", "X", "xc"),
+      edges: [
+        P("GP", "PA"),
+        P("PA", "FO"),
+        P("PA", "sib"),
+        P("XP", "X"),
+        P("X", "xc"),
+        SP("X", "sib"),
+      ],
     },
   },
   {
