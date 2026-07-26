@@ -31,10 +31,13 @@ export async function GET(
     // Adoption edges are also DRAWN only when incident to the focus: between
     // descendants (e.g. the 御三卿 succession 斉敦→斉朝→斉温→斉荘…) they chain in
     // the layout and inflate the apparent generation depth past `hops`.
-    // The direct (1-hop) spouses of the focus and of each blood descendant are
-    // also pulled into the node set: a childless spouse (正室 高台院/ねね) shares
-    // no descent path, so PARENT_OF traversal alone would drop her. Direct only,
-    // no recursive in-law expansion.
+    // Direct (1-hop) spouses are also pulled into the node set: a childless
+    // spouse (正室 高台院/ねね) shares no descent path, so PARENT_OF traversal
+    // alone would drop her. A spouse edge costs a hop like any other, so only
+    // kin within `hops - 1` get one — otherwise a grandchild's or sibling's
+    // spouse (both 2 blood hops away, the traversal being undirected) would sit
+    // 3 hops from the focus under a `hops=2` request. Direct only, no recursive
+    // in-law expansion.
     const rows = await runQuery<NeighborRow>(
       `MATCH (c:Person {qid: $id})
        // Drop the competing father EDGE into the focus's child (e.g. 近藤能成 vs
@@ -53,10 +56,15 @@ export async function GET(
        WITH c, collect(DISTINCT rr) AS blockedEdges
        OPTIONAL MATCH path = (c)-[:PARENT_OF*1..${hops}]-(m:Person)
        WHERE m IS NULL OR none(r IN relationships(path) WHERE r IN blockedEdges)
-       WITH c, blockedEdges, collect(DISTINCT m) AS bio
+       // near reuses this same traversal rather than running a second one: at
+       // hops=1 a *1..0 pattern would be illegal, and the CASE degenerates to
+       // an empty set there, leaving just the focus's own spouses.
+       WITH c, blockedEdges, collect(DISTINCT m) AS bio,
+            collect(DISTINCT CASE WHEN length(path) <= ${hops - 1} THEN m END) AS nearRaw
+       WITH c, blockedEdges, bio, [x IN nearRaw WHERE x IS NOT NULL] AS near
        OPTIONAL MATCH (c)-[:ADOPTIVE_PARENT_OF]-(ad:Person)
-       WITH c, blockedEdges, bio, collect(DISTINCT ad) AS adlist
-       UNWIND ([c] + bio) AS s
+       WITH c, blockedEdges, bio, near, collect(DISTINCT ad) AS adlist
+       UNWIND ([c] + near) AS s
        OPTIONAL MATCH (s)-[:SPOUSE_OF]-(sp:Person)
        WITH c, blockedEdges, bio, adlist, collect(DISTINCT sp) AS splist
        WITH blockedEdges,
