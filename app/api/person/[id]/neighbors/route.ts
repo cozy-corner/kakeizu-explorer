@@ -42,9 +42,9 @@ export async function GET(
        // not per-node: the rival is sometimes the focus's own father, recorded as
        // a parent of the grandchild too (猶子/養女 stored as P22), so dropping the
        // node would sever the real 父→focus edge. Traversal skips these edges so
-       // the rival's kin never enter the node set (they'd orphan at hops≥3);
-       // drawing skips them too, since a rival reachable by another path would
-       // otherwise still get a descent line into the child. Gate on explicit
+       // kin reachable only through one never enter the node set (they'd orphan
+       // at hops≥3); drawing skips them too, since a rival reachable by another
+       // path would otherwise still get a descent line in. Gate on explicit
        // 'male' (not the patrilineal "not female"): a wrong guess here DELETES a
        // real descent edge. 養父 is ADOPTIVE_PARENT_OF, not PARENT_OF, so untouched.
        OPTIONAL MATCH (c)-[:PARENT_OF]->(:Person)<-[rr:PARENT_OF]-(rival:Person)
