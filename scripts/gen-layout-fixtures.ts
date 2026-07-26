@@ -103,9 +103,9 @@ type Spec = { file: string; qid: PersonId; label: string; graph: Graph };
 
 // Fetched from the live API, then frozen. File name is the QID. Marriage-heavy
 // cross-family figures (お市/浅井長政/北条政子) are kept in so the spouse-routing
-// bow branch is exercised, not just the "no detour" branch. Since spouses are
-// expanded only within hops-1 of a blood relative, no real ego reaches a floating
-// component any more — pullFloatingComponents is pinned by syn-float-* instead.
+// bow branch is exercised, not just the "no detour" branch. Spouses are expanded
+// only within hops-1 of a blood relative, so no real ego reaches a floating
+// component — pullFloatingComponents is pinned by syn-float-* instead.
 const realCases: { qid: PersonId; label: string }[] = [
   { qid: "Q171411" as PersonId, label: "織田信長" },
   { qid: "Q171977" as PersonId, label: "徳川家康" },
@@ -164,8 +164,8 @@ const syntheticSpecs: Spec[] = [
     },
   },
   {
-    // As above plus a child under X, so the slide would push xc onto a column no
-    // node occupies — the off-grid gate declines and leaves the marriage line long.
+    // Sliding X would push xc onto a column no node occupies, so the off-grid gate
+    // declines and leaves the crossing marriage line long.
     file: "syn-float-off-grid",
     qid: "FO" as PersonId,
     label: "syn: float slide blocked off-grid",
