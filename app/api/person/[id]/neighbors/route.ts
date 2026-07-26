@@ -58,10 +58,10 @@ export async function GET(
        WHERE m IS NULL OR none(r IN relationships(path) WHERE r IN blockedEdges)
        // near reuses this same traversal rather than running a second one: at
        // hops=1 a *1..0 pattern would be illegal, and the CASE degenerates to
-       // an empty set there, leaving just the focus's own spouses.
+       // an empty set there, leaving just the focus's own spouses. collect()
+       // drops the CASE's nulls, so no filtering step is needed.
        WITH c, blockedEdges, collect(DISTINCT m) AS bio,
-            collect(DISTINCT CASE WHEN length(path) <= ${hops - 1} THEN m END) AS nearRaw
-       WITH c, blockedEdges, bio, [x IN nearRaw WHERE x IS NOT NULL] AS near
+            collect(DISTINCT CASE WHEN length(path) <= ${hops - 1} THEN m END) AS near
        OPTIONAL MATCH (c)-[:ADOPTIVE_PARENT_OF]-(ad:Person)
        WITH c, blockedEdges, bio, near, collect(DISTINCT ad) AS adlist
        UNWIND ([c] + near) AS s
