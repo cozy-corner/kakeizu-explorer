@@ -7,304 +7,262 @@
         "qid": "Q463961",
         "label": "北条政子",
         "sex": "female",
-        "wikipediaTitle": "北条政子"
+        "wikipediaTitle": "北条政子",
+        "degree": 6,
+        "degreeWithAdoptions": 6
       },
       {
         "qid": "Q11434217",
         "label": "大姫",
         "sex": "female",
-        "wikipediaTitle": "大姫 (源頼朝の娘)"
-      },
-      {
-        "qid": "Q431052",
-        "label": "源頼家",
-        "sex": "male",
-        "wikipediaTitle": "源頼家"
+        "wikipediaTitle": "大姫 (源頼朝の娘)",
+        "degree": 3,
+        "degreeWithAdoptions": 3
       },
       {
         "qid": "Q11355364",
         "label": "三幡",
         "sex": "female",
-        "wikipediaTitle": "三幡"
+        "wikipediaTitle": "三幡",
+        "degree": 2,
+        "degreeWithAdoptions": 2
       },
       {
         "qid": "Q174249",
         "label": "源実朝",
         "sex": "male",
-        "wikipediaTitle": "源実朝"
+        "wikipediaTitle": "源実朝",
+        "degree": 3,
+        "degreeWithAdoptions": 3
       },
       {
-        "qid": "Q498600",
-        "label": "西八条禅尼",
-        "sex": "female",
-        "wikipediaTitle": "西八条禅尼"
-      },
-      {
-        "qid": "Q242800",
-        "label": "源頼朝",
+        "qid": "Q431052",
+        "label": "源頼家",
         "sex": "male",
-        "wikipediaTitle": "源頼朝"
+        "wikipediaTitle": "源頼家",
+        "degree": 10,
+        "degreeWithAdoptions": 10
       },
       {
         "qid": "Q589811",
         "label": "北条時政",
         "sex": "male",
-        "wikipediaTitle": "北条時政"
+        "wikipediaTitle": "北条時政",
+        "degree": 18,
+        "degreeWithAdoptions": 18
       },
       {
         "qid": "Q106620526",
         "label": "北条時政の娘 (坊門忠清の妻)",
-        "sex": "female"
+        "sex": "female",
+        "degree": 2,
+        "degreeWithAdoptions": 2
       },
       {
         "qid": "Q106616199",
         "label": "北条時政の娘 (平賀朝雅の正室、源国通の室)",
-        "sex": "female"
+        "sex": "female",
+        "degree": 3,
+        "degreeWithAdoptions": 3
       },
       {
         "qid": "Q106618368",
         "label": "稲毛女房",
         "sex": "female",
-        "wikipediaTitle": "稲毛女房"
+        "wikipediaTitle": "稲毛女房",
+        "degree": 4,
+        "degreeWithAdoptions": 4
       },
       {
         "qid": "Q11402108",
         "label": "北条政範",
         "sex": "male",
-        "wikipediaTitle": "北条政範"
+        "wikipediaTitle": "北条政範",
+        "degree": 2,
+        "degreeWithAdoptions": 2
       },
       {
         "qid": "Q106616549",
         "label": "北条時政の娘 (滋野井実宣の妻)",
-        "sex": "female"
+        "sex": "female",
+        "degree": 3,
+        "degreeWithAdoptions": 3
       },
       {
         "qid": "Q114236918",
         "label": "阿波局",
         "sex": "female",
-        "wikipediaTitle": "阿波局 (北条時政の娘)"
+        "wikipediaTitle": "阿波局 (北条時政の娘)",
+        "degree": 1,
+        "degreeWithAdoptions": 1
       },
       {
         "qid": "Q106617164",
         "label": "北条時政の娘 (宇都宮頼綱の室)",
-        "sex": "female"
+        "sex": "female",
+        "degree": 4,
+        "degreeWithAdoptions": 4
       },
       {
         "qid": "Q11657522",
         "label": "阿波局 (北条時政の娘)",
-        "sex": "female"
+        "sex": "female",
+        "degree": 4,
+        "degreeWithAdoptions": 4
       },
       {
         "qid": "Q11402114",
         "label": "北条時子",
         "sex": "female",
-        "wikipediaTitle": "北条時子"
+        "wikipediaTitle": "北条時子",
+        "degree": 3,
+        "degreeWithAdoptions": 3
       },
       {
         "qid": "Q106616131",
         "label": "北条時政の娘 (河野通信の妻)",
-        "sex": "female"
+        "sex": "female",
+        "degree": 4,
+        "degreeWithAdoptions": 4
       },
       {
         "qid": "Q106618519",
         "label": "北条時政の六女 (畠山重忠の正室のち足利義純の妻)",
-        "sex": "female"
+        "sex": "female",
+        "degree": 11,
+        "degreeWithAdoptions": 11
       },
       {
         "qid": "Q11402095",
         "label": "北条宗時",
         "sex": "male",
-        "wikipediaTitle": "北条宗時"
+        "wikipediaTitle": "北条宗時",
+        "degree": 2,
+        "degreeWithAdoptions": 2
       },
       {
         "qid": "Q2225396",
         "label": "北条時房",
         "sex": "male",
-        "wikipediaTitle": "北条時房"
+        "wikipediaTitle": "北条時房",
+        "degree": 14,
+        "degreeWithAdoptions": 16
       },
       {
         "qid": "Q1028811",
         "label": "北条義時",
         "sex": "male",
-        "wikipediaTitle": "北条義時"
-      },
-      {
-        "qid": "Q106623109",
-        "label": "伊佐朝政の娘 (北条義時の側室)",
-        "sex": "female"
-      },
-      {
-        "qid": "Q11380627",
-        "label": "伊賀の方",
-        "sex": "female",
-        "wikipediaTitle": "伊賀の方"
-      },
-      {
-        "qid": "Q17791905",
-        "label": "阿波局 (北条泰時の母)",
-        "sex": "female"
-      },
-      {
-        "qid": "Q11447372",
-        "label": "姫の前",
-        "sex": "female",
-        "wikipediaTitle": "姫の前"
+        "wikipediaTitle": "北条義時",
+        "degree": 26,
+        "degreeWithAdoptions": 27
       },
       {
         "qid": "Q108057081",
         "label": "北条時兼 (北条介)",
-        "sex": "male"
-      },
-      {
-        "qid": "Q11636816",
-        "label": "足利義純",
         "sex": "male",
-        "wikipediaTitle": "足利義純"
-      },
-      {
-        "qid": "Q3128268",
-        "label": "畠山重忠",
-        "sex": "male",
-        "wikipediaTitle": "畠山重忠"
-      },
-      {
-        "qid": "Q11554270",
-        "label": "河野通信",
-        "sex": "male",
-        "wikipediaTitle": "河野通信"
-      },
-      {
-        "qid": "Q2087778",
-        "label": "足利義兼",
-        "sex": "male",
-        "wikipediaTitle": "足利義兼"
-      },
-      {
-        "qid": "Q11657990",
-        "label": "阿野全成",
-        "sex": "male",
-        "wikipediaTitle": "阿野全成"
-      },
-      {
-        "qid": "Q1284479",
-        "label": "宇都宮頼綱",
-        "sex": "male",
-        "wikipediaTitle": "宇都宮頼綱"
-      },
-      {
-        "qid": "Q17211600",
-        "label": "滋野井実宣",
-        "sex": "male",
-        "wikipediaTitle": "滋野井実宣"
-      },
-      {
-        "qid": "Q11596692",
-        "label": "稲毛重成",
-        "sex": "male",
-        "wikipediaTitle": "稲毛重成"
-      },
-      {
-        "qid": "Q11483569",
-        "label": "平賀朝雅",
-        "sex": "male",
-        "wikipediaTitle": "平賀朝雅"
-      },
-      {
-        "qid": "Q11425664",
-        "label": "坊門忠清",
-        "sex": "male",
-        "wikipediaTitle": "坊門忠清"
+        "degree": 2,
+        "degreeWithAdoptions": 2
       },
       {
         "qid": "Q498616",
         "label": "若狭局",
         "sex": "female",
-        "wikipediaTitle": "若狭局"
+        "wikipediaTitle": "若狭局",
+        "degree": 5,
+        "degreeWithAdoptions": 5
       },
       {
         "qid": "Q11535661",
         "label": "栄実",
         "sex": "male",
-        "wikipediaTitle": "栄実"
+        "wikipediaTitle": "栄実",
+        "degree": 1,
+        "degreeWithAdoptions": 1
       },
       {
         "qid": "Q11591185",
         "label": "禅暁",
         "sex": "male",
-        "wikipediaTitle": "禅暁"
+        "wikipediaTitle": "禅暁",
+        "degree": 1,
+        "degreeWithAdoptions": 1
       },
       {
         "qid": "Q497557",
         "label": "竹御所",
         "sex": "female",
-        "wikipediaTitle": "竹御所"
+        "wikipediaTitle": "竹御所",
+        "degree": 5,
+        "degreeWithAdoptions": 6
       },
       {
         "qid": "Q6863145",
         "label": "一幡",
         "sex": "male",
-        "wikipediaTitle": "一幡"
+        "wikipediaTitle": "一幡",
+        "degree": 2,
+        "degreeWithAdoptions": 2
       },
       {
         "qid": "Q6442006",
         "label": "公暁",
         "sex": "male",
-        "wikipediaTitle": "公暁"
+        "wikipediaTitle": "公暁",
+        "degree": 4,
+        "degreeWithAdoptions": 4
+      },
+      {
+        "qid": "Q242800",
+        "label": "源頼朝",
+        "sex": "male",
+        "wikipediaTitle": "源頼朝",
+        "degree": 15,
+        "degreeWithAdoptions": 16
+      },
+      {
+        "qid": "Q498600",
+        "label": "西八条禅尼",
+        "sex": "female",
+        "wikipediaTitle": "西八条禅尼",
+        "degree": 2,
+        "degreeWithAdoptions": 3
       },
       {
         "qid": "Q11564286",
         "label": "源義高",
         "sex": "male",
-        "wikipediaTitle": "源義高 (清水冠者)"
-      },
-      {
-        "qid": "Q11370700",
-        "label": "亀の前",
-        "sex": "female",
-        "wikipediaTitle": "亀の前"
-      },
-      {
-        "qid": "Q11439346",
-        "label": "大進局",
-        "sex": "female",
-        "wikipediaTitle": "大進局"
-      },
-      {
-        "qid": "Q106595994",
-        "label": "利根局",
-        "sex": "female"
-      },
-      {
-        "qid": "Q106583062",
-        "label": "伊東入道の娘 (北条時政前室)",
-        "sex": "female"
+        "wikipediaTitle": "源義高 (清水冠者)",
+        "degree": 3,
+        "degreeWithAdoptions": 3
       },
       {
         "qid": "Q11570336",
         "label": "牧の方",
         "sex": "female",
-        "wikipediaTitle": "牧の方"
+        "wikipediaTitle": "牧の方",
+        "degree": 6,
+        "degreeWithAdoptions": 6
       },
       {
-        "qid": "Q106596631",
-        "label": "足立遠元の娘 (北条時房の正室)",
-        "sex": "female"
+        "qid": "Q106583062",
+        "label": "伊東入道の娘 (北条時政前室)",
+        "sex": "female",
+        "degree": 5,
+        "degreeWithAdoptions": 5
       },
       {
         "qid": "Q106615814",
         "label": "昌寛の女 (源頼家の側室)",
-        "sex": "female"
+        "sex": "female",
+        "degree": 2,
+        "degreeWithAdoptions": 2
       },
       {
         "qid": "Q106615820",
         "label": "足助重長の女 (源頼家の室)",
-        "sex": "female"
-      },
-      {
-        "qid": "Q471780",
-        "label": "藤原頼経",
-        "sex": "male",
-        "wikipediaTitle": "藤原頼経"
+        "sex": "female",
+        "degree": 4,
+        "degreeWithAdoptions": 4
       }
     ],
     "edges": [
@@ -315,11 +273,6 @@
       },
       {
         "source": "Q463961",
-        "target": "Q431052",
-        "type": "PARENT_OF"
-      },
-      {
-        "source": "Q463961",
         "target": "Q11355364",
         "type": "PARENT_OF"
       },
@@ -329,33 +282,8 @@
         "type": "PARENT_OF"
       },
       {
-        "source": "Q174249",
-        "target": "Q498600",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q242800",
-        "target": "Q463961",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q242800",
-        "target": "Q11434217",
-        "type": "PARENT_OF"
-      },
-      {
-        "source": "Q242800",
-        "target": "Q174249",
-        "type": "PARENT_OF"
-      },
-      {
-        "source": "Q242800",
+        "source": "Q463961",
         "target": "Q431052",
-        "type": "PARENT_OF"
-      },
-      {
-        "source": "Q242800",
-        "target": "Q11355364",
         "type": "PARENT_OF"
       },
       {
@@ -434,79 +362,9 @@
         "type": "PARENT_OF"
       },
       {
-        "source": "Q1028811",
-        "target": "Q106623109",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q1028811",
-        "target": "Q11380627",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q1028811",
-        "target": "Q17791905",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q1028811",
-        "target": "Q11447372",
-        "type": "SPOUSE_OF"
-      },
-      {
         "source": "Q108057081",
         "target": "Q589811",
         "type": "PARENT_OF"
-      },
-      {
-        "source": "Q106618519",
-        "target": "Q11636816",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106618519",
-        "target": "Q3128268",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106616131",
-        "target": "Q11554270",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q11402114",
-        "target": "Q2087778",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q11657522",
-        "target": "Q11657990",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106617164",
-        "target": "Q1284479",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106616549",
-        "target": "Q17211600",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106618368",
-        "target": "Q11596692",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106616199",
-        "target": "Q11483569",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106620526",
-        "target": "Q11425664",
-        "type": "SPOUSE_OF"
       },
       {
         "source": "Q431052",
@@ -539,44 +397,39 @@
         "type": "PARENT_OF"
       },
       {
+        "source": "Q242800",
+        "target": "Q463961",
+        "type": "SPOUSE_OF"
+      },
+      {
+        "source": "Q242800",
+        "target": "Q11434217",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q242800",
+        "target": "Q174249",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q242800",
+        "target": "Q431052",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q242800",
+        "target": "Q11355364",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q174249",
+        "target": "Q498600",
+        "type": "SPOUSE_OF"
+      },
+      {
         "source": "Q11434217",
         "target": "Q11564286",
         "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q11370700",
-        "target": "Q242800",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q11439346",
-        "target": "Q242800",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106595994",
-        "target": "Q242800",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106583062",
-        "target": "Q589811",
-        "type": "SPOUSE_OF"
-      },
-      {
-        "source": "Q106583062",
-        "target": "Q11657522",
-        "type": "PARENT_OF"
-      },
-      {
-        "source": "Q106583062",
-        "target": "Q11402095",
-        "type": "PARENT_OF"
-      },
-      {
-        "source": "Q106583062",
-        "target": "Q1028811",
-        "type": "PARENT_OF"
       },
       {
         "source": "Q11570336",
@@ -604,13 +457,23 @@
         "type": "PARENT_OF"
       },
       {
-        "source": "Q106596631",
-        "target": "Q2225396",
+        "source": "Q106583062",
+        "target": "Q589811",
         "type": "SPOUSE_OF"
       },
       {
-        "source": "Q2087778",
-        "target": "Q11636816",
+        "source": "Q106583062",
+        "target": "Q11657522",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q106583062",
+        "target": "Q11402095",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "Q106583062",
+        "target": "Q1028811",
         "type": "PARENT_OF"
       },
       {
@@ -642,124 +505,81 @@
         "source": "Q106615820",
         "target": "Q6442006",
         "type": "PARENT_OF"
-      },
-      {
-        "source": "Q471780",
-        "target": "Q497557",
-        "type": "SPOUSE_OF"
       }
     ]
   },
   "dagre": {
-    "Q463961": [480, 143],
-    "Q11434217": [716, 41],
-    "Q431052": [716, 87],
-    "Q11355364": [716, 153],
-    "Q174249": [716, 199],
-    "Q498600": [8, 130],
-    "Q242800": [480, 97],
-    "Q589811": [244, 498],
-    "Q106620526": [480, 189],
-    "Q106616199": [480, 235],
-    "Q106618368": [480, 281],
-    "Q11402108": [480, 327],
-    "Q106616549": [480, 406],
-    "Q114236918": [480, 452],
-    "Q106617164": [480, 554],
-    "Q11657522": [480, 600],
-    "Q11402114": [480, 646],
-    "Q106616131": [480, 692],
-    "Q106618519": [480, 738],
-    "Q11402095": [480, 784],
-    "Q2225396": [480, 830],
-    "Q1028811": [480, 876],
-    "Q106623109": [8, 176],
-    "Q11380627": [8, 222],
-    "Q17791905": [8, 268],
-    "Q11447372": [8, 314],
-    "Q108057081": [8, 498],
-    "Q11636816": [244, 360],
-    "Q3128268": [8, 406],
-    "Q11554270": [8, 452],
-    "Q2087778": [8, 360],
-    "Q11657990": [8, 544],
-    "Q1284479": [8, 590],
-    "Q17211600": [8, 636],
-    "Q11596692": [8, 682],
-    "Q11483569": [8, 728],
-    "Q11425664": [8, 774],
-    "Q498616": [716, 245],
-    "Q11535661": [952, 8],
-    "Q11591185": [952, 54],
-    "Q497557": [952, 100],
-    "Q6863145": [952, 232],
-    "Q6442006": [952, 285],
-    "Q11564286": [8, 820],
-    "Q11370700": [8, 866],
-    "Q11439346": [8, 912],
-    "Q106595994": [8, 958],
-    "Q106583062": [244, 787],
-    "Q11570336": [244, 281],
-    "Q106596631": [8, 1004],
-    "Q106615814": [8, 1050],
-    "Q106615820": [716, 305],
-    "Q471780": [8, 1096]
+    "Q463961": [480, 757],
+    "Q11434217": [716, 8],
+    "Q11355364": [716, 57],
+    "Q174249": [716, 764],
+    "Q431052": [716, 810],
+    "Q589811": [244, 422],
+    "Q106620526": [480, 113],
+    "Q106616199": [480, 159],
+    "Q106618368": [480, 205],
+    "Q11402108": [480, 251],
+    "Q106616549": [480, 297],
+    "Q114236918": [480, 343],
+    "Q106617164": [480, 389],
+    "Q11657522": [480, 435],
+    "Q11402114": [480, 481],
+    "Q106616131": [480, 527],
+    "Q106618519": [480, 573],
+    "Q11402095": [480, 619],
+    "Q2225396": [480, 665],
+    "Q1028811": [480, 711],
+    "Q108057081": [8, 422],
+    "Q498616": [716, 882],
+    "Q11535661": [952, 731],
+    "Q11591185": [952, 777],
+    "Q497557": [952, 823],
+    "Q6863145": [952, 869],
+    "Q6442006": [952, 922],
+    "Q242800": [480, 67],
+    "Q498600": [8, 468],
+    "Q11564286": [8, 514],
+    "Q11570336": [244, 287],
+    "Q106583062": [244, 632],
+    "Q106615814": [8, 560],
+    "Q106615820": [716, 942]
   },
   "expected": {
     "positions": {
-      "Q463961": [480, 69],
+      "Q463961": [480, 92],
       "Q11434217": [716, 0],
-      "Q431052": [716, 92],
-      "Q11355364": [716, 276],
-      "Q174249": [716, 322],
-      "Q498600": [716, 368],
-      "Q242800": [480, 115],
-      "Q589811": [244, 644],
-      "Q106620526": [480, 299],
-      "Q106616199": [480, 391],
-      "Q106618368": [480, 483],
-      "Q11402108": [480, 575],
-      "Q106616549": [480, 621],
-      "Q114236918": [480, 713],
-      "Q106617164": [480, 759],
-      "Q11657522": [480, 851],
-      "Q11402114": [480, 943],
-      "Q106616131": [480, 989],
-      "Q106618519": [480, 1081],
-      "Q11402095": [480, 1173],
-      "Q2225396": [480, 1219],
-      "Q1028811": [480, 1311],
-      "Q106623109": [480, 1357],
-      "Q11380627": [480, 1403],
-      "Q17791905": [480, 1449],
-      "Q11447372": [480, 1495],
-      "Q108057081": [8, 644],
-      "Q11636816": [244, 782],
-      "Q3128268": [480, 1127],
-      "Q11554270": [480, 1035],
-      "Q2087778": [8, 782],
-      "Q11657990": [480, 897],
-      "Q1284479": [480, 805],
-      "Q17211600": [480, 667],
-      "Q11596692": [480, 529],
-      "Q11483569": [480, 437],
-      "Q11425664": [480, 345],
-      "Q498616": [716, 138],
-      "Q11535661": [952, 46],
-      "Q11591185": [952, 92],
-      "Q497557": [952, 138],
-      "Q6863145": [952, 230],
-      "Q6442006": [952, 276],
+      "Q11355364": [716, 92],
+      "Q174249": [716, 138],
+      "Q431052": [716, 230],
+      "Q589811": [244, 391],
+      "Q106620526": [480, 184],
+      "Q106616199": [480, 230],
+      "Q106618368": [480, 276],
+      "Q11402108": [480, 322],
+      "Q106616549": [480, 368],
+      "Q114236918": [480, 414],
+      "Q106617164": [480, 460],
+      "Q11657522": [480, 506],
+      "Q11402114": [480, 552],
+      "Q106616131": [480, 598],
+      "Q106618519": [480, 644],
+      "Q11402095": [480, 690],
+      "Q2225396": [480, 736],
+      "Q1028811": [480, 782],
+      "Q108057081": [8, 391],
+      "Q498616": [716, 276],
+      "Q11535661": [952, 207],
+      "Q11591185": [952, 253],
+      "Q497557": [952, 299],
+      "Q6863145": [952, 345],
+      "Q6442006": [952, 391],
+      "Q242800": [480, 138],
+      "Q498600": [716, 184],
       "Q11564286": [716, 46],
-      "Q11370700": [480, 161],
-      "Q11439346": [480, 207],
-      "Q106595994": [480, 253],
-      "Q106583062": [244, 690],
-      "Q11570336": [244, 736],
-      "Q106596631": [480, 1265],
-      "Q106615814": [716, 184],
-      "Q106615820": [716, 230],
-      "Q471780": [952, 184]
+      "Q11570336": [244, 437],
+      "Q106583062": [244, 483],
+      "Q106615814": [716, 322],
+      "Q106615820": [716, 368]
     },
     "routing": []
   }

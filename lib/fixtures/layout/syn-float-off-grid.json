@@ -1,0 +1,89 @@
+{
+  "qid": "FO",
+  "label": "syn: float slide blocked off-grid",
+  "graph": {
+    "nodes": [
+      {
+        "qid": "GP",
+        "label": "GP"
+      },
+      {
+        "qid": "PA",
+        "label": "PA"
+      },
+      {
+        "qid": "FO",
+        "label": "FO"
+      },
+      {
+        "qid": "sib",
+        "label": "sib"
+      },
+      {
+        "qid": "XP",
+        "label": "XP"
+      },
+      {
+        "qid": "X",
+        "label": "X"
+      },
+      {
+        "qid": "xc",
+        "label": "xc"
+      }
+    ],
+    "edges": [
+      {
+        "source": "GP",
+        "target": "PA",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "PA",
+        "target": "FO",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "PA",
+        "target": "sib",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "XP",
+        "target": "X",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "X",
+        "target": "xc",
+        "type": "PARENT_OF"
+      },
+      {
+        "source": "X",
+        "target": "sib",
+        "type": "SPOUSE_OF"
+      }
+    ]
+  },
+  "dagre": {
+    "GP": [8, 31],
+    "PA": [244, 31],
+    "FO": [480, 54],
+    "sib": [480, 8],
+    "XP": [8, 100],
+    "X": [244, 100],
+    "xc": [480, 100]
+  },
+  "expected": {
+    "positions": {
+      "GP": [8, 23],
+      "PA": [244, 23],
+      "FO": [480, 0],
+      "sib": [480, 46],
+      "XP": [8, 92],
+      "X": [244, 92],
+      "xc": [480, 92]
+    },
+    "routing": []
+  }
+}
