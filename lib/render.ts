@@ -2,8 +2,9 @@
 // genealogy chart, shared by the live GraphPane renderer and the offline dump-layout
 // script so the two can't drift. Kept out of pure lib/layout, which carries no UI geometry.
 import type cytoscape from "cytoscape";
-import type { Core } from "cytoscape";
+import type { Collection, Core, EdgeSingular } from "cytoscape";
 import type * as cytoscapeDagre from "cytoscape-dagre";
+import { conflictingLayoutEdges, edgeId, type GraphEdge } from "./graph";
 
 export const NODE_SIZE = 16;
 const NODE_SEP = 30;
@@ -155,13 +156,40 @@ export function dagreLR(
 // mother→child LAYOUT edges that co-rank couples, and adoptions — never spouse or
 // sibling edges. fit:false because a prolific line is genuinely tall, so the caller
 // opens at a readable zoom on the focus instead of fitting the whole pane.
+//
+// Two passes: a mother edge that contradicts the father edge only shows up once the
+// columns exist, so the first pass supplies the ranks conflictingLayoutEdges judges
+// against and the second re-ranks without the contradicting ones. The second pass runs
+// only when there is something to drop, so a clean graph still costs a single dagre.
 export function runEgoLayout(cy: Core): void {
-  cy.nodes()
+  const runOn = (eles: Collection): void => {
+    eles
+      .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: RANK_SEP, fit: false }))
+      .run();
+  };
+  const ranked = cy
+    .nodes()
     .union(
       cy.edges(
         '[type = "PARENT_OF"], [type = "LAYOUT"], [type = "ADOPTIVE_PARENT_OF"]',
       ),
-    )
-    .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: RANK_SEP, fit: false }))
-    .run();
+    );
+  runOn(ranked);
+
+  const asEdge = (e: EdgeSingular): GraphEdge => ({
+    source: e.data("source"),
+    target: e.data("target"),
+    type: e.data("type"),
+  });
+  const conflicting = conflictingLayoutEdges(
+    cy.edges('[type = "PARENT_OF"]').map(asEdge),
+    cy.edges('[type = "LAYOUT"]').map(asEdge),
+    new Map(cy.nodes().map((n) => [n.id(), n.position("x")])),
+  );
+  if (conflicting.length === 0) return;
+
+  // Keyed by endpoints+type, not element id: the id format belongs to the caller,
+  // and only the ego pipeline guarantees it matches edgeId().
+  const drop = new Set(conflicting.map(edgeId));
+  runOn(ranked.filter((e) => e.isNode() || !drop.has(edgeId(asEdge(e)))));
 }
