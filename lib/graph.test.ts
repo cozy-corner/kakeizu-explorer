@@ -467,9 +467,8 @@ test("layout-only: no extra edges when every parent is already a drawn line", ()
 });
 
 test("conflicting layout: drops a mother edge that ranks below the father", () => {
-  // 北条実泰 shape: the father is the focus column, the disputed second mother sits two
-  // columns down (she is the daughter of the focus's son-in-law), so her hidden edge
-  // demands rank(child) ≥ 3 and drags the child out of its generation.
+  // 北条実泰 shape: two disputed mothers, the second of them (M2) a woman the graph
+  // seats two columns below the father because she married into a later generation.
   const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
   const layout: GraphEdge[] = [
     { source: "M1", target: "C", type: "LAYOUT" },
@@ -488,9 +487,8 @@ test("conflicting layout: drops a mother edge that ranks below the father", () =
 });
 
 test("conflicting layout: keeps mother edges with no father to contradict them", () => {
-  // A child whose only recorded parents are mothers has nothing to fall back on —
-  // dropping the edge would unmoor it — and a mother at or above the father's column
-  // is the ordinary co-ranking case the hidden edge exists for.
+  // A child whose only recorded parents are mothers has nothing to fall back on:
+  // dropping the edge would unmoor it.
   const rank = new Map([
     ["F", 1],
     ["M", 1],
@@ -509,8 +507,6 @@ test("conflicting layout: keeps mother edges with no father to contradict them",
 });
 
 test("conflicting layout: keeps a mother who outranks only one of two disputed fathers", () => {
-  // Parentage disputed on both sides: the deeper father already permits the mother's
-  // column, so nothing contradicts her and the edge stays.
   const drawn: GraphEdge[] = [
     { source: "F1", target: "C", type: "PARENT_OF" },
     { source: "F2", target: "C", type: "PARENT_OF" },

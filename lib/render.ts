@@ -157,10 +157,8 @@ export function dagreLR(
 // sibling edges. fit:false because a prolific line is genuinely tall, so the caller
 // opens at a readable zoom on the focus instead of fitting the whole pane.
 //
-// Two passes: a mother edge that contradicts the father edge only shows up once the
-// columns exist, so the first pass supplies the ranks conflictingLayoutEdges judges
-// against and the second re-ranks without the contradicting ones. The second pass runs
-// only when there is something to drop, so a clean graph still costs a single dagre.
+// Two passes because a mother edge that contradicts the father edge is only visible
+// once the columns exist: the first pass supplies the ranks it is judged against.
 export function runEgoLayout(cy: Core): void {
   const runOn = (eles: Collection): void => {
     eles
@@ -188,7 +186,7 @@ export function runEgoLayout(cy: Core): void {
   );
   if (conflicting.length === 0) return;
 
-  // Keyed by endpoints+type, not element id: the id format belongs to the caller,
+  // Keyed by endpoints+type rather than element id: the id format is the caller's,
   // and only the ego pipeline guarantees it matches edgeId().
   const drop = new Set(conflicting.map(edgeId));
   runOn(

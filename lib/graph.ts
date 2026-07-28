@@ -180,20 +180,17 @@ export function layoutOnlyEdges(
     .map((e) => ({ source: e.source, target: e.target, type: "LAYOUT" }));
 }
 
-// The LAYOUT (mother→child) edges that demand a DEEPER rank for the child than its
-// own father edge does — the mother sits at or below the father's generation column.
-// Wikidata records disputed motherhood as several P25 values (北条実泰 has two, both
-// P1480-uncertain), and one of them can be someone the graph places generations below
-// the father: 実泰's second "mother" is a daughter of 義時's son-in-law, i.e. two
-// columns under 義時. Fed to dagre, her `rank(child) ≥ rank(mother) + 1` constraint
-// outranks the father edge and pushes the child — and its whole line — out of its
-// generation. Callers drop these from a second dagre pass so the father edge decides
-// the column; the other mother edges stay, keeping their co-ranking and their role as
-// the only rank tie anchoring a married-in family (see layoutOnlyEdges).
+// The LAYOUT (mother→child) edges that rank deeper than the child's own father edge.
+// Disputed motherhood is recorded as several P25 values, and one of them can be
+// someone the graph seats generations below the father — a mother by marriage rather
+// than by blood. Her `rank(child) ≥ rank(mother) + 1` constraint outranks the father
+// edge, dragging the child and its whole line out of its generation, so callers drop
+// these from a second dagre pass. Only these: the remaining mother edges are the sole
+// rank tie anchoring a married-in family, and dropping them all unmoors that family.
 //
 // `rank` is the first pass's column per node (any monotonic scale — x or rank index).
-// A child with no father edge is never touched: nothing contradicts the mother there,
-// and dropping the edge would unmoor the child.
+// A child with no father edge is left alone — dropping its only ranked parent would
+// unmoor it.
 export function conflictingLayoutEdges(
   drawnEdges: GraphEdge[],
   layoutEdges: GraphEdge[],
@@ -206,8 +203,8 @@ export function conflictingLayoutEdges(
     const fathers = fathersOf.get(e.target);
     const mother = rank.get(e.source);
     if (!fathers || mother === undefined) return false;
-    // The deepest father is the permissive reference: with parentage disputed on the
-    // father's side too, only drop a mother who outranks every recorded father.
+    // Fatherhood can be disputed too (two P22 values, both kept), so a mother only
+    // counts as contradicted when she outranks every recorded father.
     return fathers.every((f) => {
       const r = rank.get(f);
       return r !== undefined && mother > r;
