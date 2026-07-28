@@ -182,7 +182,9 @@ export function runEgoLayout(cy: Core): void {
   const conflicting = conflictingLayoutEdges(
     cy.edges('[type = "PARENT_OF"]').map(asEdge),
     cy.edges('[type = "LAYOUT"]').map(asEdge),
-    new Map(cy.nodes().map((n) => [n.id(), n.position("x")])),
+    // Rounded, matching how readPlacement buckets a column, so sub-pixel jitter
+    // inside one rank can't read as a generation gap.
+    new Map(cy.nodes().map((n) => [n.id(), Math.round(n.position("x"))])),
   );
   if (conflicting.length === 0) return;
 
