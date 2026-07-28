@@ -205,7 +205,7 @@ export function conflictingLayoutEdges(
   return layoutEdges.filter((e) => {
     const fathers = fathersOf.get(e.target);
     const mother = rank.get(e.source);
-    if (!fathers?.length || mother === undefined) return false;
+    if (!fathers || mother === undefined) return false;
     // The deepest father is the permissive reference: with parentage disputed on the
     // father's side too, only drop a mother who outranks every recorded father.
     return fathers.every((f) => {

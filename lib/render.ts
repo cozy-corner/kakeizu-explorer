@@ -191,5 +191,9 @@ export function runEgoLayout(cy: Core): void {
   // Keyed by endpoints+type, not element id: the id format belongs to the caller,
   // and only the ego pipeline guarantees it matches edgeId().
   const drop = new Set(conflicting.map(edgeId));
-  runOn(ranked.filter((e) => e.isNode() || !drop.has(edgeId(asEdge(e)))));
+  runOn(
+    ranked.difference(
+      cy.edges('[type = "LAYOUT"]').filter((e) => drop.has(edgeId(asEdge(e)))),
+    ),
+  );
 }
