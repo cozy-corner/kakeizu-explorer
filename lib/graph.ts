@@ -180,6 +180,38 @@ export function layoutOnlyEdges(
     .map((e) => ({ source: e.source, target: e.target, type: "LAYOUT" }));
 }
 
+// The LAYOUT (mother→child) edges that rank deeper than the child's own father edge.
+// Disputed motherhood is recorded as several P25 values, and one of them can be
+// someone the graph seats generations below the father — a mother by marriage rather
+// than by blood. Her `rank(child) ≥ rank(mother) + 1` constraint outranks the father
+// edge, dragging the child and its whole line out of its generation, so callers drop
+// these from a second dagre pass. Only these: the remaining mother edges are the sole
+// rank tie anchoring a married-in family, and dropping them all unmoors that family.
+//
+// `rank` is the first pass's column per node (any monotonic scale — x or rank index).
+// A child with no father edge is left alone — dropping its only ranked parent would
+// unmoor it.
+export function conflictingLayoutEdges(
+  drawnEdges: GraphEdge[],
+  layoutEdges: GraphEdge[],
+  rank: Map<string, number>,
+): GraphEdge[] {
+  const fathersOf = new Map<string, string[]>();
+  for (const e of drawnEdges)
+    if (e.type === "PARENT_OF") pushInto(fathersOf, e.target, e.source);
+  return layoutEdges.filter((e) => {
+    const fathers = fathersOf.get(e.target);
+    const mother = rank.get(e.source);
+    if (!fathers || mother === undefined) return false;
+    // Fatherhood can be disputed too (two P22 values, both kept), so a mother only
+    // counts as contradicted when she outranks every recorded father.
+    return fathers.every((f) => {
+      const r = rank.get(f);
+      return r !== undefined && mother > r;
+    });
+  });
+}
+
 // Adoptive edges between siblings — the two people share a blood parent, so they
 // are the same generation (e.g. 頼職→吉宗, both 光貞's sons). This is 家督 succession
 // recorded as adoption, not a line of descent, so callers drop it from the edge

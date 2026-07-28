@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  conflictingLayoutEdges,
   egoDrawnEdges,
   type Graph,
   type GraphEdge,
@@ -463,6 +464,67 @@ test("layout-only: no extra edges when every parent is already a drawn line", ()
 
   expect(layoutOnlyEdges(motherOnly)).toEqual([]);
   expect(layoutOnlyEdges(twoFathers)).toEqual([]);
+});
+
+test("conflicting layout: drops a mother edge that ranks below the father", () => {
+  // 北条実泰 shape: two disputed mothers, the second of them (M2) a woman the graph
+  // seats two columns below the father because she married into a later generation.
+  const drawn: GraphEdge[] = [{ source: "F", target: "C", type: "PARENT_OF" }];
+  const layout: GraphEdge[] = [
+    { source: "M1", target: "C", type: "LAYOUT" },
+    { source: "M2", target: "C", type: "LAYOUT" },
+  ];
+  const rank = new Map([
+    ["F", 0],
+    ["M1", 0],
+    ["M2", 2],
+    ["C", 3],
+  ]);
+
+  expect(conflictingLayoutEdges(drawn, layout, rank)).toEqual([
+    { source: "M2", target: "C", type: "LAYOUT" },
+  ]);
+});
+
+test("conflicting layout: keeps mother edges with no father to contradict them", () => {
+  // A child whose only recorded parents are mothers has nothing to fall back on:
+  // dropping the edge would unmoor it.
+  const rank = new Map([
+    ["F", 1],
+    ["M", 1],
+    ["C", 2],
+  ]);
+  const layout: GraphEdge[] = [{ source: "M", target: "C", type: "LAYOUT" }];
+
+  expect(conflictingLayoutEdges([], layout, rank)).toEqual([]);
+  expect(
+    conflictingLayoutEdges(
+      [{ source: "F", target: "C", type: "PARENT_OF" }],
+      layout,
+      rank,
+    ),
+  ).toEqual([]);
+});
+
+test("conflicting layout: keeps a mother who outranks only one of two disputed fathers", () => {
+  const drawn: GraphEdge[] = [
+    { source: "F1", target: "C", type: "PARENT_OF" },
+    { source: "F2", target: "C", type: "PARENT_OF" },
+  ];
+  const layout: GraphEdge[] = [{ source: "M", target: "C", type: "LAYOUT" }];
+
+  expect(
+    conflictingLayoutEdges(
+      drawn,
+      layout,
+      new Map([
+        ["F1", 0],
+        ["F2", 2],
+        ["M", 2],
+        ["C", 3],
+      ]),
+    ),
+  ).toEqual([]);
 });
 
 test("sibling adoptive: flags a kin-succession adoption between two blood siblings", () => {
