@@ -180,6 +180,41 @@ export function layoutOnlyEdges(
     .map((e) => ({ source: e.source, target: e.target, type: "LAYOUT" }));
 }
 
+// The LAYOUT (mother→child) edges that demand a DEEPER rank for the child than its
+// own father edge does — the mother sits at or below the father's generation column.
+// Wikidata records disputed motherhood as several P25 values (北条実泰 has two, both
+// P1480-uncertain), and one of them can be someone the graph places generations below
+// the father: 実泰's second "mother" is a daughter of 義時's son-in-law, i.e. two
+// columns under 義時. Fed to dagre, her `rank(child) ≥ rank(mother) + 1` constraint
+// outranks the father edge and pushes the child — and its whole line — out of its
+// generation. Callers drop these from a second dagre pass so the father edge decides
+// the column; the other mother edges stay, keeping their co-ranking and their role as
+// the only rank tie anchoring a married-in family (see layoutOnlyEdges).
+//
+// `rank` is the first pass's column per node (any monotonic scale — x or rank index).
+// A child with no father edge is never touched: nothing contradicts the mother there,
+// and dropping the edge would unmoor the child.
+export function conflictingLayoutEdges(
+  drawnEdges: GraphEdge[],
+  layoutEdges: GraphEdge[],
+  rank: Map<string, number>,
+): GraphEdge[] {
+  const fathersOf = new Map<string, string[]>();
+  for (const e of drawnEdges)
+    if (e.type === "PARENT_OF") pushInto(fathersOf, e.target, e.source);
+  return layoutEdges.filter((e) => {
+    const fathers = fathersOf.get(e.target);
+    const mother = rank.get(e.source);
+    if (!fathers?.length || mother === undefined) return false;
+    // The deepest father is the permissive reference: with parentage disputed on the
+    // father's side too, only drop a mother who outranks every recorded father.
+    return fathers.every((f) => {
+      const r = rank.get(f);
+      return r !== undefined && mother > r;
+    });
+  });
+}
+
 // Adoptive edges between siblings — the two people share a blood parent, so they
 // are the same generation (e.g. 頼職→吉宗, both 光貞's sons). This is 家督 succession
 // recorded as adoption, not a line of descent, so callers drop it from the edge
