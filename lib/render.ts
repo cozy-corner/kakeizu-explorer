@@ -146,9 +146,8 @@ export const STYLE: cytoscape.StylesheetJson = [
 
 // Flow left→right so each generation is a column and siblings stack vertically,
 // letting horizontal labels sit to the right without colliding. The separations are
-// defaults rather than caller options because a name needs the whole inter-column
-// gutter to fit: dagre's own default leaves ~44px, so a name like
-// 「北条顕時の娘 (千葉胤宗の室)」 overruns the next column's node and label.
+// defaults rather than caller options: dagre's own rankSep leaves ~44px between
+// columns, far short of a full name, so an omitting caller gets overlapping labels.
 export function dagreLR(
   extra: Partial<cytoscapeDagre.DagreLayoutOptions> = {},
 ): cytoscapeDagre.DagreLayoutOptions {
