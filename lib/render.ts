@@ -145,11 +145,21 @@ export const STYLE: cytoscape.StylesheetJson = [
 ];
 
 // Flow left→right so each generation is a column and siblings stack vertically,
-// letting horizontal labels sit to the right without colliding.
+// letting horizontal labels sit to the right without colliding. The separations are
+// defaults rather than caller options because a name needs the whole inter-column
+// gutter to fit: dagre's own default leaves ~44px, so a name like
+// 「北条顕時の娘 (千葉胤宗の室)」 overruns the next column's node and label.
 export function dagreLR(
   extra: Partial<cytoscapeDagre.DagreLayoutOptions> = {},
 ): cytoscapeDagre.DagreLayoutOptions {
-  return { name: "dagre", rankDir: "LR", animate: false, ...extra };
+  return {
+    name: "dagre",
+    rankDir: "LR",
+    nodeSep: NODE_SEP,
+    rankSep: RANK_SEP,
+    animate: false,
+    ...extra,
+  };
 }
 
 // Lay out the ego graph ranking on descent edges only — father→child, the hidden
@@ -161,9 +171,7 @@ export function dagreLR(
 // once the columns exist: the first pass supplies the ranks it is judged against.
 export function runEgoLayout(cy: Core): void {
   const runOn = (eles: Collection): void => {
-    eles
-      .layout(dagreLR({ nodeSep: NODE_SEP, rankSep: RANK_SEP, fit: false }))
-      .run();
+    eles.layout(dagreLR({ fit: false })).run();
   };
   const ranked = cy
     .nodes()
