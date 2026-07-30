@@ -151,7 +151,9 @@ function PathPane({
       elements,
       style: STYLE,
     });
-    cy.layout(dagreLR()).run(); // small graph: default fit is fine
+    // Keeps cytoscape's fit: seeing the whole chain at once beats label size, which
+    // the name-width column spacing shrinks on a long path.
+    cy.layout(dagreLR()).run();
     cy.on("tap", "node", (evt) => {
       const d = evt.target.data();
       onSelect({ qid: d.id, label: d.label, wikipediaTitle: d.wikipediaTitle });
