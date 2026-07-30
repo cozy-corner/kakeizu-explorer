@@ -65,6 +65,7 @@ export function GraphPane(props: {
   focus: FocusPerson;
   pathTo?: FocusPerson | null;
   showAdoptions?: boolean;
+  includeSpouses?: boolean;
   onSelect: (person: FocusPerson) => void;
   onCurrent: (person: FocusPerson) => void;
 }) {
@@ -75,6 +76,7 @@ export function GraphPane(props: {
     <PathPane
       focus={props.focus}
       pathTo={props.pathTo}
+      includeSpouses={props.includeSpouses ?? false}
       onSelect={props.onSelect}
     />
   ) : (
@@ -92,10 +94,12 @@ export function GraphPane(props: {
 function PathPane({
   focus,
   pathTo,
+  includeSpouses,
   onSelect,
 }: {
   focus: FocusPerson;
   pathTo: FocusPerson;
+  includeSpouses: boolean;
   onSelect: (person: FocusPerson) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -104,7 +108,7 @@ function PathPane({
 
   useEffect(() => {
     const controller = new AbortController();
-    const url = `/api/path?from=${encodeURIComponent(focus.qid)}&to=${encodeURIComponent(pathTo.qid)}`;
+    const url = `/api/path?from=${encodeURIComponent(focus.qid)}&to=${encodeURIComponent(pathTo.qid)}${includeSpouses ? "&spouses=1" : ""}`;
     fetch(url, { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok)
@@ -122,7 +126,7 @@ function PathPane({
         );
       });
     return () => controller.abort();
-  }, [focus.qid, pathTo.qid]);
+  }, [focus.qid, pathTo.qid, includeSpouses]);
 
   useEffect(() => {
     if (!containerRef.current || !graph) return;

@@ -1,8 +1,8 @@
-// Manual E2E smoke for PR5 path mode (not in the test suite — run by hand
-// against a running dev server). Confirms: focusing a person then hitting a
-// search result's ⇄経路 button renders the shortest-path graph (both endpoints
-// highlighted), shows the path banner, loads the destination's article, and
-// that tapping a path node re-centers back to the ego graph.
+// Manual E2E smoke for path mode (not in the test suite — run by hand against a
+// running dev server). Confirms: focusing a person then hitting a search result's
+// ⇄経路 button renders the shortest-path graph (both endpoints highlighted), shows
+// the path banner, honors the 「配偶者を含む」 toggle, loads the destination's
+// article, and that tapping a path node re-centers back to the ego graph.
 //
 // Run: BASE=http://localhost:3002 node scripts/verify-path-ui.mjs
 // Requires playwright on the module path and a Chrome/Chromium channel.
@@ -12,7 +12,9 @@ import { chromium } from "playwright";
 const BASE = process.env.BASE ?? "http://localhost:3001";
 const SHOT = process.env.SHOT ?? "/tmp/pr5-path-shot.png";
 
-// 信長 → 家康: a known 3-hop path (信長 -子- 徳姫 -婚姻- 松平信康 -子- 家康).
+// 信長 → 家康 resolves differently per toggle, so it exercises both: blood-only
+// routes 4 hops through 徳姫と信康の娘・妙高院 (a shared child), while allowing
+// marriages takes the 3-hop 徳姫 -婚姻- 松平信康 shortcut.
 const FROM = { q: "Q171411", label: "織田信長" };
 const TO = { q: "Q171977", label: "徳川家康" };
 
@@ -25,12 +27,17 @@ function readCy() {
   const cy = el._cyreg.cy;
   const bb = el.getBoundingClientRect();
   const labels = cy.nodes().map((n) => n.data("label"));
+  const edgeTypes = cy.edges().map((e) => e.data("type"));
   const focusNode = cy.nodes("[focus = 1]")[0];
   const r = focusNode?.renderedPosition();
   return {
     nodeCount: cy.nodes().length,
     focusCount: cy.nodes("[focus = 1]").length,
+    // The two views mark their highlight differently: focus=1 for the path view's
+    // endpoints, the .current class for the ego view's read target.
+    currentCount: cy.nodes(".current").length,
     labels,
+    edgeTypes,
     // A highlighted endpoint to click for the re-center check.
     focus: focusNode
       ? { label: focusNode.data("label"), x: bb.x + r.x, y: bb.y + r.y }
@@ -64,10 +71,10 @@ try {
   await waitGraph(page);
   const ego = await page.evaluate(readCy);
   console.log(
-    `ego graph: ${ego.nodeCount} nodes, focusCount=${ego.focusCount}`,
+    `ego graph: ${ego.nodeCount} nodes, currentCount=${ego.currentCount}`,
   );
-  if (ego.focusCount !== 1)
-    fail(`ego graph should have 1 focus node, got ${ego.focusCount}`);
+  if (ego.currentCount !== 1)
+    fail(`ego graph should have 1 current node, got ${ego.currentCount}`);
 
   // Search the "to" person and hit its ⇄経路 button.
   await page.getByLabel("人物名で検索").fill(TO.label);
@@ -95,6 +102,48 @@ try {
     if (!path.labels.includes(want)) fail(`path graph missing ${want}`);
   }
 
+  // Default is blood only: no marriage edge may appear.
+  if (path.edgeTypes.includes("SPOUSE_OF"))
+    fail(`default path traversed a marriage: [${path.edgeTypes.join(", ")}]`);
+
+  // 「配偶者を含む」 re-runs the search with marriages allowed. The toggle remounts
+  // the pane, so wait on the edge set rather than the container.
+  const spouseEdgeCount = () =>
+    page.evaluate(() => {
+      const el = [...document.querySelectorAll("div")].find(
+        (d) => d._cyreg && d._cyreg.cy,
+      );
+      return el
+        ? el._cyreg.cy.edges().filter((e) => e.data("type") === "SPOUSE_OF")
+            .length
+        : 0;
+    });
+  const toggle = page.getByLabel("配偶者を含む");
+  await toggle.check();
+  await page.waitForFunction(() => {
+    const el = [...document.querySelectorAll("div")].find(
+      (d) => d._cyreg && d._cyreg.cy,
+    );
+    return (
+      el && el._cyreg.cy.edges().some((e) => e.data("type") === "SPOUSE_OF")
+    );
+  });
+  console.log("配偶者を含む ON → marriage edges:", await spouseEdgeCount());
+
+  // Unticking must go back to a blood-only path, not leave the marriage one up.
+  await toggle.uncheck();
+  await page.waitForFunction(() => {
+    const el = [...document.querySelectorAll("div")].find(
+      (d) => d._cyreg && d._cyreg.cy,
+    );
+    return (
+      el &&
+      el._cyreg.cy.nodes("[focus = 1]").length === 2 &&
+      el._cyreg.cy.edges().every((e) => e.data("type") !== "SPOUSE_OF")
+    );
+  });
+  console.log("配偶者を含む OFF → blood-only path restored");
+
   // Right pane: the destination's ja.wikipedia article, embedded as an iframe.
   const articleFrame = page.locator("section").last().locator("iframe");
   await articleFrame.waitFor();
@@ -119,7 +168,7 @@ try {
       const el = [...document.querySelectorAll("div")].find(
         (d) => d._cyreg && d._cyreg.cy,
       );
-      const f = el?._cyreg.cy.nodes("[focus = 1]");
+      const f = el?._cyreg.cy.nodes(".current");
       return f && f.length === 1 && f[0].data("label") === label;
     },
     FROM.label,
@@ -152,12 +201,12 @@ try {
       const el = [...document.querySelectorAll("div")].find(
         (d) => d._cyreg && d._cyreg.cy,
       );
-      return el && el._cyreg.cy.nodes("[focus = 1]").length === 1;
+      return el && el._cyreg.cy.nodes(".current").length === 1;
     },
     null,
     { timeout: 10000 },
   );
-  console.log("re-centered to ego graph (single focus)");
+  console.log("re-centered to ego graph (single current node)");
 
   if (!process.exitCode) console.log("\nPASS: all path-mode UI checks");
 } catch (err) {
