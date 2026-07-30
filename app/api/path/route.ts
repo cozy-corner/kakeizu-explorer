@@ -17,7 +17,9 @@ const MAX_HOPS = 60;
 // opt-in: with blood only, every turn in the path is a common ancestor or a common
 // child. SIBLING_OF is deliberately absent — the ego view never draws it, so a
 // sibling hop would assert a link that vanishes when the user taps through.
-function pathRelTypes(includeSpouses: boolean): string {
+export function pathRelTypes(
+  includeSpouses: boolean,
+): "PARENT_OF" | "PARENT_OF|SPOUSE_OF" {
   return includeSpouses ? "PARENT_OF|SPOUSE_OF" : "PARENT_OF";
 }
 
