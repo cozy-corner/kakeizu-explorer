@@ -83,17 +83,22 @@ function report(name: string, qids: string[], years: Map<string, number>) {
   });
 }
 
-const siblingOnly = await fetchQids(SIBLING_ONLY_QIDS);
-const baseline = await fetchQids(BASELINE_QIDS);
-console.log(
-  `sibling-only: ${siblingOnly.length}, baseline: ${baseline.length}`,
-);
+// finally, not a trailing close(): the driver's pool keeps its sockets open, so a
+// throw part-way (a WDQS 429 that outlives the retries, a Cypher error) would hang
+// the process instead of exiting.
+try {
+  const siblingOnly = await fetchQids(SIBLING_ONLY_QIDS);
+  const baseline = await fetchQids(BASELINE_QIDS);
+  console.log(
+    `sibling-only: ${siblingOnly.length}, baseline: ${baseline.length}`,
+  );
 
-report(
-  "SIBLING_OF only (共通の親なし)",
-  siblingOnly,
-  await birthYears(siblingOnly),
-);
-report("全人物からの標本", baseline, await birthYears(baseline));
-
-await getDriver().close();
+  report(
+    "SIBLING_OF only (共通の親なし)",
+    siblingOnly,
+    await birthYears(siblingOnly),
+  );
+  report("全人物からの標本", baseline, await birthYears(baseline));
+} finally {
+  await getDriver().close();
+}
