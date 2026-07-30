@@ -2,8 +2,8 @@
 // concentrated in modern people (芸能人 etc.) rather than the historical figures the
 // app targets? Answers whether keeping SIBLING_OF in the path query buys real reach.
 //
-// Birth year lives only in Wikidata (the Neo4j Person node has no dates), so we ask
-// WDQS with scoped VALUES batches. Run with the dev DB up:
+// Birth year lives only in Wikidata — the Neo4j Person node has no dates. Run with
+// the dev DB up:
 //   bun run scripts/probe-sibling-era.ts
 import { getDriver } from "../lib/neo4j";
 import { chunk, qid, sparql, sparqlValues } from "./etl-spike/wdqs";
@@ -17,8 +17,8 @@ WITH collect(a.qid) + collect(b.qid) AS qs
 UNWIND qs AS q
 RETURN DISTINCT q AS qid`;
 
-// Baseline: the whole population, so the sibling-only set has something to be
-// "more modern than". Every 12th qid in sorted order — deterministic across runs.
+// Gives the sibling-only set something to be "more modern than". Strided rather
+// than random so re-runs compare against the same sample.
 const BASELINE_QIDS = `
 MATCH (p:Person)
 WITH p ORDER BY p.qid

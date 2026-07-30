@@ -5,8 +5,6 @@ import { ArticlePane } from "@/components/ArticlePane";
 import { GraphPane, type FocusPerson } from "@/components/GraphPane";
 import type { SearchResult } from "@/lib/graph";
 
-// The one row above the graph pane: exactly one toggle shows, whichever the
-// current mode owns.
 function GraphToggle({
   label,
   checked,
@@ -53,9 +51,7 @@ export default function Home({
   // Overlay the adoption layer (養子・養父) on the ego graph. Default off = blood
   // only. Held here, not in GraphPane, so it survives GraphPane's focus/path remount.
   const [showAdoptions, setShowAdoptions] = useState(false);
-  // Let the path search traverse marriages. Default off = blood only, so every turn
-  // in the path is a common ancestor or a common child. Held here for the same
-  // reason as showAdoptions.
+  // Scopes the path search only; the ego graph always draws marriages.
   const [includeSpouses, setIncludeSpouses] = useState(false);
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
@@ -238,9 +234,8 @@ export default function Home({
                 />
               )}
               <div className="relative min-h-0 flex-1">
-                {/* includeSpouses is keyed too: toggling it changes the path, and a
-                    remount discards the stale one instead of showing it until the
-                    refetch lands. */}
+                {/* A spouse toggle must remount, not just refetch — otherwise the
+                    stale path stays on screen until the new one lands. */}
                 <GraphPane
                   key={`${focus.qid}:${pathTarget?.qid ?? ""}:${includeSpouses}`}
                   focus={focus}

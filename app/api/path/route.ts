@@ -6,19 +6,17 @@ import { pathToGraph, type PathRow } from "@/lib/graph";
 // optimization.
 export const dynamic = "force-dynamic";
 
-// shortestPath is native Cypher (no GDS plugin). The hop cap bounds the search.
-// Blood-only paths run systematically longer than ones allowed a marriage
-// shortcut, so the old 20 truncated real results: on a 200-pair sample, 18 of the
-// 27 pairs that lost their path reconnected within 21–30 hops. Raising the cap is
-// free — measured latency was flat from 20 to 60, since the search cost is bounded
-// by the reachable component, not the cap.
+// shortestPath is native Cypher (no GDS plugin). Blood-only paths run
+// systematically longer than ones allowed a marriage shortcut — on real data a cap
+// of 20 cut off pairs that reconnect in 21–30 hops — and a high cap costs nothing:
+// measured latency was flat from 20 to 60, the search being bounded by the
+// reachable component rather than the cap.
 const MAX_HOPS = 60;
 
-// SPOUSE_OF is opt-in: it hops between houses without advancing a generation, so
-// including it hides the lineage the view exists to show. Blood-only means every
-// turn in the path is a common ancestor or a common child.
-// SIBLING_OF is never traversed. The ego view doesn't draw it, so a sibling hop
-// would assert a link that vanishes when the user taps through to that person.
+// A marriage hop crosses between houses without advancing a generation, so it is
+// opt-in: with blood only, every turn in the path is a common ancestor or a common
+// child. SIBLING_OF is deliberately absent — the ego view never draws it, so a
+// sibling hop would assert a link that vanishes when the user taps through.
 function pathRelTypes(includeSpouses: boolean): string {
   return includeSpouses ? "PARENT_OF|SPOUSE_OF" : "PARENT_OF";
 }
