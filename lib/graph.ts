@@ -12,7 +12,9 @@ export type JunctionId = string & { readonly __brand: "JunctionId" };
 export type Sex = "male" | "female" | "other";
 
 // A recorded blood/marriage/adoption relationship (a Neo4j relationship type).
-// SIBLING_OF only surfaces in the path view; the ego layout never sees it.
+// SIBLING_OF stays a member because the ETL loads those edges and both row→graph
+// transforms cast a raw type(r) string to this union — but no query traverses it,
+// so it never reaches a view.
 export type Kinship =
   | "PARENT_OF"
   | "SPOUSE_OF"
