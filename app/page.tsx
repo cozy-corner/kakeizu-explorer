@@ -5,6 +5,29 @@ import { ArticlePane } from "@/components/ArticlePane";
 import { GraphPane, type FocusPerson } from "@/components/GraphPane";
 import type { SearchResult } from "@/lib/graph";
 
+// The one row above the graph pane: exactly one toggle shows, whichever the
+// current mode owns.
+function GraphToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {label}
+    </label>
+  );
+}
+
 export default function Home({
   searchParams,
 }: {
@@ -201,25 +224,18 @@ export default function Home({
                   </button>
                 </div>
               )}
-              {pathTarget && (
-                <label className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={includeSpouses}
-                    onChange={(e) => setIncludeSpouses(e.target.checked)}
-                  />
-                  配偶者を含む
-                </label>
-              )}
-              {!pathTarget && (
-                <label className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={showAdoptions}
-                    onChange={(e) => setShowAdoptions(e.target.checked)}
-                  />
-                  養子・養父を表示
-                </label>
+              {pathTarget ? (
+                <GraphToggle
+                  label="配偶者を含む"
+                  checked={includeSpouses}
+                  onChange={setIncludeSpouses}
+                />
+              ) : (
+                <GraphToggle
+                  label="養子・養父を表示"
+                  checked={showAdoptions}
+                  onChange={setShowAdoptions}
+                />
               )}
               <div className="relative min-h-0 flex-1">
                 {/* includeSpouses is keyed too: toggling it changes the path, and a
