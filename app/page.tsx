@@ -30,6 +30,10 @@ export default function Home({
   // Overlay the adoption layer (養子・養父) on the ego graph. Default off = blood
   // only. Held here, not in GraphPane, so it survives GraphPane's focus/path remount.
   const [showAdoptions, setShowAdoptions] = useState(false);
+  // Let the path search traverse marriages. Default off = blood only, so every turn
+  // in the path is a common ancestor or a common child. Held here for the same
+  // reason as showAdoptions.
+  const [includeSpouses, setIncludeSpouses] = useState(false);
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
   // Starts true when a `?id=` deep link is present so the pane shows a loader
@@ -197,6 +201,16 @@ export default function Home({
                   </button>
                 </div>
               )}
+              {pathTarget && (
+                <label className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={includeSpouses}
+                    onChange={(e) => setIncludeSpouses(e.target.checked)}
+                  />
+                  配偶者を含む
+                </label>
+              )}
               {!pathTarget && (
                 <label className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
                   <input
@@ -208,11 +222,15 @@ export default function Home({
                 </label>
               )}
               <div className="relative min-h-0 flex-1">
+                {/* includeSpouses is keyed too: toggling it changes the path, and a
+                    remount discards the stale one instead of showing it until the
+                    refetch lands. */}
                 <GraphPane
-                  key={`${focus.qid}:${pathTarget?.qid ?? ""}`}
+                  key={`${focus.qid}:${pathTarget?.qid ?? ""}:${includeSpouses}`}
                   focus={focus}
                   pathTo={pathTarget}
                   showAdoptions={showAdoptions}
+                  includeSpouses={includeSpouses}
                   onSelect={selectPerson}
                   onCurrent={showCurrent}
                 />
