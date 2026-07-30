@@ -235,9 +235,14 @@ export default function Home({
               )}
               <div className="relative min-h-0 flex-1">
                 {/* A spouse toggle must remount, not just refetch — otherwise the
-                    stale path stays on screen until the new one lands. */}
+                    stale path stays on screen until the new one lands. Keyed only in
+                    path mode, so the ego view can never be torn down by it. */}
                 <GraphPane
-                  key={`${focus.qid}:${pathTarget?.qid ?? ""}:${includeSpouses}`}
+                  key={
+                    pathTarget
+                      ? `${focus.qid}:${pathTarget.qid}:${includeSpouses}`
+                      : focus.qid
+                  }
                   focus={focus}
                   pathTo={pathTarget}
                   showAdoptions={showAdoptions}
