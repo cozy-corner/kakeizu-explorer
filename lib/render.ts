@@ -51,9 +51,8 @@ export const STYLE: cytoscape.StylesheetJson = [
   {
     // `data(label)` stays the pure name (used by the article pane / focus callbacks);
     // the ego view's `disp` appends the degree badge. Every drawable node must carry
-    // `disp` or its label vanishes. Scoped to `[disp]` rather than `node` because
-    // cytoscape warns once per element for a mapper it cannot resolve, and neither the
-    // headless layout instance nor the invisible junctions carry one.
+    // `disp` or its label vanishes — hence the `[disp]` scope: cytoscape warns once per
+    // element for an unresolvable mapper, and layout-only nodes carry none.
     selector: "node[disp]",
     style: { label: "data(disp)" },
   },
