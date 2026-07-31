@@ -36,10 +36,6 @@ export const STYLE: cytoscape.StylesheetJson = [
       // invisible, so the diamond never shows.
       "background-color": WA.rikyu,
       shape: "diamond",
-      // `data(label)` stays the pure name (used by the article pane / focus callbacks);
-      // the ego view's `disp` appends the degree badge. Every drawable node must carry
-      // `disp` or its label vanishes.
-      label: "data(disp)",
       "font-size": "10px",
       color: WA.ink,
       "text-outline-width": 2,
@@ -51,6 +47,14 @@ export const STYLE: cytoscape.StylesheetJson = [
       width: NODE_SIZE,
       height: NODE_SIZE,
     },
+  },
+  {
+    // `data(label)` stays the pure name (used by the article pane / focus callbacks);
+    // the ego view's `disp` appends the degree badge. Every drawable node must carry
+    // `disp` or its label vanishes — hence the `[disp]` scope: cytoscape warns once per
+    // element for an unresolvable mapper, and layout-only nodes carry none.
+    selector: "node[disp]",
+    style: { label: "data(disp)" },
   },
   {
     // Sex distinction (shape + colour), leaning on the Japanese convention of
