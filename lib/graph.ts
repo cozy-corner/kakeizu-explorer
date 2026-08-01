@@ -128,6 +128,26 @@ function indexEdges(graph: Graph): {
   return { parentsOf, spouse, adoptive, couple };
 }
 
+// Mutates `couple`/`spouse` in place rather than returning edges: the dedup has to
+// span every child, so a couple already linked by an earlier child's pass is not
+// linked twice.
+function synthesiseCoParentSpouses(
+  parents: string[],
+  fathers: string[],
+  sex: Map<string, Sex | undefined>,
+  couple: Set<string>,
+  spouse: GraphEdge[],
+): void {
+  for (const m of parents) {
+    if (sex.get(m) !== "female") continue;
+    const father = fathers[0];
+    if (!couple.has(pairKey(m, father))) {
+      couple.add(pairKey(m, father));
+      spouse.push({ source: father, target: m, type: "SPOUSE_OF" });
+    }
+  }
+}
+
 // Reduce a neighbourhood toward a patrilineal tree: the line of descent runs
 // through fathers, mothers are shown as the father's spouse (not as a second
 // descent line). For each child keep every father edge — a parent whose sex
@@ -159,14 +179,7 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
     for (const f of fathers) {
       structural.push({ source: f, target: child, type: "PARENT_OF" });
     }
-    for (const m of parents) {
-      if (sex.get(m) !== "female") continue;
-      const father = fathers[0];
-      if (!couple.has(pairKey(m, father))) {
-        couple.add(pairKey(m, father));
-        spouse.push({ source: father, target: m, type: "SPOUSE_OF" });
-      }
-    }
+    synthesiseCoParentSpouses(parents, fathers, sex, couple, spouse);
   }
   return [...structural, ...spouse, ...adoptive];
 }
