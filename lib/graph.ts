@@ -114,8 +114,15 @@ export const junctionHiddenEdgeIds = (
 // spouse-less mother (e.g. an unrecorded concubine) doesn't float. If no father
 // is known at all, keep every parent so the child isn't orphaned. Sibling links
 // are always dropped (siblings share a parent column).
-export function patrilinealEdges(graph: Graph): GraphEdge[] {
-  const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
+// The reduction's inputs, sorted out of the raw edge list in one pass. `spouse` and
+// `couple` are returned mutable: the reduction appends the co-parent marriages it
+// synthesises to both.
+function indexEdges(graph: Graph): {
+  parentsOf: Map<string, string[]>;
+  spouse: GraphEdge[];
+  adoptive: GraphEdge[];
+  couple: Set<string>;
+} {
   const parentsOf = new Map<string, string[]>();
   const spouse: GraphEdge[] = [];
   // Adoptive parent→child edges pass through untouched: they're a separate layer
@@ -135,6 +142,12 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
       adoptive.push(e);
     }
   }
+  return { parentsOf, spouse, adoptive, couple };
+}
+
+export function patrilinealEdges(graph: Graph): GraphEdge[] {
+  const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
+  const { parentsOf, spouse, adoptive, couple } = indexEdges(graph);
   const structural: GraphEdge[] = [];
   for (const [child, parents] of parentsOf) {
     const fathers = parents.filter((p) => sex.get(p) !== "female");
