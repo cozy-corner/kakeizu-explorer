@@ -1,6 +1,10 @@
 "use client";
 
-import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
+import cytoscape, {
+  type CollectionReturnValue,
+  type Core,
+  type ElementDefinition,
+} from "cytoscape";
 import dagre from "cytoscape-dagre";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -307,13 +311,9 @@ function computeEgoPlan(
   };
 }
 
-// Sprout new nodes out of `emergeFrom` (the fired node) so a branch reads as growing;
-// reconcile and animate the rest. No dagre runs here.
-function renderEgoPlan(
-  cy: Core,
-  plan: EgoPlan,
-  opts: { animate: boolean; emergeFrom?: Pos },
-): void {
+type RenderOpts = { animate: boolean; emergeFrom?: Pos };
+
+function pruneToPlan(cy: Core, plan: EgoPlan): void {
   const wantNodes = new Set<string>([
     ...plan.personIds,
     ...plan.junctions.map((j) => j.id),
@@ -328,61 +328,93 @@ function renderEgoPlan(
   cy.nodes().forEach((n) => {
     if (!wantNodes.has(n.id())) n.remove();
   });
+}
 
+// Sprout out of `emergeFrom` (the fired node) so a branch reads as growing.
+function spawnPersonNode(
+  cy: Core,
+  data: { id: string; label: string; disp: string; sex: Sex | undefined },
+  pos: Pos,
+  opts: RenderOpts,
+): void {
+  const n = cy.add({ data });
+  n.position(opts.emergeFrom ?? pos);
+  if (opts.animate && opts.emergeFrom)
+    n.animate({ position: pos }, { duration: ANIM_MS });
+  else n.position(pos);
+}
+
+function updatePersonNode(
+  node: CollectionReturnValue,
+  disp: string,
+  pos: Pos,
+  opts: RenderOpts,
+): void {
+  // Refresh disp so the badge follows the adoption toggle: a node's degree differs
+  // between the blood and adoption views.
+  node.data("disp", disp);
+  if (opts.animate)
+    node.stop(true, false).animate({ position: pos }, { duration: ANIM_MS });
+  else node.position(pos);
+}
+
+function syncPersonNodes(cy: Core, plan: EgoPlan, opts: RenderOpts): void {
   for (const id of plan.personIds) {
     const pos = plan.positions.get(id);
     if (!pos) continue;
     const label = plan.labels.get(id) ?? id;
     const disp = nodeDisp(label, plan.degrees.get(id));
     const existing = cy.getElementById(id);
-    if (existing.empty()) {
-      const n = cy.add({ data: { id, label, disp, sex: plan.sexes.get(id) } });
-      n.position(opts.emergeFrom ?? pos);
-      if (opts.animate && opts.emergeFrom)
-        n.animate({ position: pos }, { duration: ANIM_MS });
-      else n.position(pos);
-    } else {
-      // Refresh disp so the badge follows the adoption toggle: a node's degree differs
-      // between the blood and adoption views.
-      existing.data("disp", disp);
-      if (opts.animate)
-        existing
-          .stop(true, false)
-          .animate({ position: pos }, { duration: ANIM_MS });
-      else existing.position(pos);
-    }
+    if (existing.empty())
+      spawnPersonNode(
+        cy,
+        { id, label, disp, sex: plan.sexes.get(id) },
+        pos,
+        opts,
+      );
+    else updatePersonNode(existing, disp, pos, opts);
   }
+}
 
-  // Junctions are invisible anchors for descent lines; snap them (no animation to a
-  // point nobody sees) so child edges route from the right midpoint.
+// Junctions are invisible anchors for descent lines; snap them (no animation to a
+// point nobody sees) so child edges route from the right midpoint.
+function syncJunctions(cy: Core, plan: EgoPlan): void {
   for (const j of plan.junctions) {
     const existing = cy.getElementById(j.id);
     if (existing.empty())
       cy.add({ data: { id: j.id, junction: 1 } }).position(j.pos);
     else existing.position(j.pos);
   }
+}
 
+function applySpouseBow(
+  ed: CollectionReturnValue,
+  bow: number | undefined,
+): void {
+  if (bow === undefined) {
+    ed.removeStyle("segment-weights segment-distances");
+    ed.style("curve-style", "straight");
+  } else {
+    ed.style("curve-style", "segments");
+    ed.style("segment-weights", "0.08 0.92");
+    ed.style("segment-distances", `${bow} ${bow}`);
+  }
+}
+
+function syncPersonEdges(cy: Core, plan: EgoPlan): void {
   for (const e of plan.personEdges) {
-    if (cy.getElementById(e.id).empty()) {
-      cy.add({
+    let ed = cy.getElementById(e.id);
+    if (ed.empty()) {
+      ed = cy.add({
         data: { id: e.id, source: e.source, target: e.target, type: e.type },
       });
     }
-    const ed = cy.getElementById(e.id);
     ed.style("visibility", plan.hiddenEdgeIds.has(e.id) ? "hidden" : "visible");
-    if (e.type === "SPOUSE_OF") {
-      const bow = plan.spouseBows.get(e.id);
-      if (bow === undefined) {
-        ed.removeStyle("segment-weights segment-distances");
-        ed.style("curve-style", "straight");
-      } else {
-        ed.style("curve-style", "segments");
-        ed.style("segment-weights", "0.08 0.92");
-        ed.style("segment-distances", `${bow} ${bow}`);
-      }
-    }
+    if (e.type === "SPOUSE_OF") applySpouseBow(ed, plan.spouseBows.get(e.id));
   }
+}
 
+function syncDescentEdges(cy: Core, plan: EgoPlan): void {
   for (const e of plan.descentEdges) {
     if (cy.getElementById(e.id).empty()) {
       cy.add({
@@ -395,6 +427,15 @@ function renderEgoPlan(
       });
     }
   }
+}
+
+// Reconciles the live cytoscape against an already-computed plan. No dagre runs here.
+function renderEgoPlan(cy: Core, plan: EgoPlan, opts: RenderOpts): void {
+  pruneToPlan(cy, plan);
+  syncPersonNodes(cy, plan, opts);
+  syncJunctions(cy, plan);
+  syncPersonEdges(cy, plan);
+  syncDescentEdges(cy, plan);
 }
 
 function EgoPane({
