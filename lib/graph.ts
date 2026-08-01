@@ -98,24 +98,14 @@ export const junctionHiddenEdgeIds = (
   return hidden;
 };
 
-// Reduce a neighbourhood toward a patrilineal tree: the line of descent runs
-// through fathers, mothers are shown as the father's spouse (not as a second
-// descent line). For each child keep every father edge — a parent whose sex
-// isn't "female" (male, or unknown so we don't hide a real father). A child with
-// two recorded fathers (e.g. disputed/uncertain parentage) keeps BOTH rather
-// than arbitrarily picking one — avoiding a non-deterministic choice and an
-// orphaned parent. (For a PATERNAL ego graph the neighbors API resolves the
-// dispute upstream: it never hands over the competing father's edge into the
-// focus's child, since in that view the focus is the chosen father — see
-// app/api/person/[id]/neighbors/route.ts. This function still keeps both when
-// handed both.) Mother→child edges are dropped; instead the mother is linked
-// to the father by SPOUSE_OF so she sits beside him. When no marriage is
-// recorded, sharing a child is treated as one (co-parent ⇒ couple) so a
-// spouse-less mother (e.g. an unrecorded concubine) doesn't float. If no father
-// is known at all, keep every parent so the child isn't orphaned. Sibling links
-// are always dropped (siblings share a parent column).
-export function patrilinealEdges(graph: Graph): GraphEdge[] {
-  const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
+// `spouse` and `couple` are returned mutable: patrilinealEdges appends the
+// co-parent marriages it synthesises to both.
+function indexEdges(graph: Graph): {
+  parentsOf: Map<string, string[]>;
+  spouse: GraphEdge[];
+  adoptive: GraphEdge[];
+  couple: Set<string>;
+} {
   const parentsOf = new Map<string, string[]>();
   const spouse: GraphEdge[] = [];
   // Adoptive parent→child edges pass through untouched: they're a separate layer
@@ -135,6 +125,48 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
       adoptive.push(e);
     }
   }
+  return { parentsOf, spouse, adoptive, couple };
+}
+
+// Mutates `couple`/`spouse` in place rather than returning edges: the dedup has to
+// span every child, so a couple already linked by an earlier child's pass is not
+// linked twice.
+function synthesiseCoParentSpouses(
+  parents: string[],
+  fathers: string[],
+  sex: Map<string, Sex | undefined>,
+  couple: Set<string>,
+  spouse: GraphEdge[],
+): void {
+  for (const m of parents) {
+    if (sex.get(m) !== "female") continue;
+    const father = fathers[0];
+    if (!couple.has(pairKey(m, father))) {
+      couple.add(pairKey(m, father));
+      spouse.push({ source: father, target: m, type: "SPOUSE_OF" });
+    }
+  }
+}
+
+// Reduce a neighbourhood toward a patrilineal tree: the line of descent runs
+// through fathers, mothers are shown as the father's spouse (not as a second
+// descent line). For each child keep every father edge — a parent whose sex
+// isn't "female" (male, or unknown so we don't hide a real father). A child with
+// two recorded fathers (e.g. disputed/uncertain parentage) keeps BOTH rather
+// than arbitrarily picking one — avoiding a non-deterministic choice and an
+// orphaned parent. (For a PATERNAL ego graph the neighbors API resolves the
+// dispute upstream: it never hands over the competing father's edge into the
+// focus's child, since in that view the focus is the chosen father — see
+// app/api/person/[id]/neighbors/route.ts. This function still keeps both when
+// handed both.) Mother→child edges are dropped; instead the mother is linked
+// to the father by SPOUSE_OF so she sits beside him. When no marriage is
+// recorded, sharing a child is treated as one (co-parent ⇒ couple) so a
+// spouse-less mother (e.g. an unrecorded concubine) doesn't float. If no father
+// is known at all, keep every parent so the child isn't orphaned. Sibling links
+// are always dropped (siblings share a parent column).
+export function patrilinealEdges(graph: Graph): GraphEdge[] {
+  const sex = new Map(graph.nodes.map((n) => [n.qid, n.sex]));
+  const { parentsOf, spouse, adoptive, couple } = indexEdges(graph);
   const structural: GraphEdge[] = [];
   for (const [child, parents] of parentsOf) {
     const fathers = parents.filter((p) => sex.get(p) !== "female");
@@ -147,14 +179,7 @@ export function patrilinealEdges(graph: Graph): GraphEdge[] {
     for (const f of fathers) {
       structural.push({ source: f, target: child, type: "PARENT_OF" });
     }
-    for (const m of parents) {
-      if (sex.get(m) !== "female") continue;
-      const father = fathers[0];
-      if (!couple.has(pairKey(m, father))) {
-        couple.add(pairKey(m, father));
-        spouse.push({ source: father, target: m, type: "SPOUSE_OF" });
-      }
-    }
+    synthesiseCoParentSpouses(parents, fathers, sex, couple, spouse);
   }
   return [...structural, ...spouse, ...adoptive];
 }

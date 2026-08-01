@@ -516,6 +516,47 @@ type CoupleGroup = {
   mid: Placement;
 };
 
+// `mid`/`gap` are captured by coupleCandidates so the gating in coLocatedCouples
+// needs no further placement lookups.
+type Candidate = {
+  father: PersonId;
+  mother: PersonId;
+  child: PersonId;
+  mid: Placement;
+  gap: number;
+};
+
+function coupleCandidates(
+  fam: FamilyGraph,
+  placements: Placements,
+): Candidate[] {
+  const sex = fam.sex;
+  const parentsOf = fam.trueParentsOf;
+  const drawnFathersOf = fam.fatherOf;
+
+  const candidates: Candidate[] = [];
+  for (const [child, fathers] of drawnFathersOf) {
+    if (fathers.length !== 1) continue;
+    const father = fathers[0];
+    const fp = placements.get(father);
+    if (!fp) continue;
+    const mothers = (parentsOf.get(child) ?? []).filter(
+      (p) => sex.get(p) === "female" && placements.has(p) && p !== father,
+    );
+    if (mothers.length !== 1) continue;
+    const mp = placements.get(mothers[0])!;
+    if (mp.col !== fp.col) continue;
+    candidates.push({
+      father,
+      mother: mothers[0],
+      child,
+      mid: { col: fp.col, order: (fp.order + mp.order) / 2 },
+      gap: Math.abs(mp.order - fp.order),
+    });
+  }
+  return candidates;
+}
+
 // For each drawn father→child line whose child has exactly one in-view mother in
 // the father's column, group the children under their parents' midpoint.
 // `fam.trueParentsOf` is the UNREDUCED parentage so a mother dropped by the
@@ -540,38 +581,7 @@ function coLocatedCouples(
   fam: FamilyGraph,
   placements: Placements,
 ): CoupleGroup[] {
-  const sex = fam.sex;
-  const parentsOf = fam.trueParentsOf;
-  const drawnFathersOf = fam.fatherOf;
-
-  // Capture `mid`/`gap` now so the gating below needs no further placement lookups.
-  type Candidate = {
-    father: PersonId;
-    mother: PersonId;
-    child: PersonId;
-    mid: Placement;
-    gap: number;
-  };
-  const candidates: Candidate[] = [];
-  for (const [child, fathers] of drawnFathersOf) {
-    if (fathers.length !== 1) continue;
-    const father = fathers[0];
-    const fp = placements.get(father);
-    if (!fp) continue;
-    const mothers = (parentsOf.get(child) ?? []).filter(
-      (p) => sex.get(p) === "female" && placements.has(p) && p !== father,
-    );
-    if (mothers.length !== 1) continue;
-    const mp = placements.get(mothers[0])!;
-    if (mp.col !== fp.col) continue;
-    candidates.push({
-      father,
-      mother: mothers[0],
-      child,
-      mid: { col: fp.col, order: (fp.order + mp.order) / 2 },
-      gap: Math.abs(mp.order - fp.order),
-    });
-  }
+  const candidates = coupleCandidates(fam, placements);
 
   // A father with two or more distinct co-located mothers is polygamous; counted
   // across ALL candidates (before the adjacency gate) so a far second wife still
