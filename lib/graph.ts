@@ -98,9 +98,8 @@ export const junctionHiddenEdgeIds = (
   return hidden;
 };
 
-// The patrilineal reduction's inputs, sorted out of the raw edge list in one pass.
-// `spouse` and `couple` are returned mutable: the reduction appends the co-parent
-// marriages it synthesises to both.
+// `spouse` and `couple` are returned mutable: patrilinealEdges appends the
+// co-parent marriages it synthesises to both.
 function indexEdges(graph: Graph): {
   parentsOf: Map<string, string[]>;
   spouse: GraphEdge[];

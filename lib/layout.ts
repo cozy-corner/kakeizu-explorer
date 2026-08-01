@@ -516,8 +516,8 @@ type CoupleGroup = {
   mid: Placement;
 };
 
-// A father/mother/child triple with unambiguous, co-located parentage. `mid`/`gap`
-// are captured here so coLocatedCouples' gating needs no further placement lookups.
+// `mid`/`gap` are captured here so coLocatedCouples' gating below needs no further
+// placement lookups.
 type Candidate = {
   father: PersonId;
   mother: PersonId;
@@ -526,8 +526,6 @@ type Candidate = {
   gap: number;
 };
 
-// One candidate per drawn father→child line with exactly one drawn father, exactly
-// one in-view mother, and both parents in the same column.
 function coupleCandidates(
   fam: FamilyGraph,
   placements: Placements,
