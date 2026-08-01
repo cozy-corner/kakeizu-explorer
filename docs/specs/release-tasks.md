@@ -47,7 +47,7 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
 
 `mvp-tasks.md` の PR1 積み残しのうち、本番環境と無関係でローカルで完結するもの。Aura を待つ理由がなく、CI で検証できる。
 
-- [ ] #109 `disableLosslessIntegers: true` をドライバ生成に追加（`lib/neo4j.ts`）。ドライバが `Integer` を返すのはローカルでも本番でも同じで、そのため `.toNumber()` が散っている（`app/api/search/route.ts:37`、`app/api/person/[id]/neighbors/route.ts:101-102`、`app/api/health/route.ts:11` の防御的分岐）。扱うのは件数と次数だけなので桁あふれの心配はない
+- [x] #109 `disableLosslessIntegers: true` をドライバ生成に追加（`lib/neo4j.ts`）。ドライバが `Integer` を返すのはローカルでも本番でも同じで、そのため `.toNumber()` が散っている（`app/api/search/route.ts:37`、`app/api/person/[id]/neighbors/route.ts:101-102`、`app/api/health/route.ts:11` の防御的分岐）。扱うのは件数と次数だけなので桁あふれの心配はない
   - `number` に `.toNumber()` は無いため、フラグ追加と呼び出し側の除去は同一 PR で行う
 - [ ] #110 `closeDriver()` を用意（`lib/neo4j.ts`）。Vercel のサーバーレスではプロセスが凍結されるだけで出番が無く、実際に必要なのはローカル側。`scripts/etl-spike/load.ts` と `verify.ts` が `getDriver()` を使いながらプールを閉じる手段を持たない
 
