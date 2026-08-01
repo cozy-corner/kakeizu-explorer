@@ -516,8 +516,8 @@ type CoupleGroup = {
   mid: Placement;
 };
 
-// `mid`/`gap` are captured here so coLocatedCouples' gating below needs no further
-// placement lookups.
+// `mid`/`gap` are captured by coupleCandidates so the gating in coLocatedCouples
+// needs no further placement lookups.
 type Candidate = {
   father: PersonId;
   mother: PersonId;
