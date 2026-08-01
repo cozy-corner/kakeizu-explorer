@@ -330,6 +330,7 @@ function pruneToPlan(cy: Core, plan: EgoPlan): void {
   });
 }
 
+// Sprout out of `emergeFrom` (the fired node) so a branch reads as growing.
 function spawnPersonNode(
   cy: Core,
   data: { id: string; label: string; disp: string; sex: Sex | undefined },
@@ -428,8 +429,7 @@ function syncDescentEdges(cy: Core, plan: EgoPlan): void {
   }
 }
 
-// Sprout new nodes out of `emergeFrom` (the fired node) so a branch reads as growing;
-// reconcile and animate the rest. No dagre runs here.
+// Reconciles the live cytoscape against an already-computed plan. No dagre runs here.
 function renderEgoPlan(cy: Core, plan: EgoPlan, opts: RenderOpts): void {
   pruneToPlan(cy, plan);
   syncPersonNodes(cy, plan, opts);
