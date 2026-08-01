@@ -22,3 +22,13 @@ export function getDriver(): Driver {
   }
   return globalForNeo4j._neo4jDriver;
 }
+
+// For short-lived processes (scripts) that must release the pool before exiting.
+// Closing the driver without dropping the cached reference would leave
+// getDriver() handing out a dead driver.
+export async function closeDriver(): Promise<void> {
+  const driver = globalForNeo4j._neo4jDriver;
+  if (!driver) return;
+  globalForNeo4j._neo4jDriver = undefined;
+  await driver.close();
+}

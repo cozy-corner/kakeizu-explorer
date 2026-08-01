@@ -6,7 +6,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Session } from "neo4j-driver";
-import { getDriver } from "../../lib/neo4j";
+import { closeDriver, getDriver } from "../../lib/neo4j";
 
 const DATA_DIR = join(import.meta.dirname, "data");
 
@@ -126,7 +126,7 @@ async function main() {
     console.log(`  ADOPTIVE_PARENT_OF: ${adoptions}`);
   } finally {
     await session.close();
-    await driver.close();
+    await closeDriver();
   }
 }
 

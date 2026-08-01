@@ -9,7 +9,7 @@
 // Requires the graph-data-science plugin (see docker-compose.yml).
 
 import type { Session } from "neo4j-driver";
-import { getDriver } from "../../lib/neo4j";
+import { closeDriver, getDriver } from "../../lib/neo4j";
 
 const GRAPH = "spike";
 
@@ -108,7 +108,7 @@ async function main() {
     await paths(session);
   } finally {
     await session.close();
-    await driver.close();
+    await closeDriver();
   }
 }
 
