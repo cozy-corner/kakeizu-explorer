@@ -79,5 +79,5 @@ ETL 方式は PR2 で確定済み（種＋seed-and-traverse＋外国人剪定。
 
 ### 本番前の Neo4j 接続ハードニング（PR1 コードレビューの積み残し）
 dev 単一インスタンスでは無害だが、AuraDB（routing クラスタ）移行時に効く。`lib/neo4j.ts` / `app/api/health/route.ts`。
-- [ ] driver 生成に `disableLosslessIntegers: true`（Cypher の Integer→JS number 変換をルート側で都度やらない）
+- [x] driver 生成に `disableLosslessIntegers: true`（Cypher の Integer→JS number 変換をルート側で都度やらない）
 - [ ] 読み取りクエリは `session({ defaultAccessMode: neo4j.session.READ })`（クラスタで read replica を使う。現状は既定 WRITE で primary 固定）

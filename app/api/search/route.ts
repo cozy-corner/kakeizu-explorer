@@ -34,7 +34,7 @@ export async function GET(request: Request) {
         qid: r.get("qid"),
         label: r.get("label"),
         wikipediaTitle: r.get("wikipediaTitle"),
-        total: r.get("total").toNumber(),
+        total: r.get("total"),
       }),
     );
     // total rides on every row (same scan); no rows ⇒ no match ⇒ 0.
