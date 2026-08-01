@@ -516,27 +516,8 @@ type CoupleGroup = {
   mid: Placement;
 };
 
-// For each drawn father→child line whose child has exactly one in-view mother in
-// the father's column, group the children under their parents' midpoint.
-// `fam.trueParentsOf` is the UNREDUCED parentage so a mother dropped by the
-// patrilineal view is still recoverable; `fam.fatherOf` is the reduced set so this
-// covers only lines actually drawn. Skipped when parentage is ambiguous — more than
-// one drawn father, none or several in-view mothers, or parents not sharing a column
-// — so an uncertain couple never invents a false midpoint.
-//
-// Polygamy falls back to father-origin too: a father with two or more distinct
-// in-view mothers is dropped. The midpoint convention (descent out of the gap
-// between a couple) only reads cleanly for one couple — with the wives stacked in
-// one column, a far wife's midpoint lands among the other wives, so it no longer
-// says which mother. Traditional Japanese genealogy draws such children from the
-// father (mother shown only as a spouse), which this matches.
-//
-// The mother must also be the father's immediate vertical neighbour (order gap ≈
-// one row). A mother who heads her own descent isn't tucked beside the father, so
-// the couple can sit far apart in the column; their midpoint would then float in
-// empty space, reading as a line from nowhere. Only an adjacent pair has a real
-// "between" to sprout from — anything farther falls back to father-origin.
-// Capture `mid`/`gap` up front so the gating below needs no further placement lookups.
+// A father/mother/child triple with unambiguous, co-located parentage. `mid`/`gap`
+// are captured here so coLocatedCouples' gating needs no further placement lookups.
 type Candidate = {
   father: PersonId;
   mother: PersonId;
@@ -545,8 +526,8 @@ type Candidate = {
   gap: number;
 };
 
-// One candidate per drawn father→child line with unambiguous, co-located parentage:
-// exactly one drawn father, exactly one in-view mother, both in the same column.
+// One candidate per drawn father→child line with exactly one drawn father, exactly
+// one in-view mother, and both parents in the same column.
 function coupleCandidates(
   fam: FamilyGraph,
   placements: Placements,
@@ -578,6 +559,26 @@ function coupleCandidates(
   return candidates;
 }
 
+// For each drawn father→child line whose child has exactly one in-view mother in
+// the father's column, group the children under their parents' midpoint.
+// `fam.trueParentsOf` is the UNREDUCED parentage so a mother dropped by the
+// patrilineal view is still recoverable; `fam.fatherOf` is the reduced set so this
+// covers only lines actually drawn. Skipped when parentage is ambiguous — more than
+// one drawn father, none or several in-view mothers, or parents not sharing a column
+// — so an uncertain couple never invents a false midpoint.
+//
+// Polygamy falls back to father-origin too: a father with two or more distinct
+// in-view mothers is dropped. The midpoint convention (descent out of the gap
+// between a couple) only reads cleanly for one couple — with the wives stacked in
+// one column, a far wife's midpoint lands among the other wives, so it no longer
+// says which mother. Traditional Japanese genealogy draws such children from the
+// father (mother shown only as a spouse), which this matches.
+//
+// The mother must also be the father's immediate vertical neighbour (order gap ≈
+// one row). A mother who heads her own descent isn't tucked beside the father, so
+// the couple can sit far apart in the column; their midpoint would then float in
+// empty space, reading as a line from nowhere. Only an adjacent pair has a real
+// "between" to sprout from — anything farther falls back to father-origin.
 function coLocatedCouples(
   fam: FamilyGraph,
   placements: Placements,
