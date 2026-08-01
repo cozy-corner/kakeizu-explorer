@@ -6,10 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const [ok] = await runQuery("RETURN 1 AS ok", {}, (r) => {
-      const v = r.get("ok");
-      return typeof v?.toNumber === "function" ? v.toNumber() : v;
-    });
+    const [ok] = await runQuery("RETURN 1 AS ok", {}, (r) => r.get("ok"));
     return NextResponse.json({ status: "ok", neo4j: ok });
   } catch (err) {
     return serviceUnavailable("Health check failed", err);

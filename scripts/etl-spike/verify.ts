@@ -45,9 +45,7 @@ async function connectivity(session: Session): Promise<void> {
   try {
     const total = (
       await session.run("MATCH (p:Person) RETURN count(p) AS n")
-    ).records[0]
-      .get("n")
-      .toNumber();
+    ).records[0].get("n");
 
     const stats = await session.run(
       `CALL gds.wcc.stats($g)
@@ -59,8 +57,8 @@ async function connectivity(session: Session): Promise<void> {
       { g: GRAPH },
     );
     const r = stats.records[0];
-    const components = r.get("components").toNumber();
-    const largest = r.get("largest").toNumber();
+    const components = r.get("components");
+    const largest = r.get("largest");
     const pct = ((largest / total) * 100).toFixed(1);
 
     console.log("== Connectivity (WCC, edges undirected) ==");
@@ -89,7 +87,7 @@ async function paths(session: Session): Promise<void> {
       continue;
     }
     const rec = res.records[0];
-    const hops = rec.get("hops").toNumber();
+    const hops = rec.get("hops");
     const names: string[] = rec.get("names");
     const rels: string[] = rec.get("rels");
     const trail = names

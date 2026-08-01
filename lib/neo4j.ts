@@ -18,6 +18,9 @@ export function getDriver(): Driver {
     globalForNeo4j._neo4jDriver = neo4j.driver(
       uri,
       neo4j.auth.basic(user, password),
+      // We only read counts and degrees, so the 64-bit Integer wrapper buys
+      // nothing and forces .toNumber() at every call site.
+      { disableLosslessIntegers: true },
     );
   }
   return globalForNeo4j._neo4jDriver;

@@ -39,7 +39,7 @@ async function batched(
 
 async function count(session: Session, cypher: string): Promise<number> {
   const res = await session.run(cypher);
-  return res.records[0].get(0).toNumber();
+  return res.records[0].get(0);
 }
 
 async function main() {
