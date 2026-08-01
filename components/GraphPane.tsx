@@ -383,12 +383,12 @@ function applySpouseBow(
 
 function syncPersonEdges(cy: Core, plan: EgoPlan): void {
   for (const e of plan.personEdges) {
-    if (cy.getElementById(e.id).empty()) {
-      cy.add({
+    let ed = cy.getElementById(e.id);
+    if (ed.empty()) {
+      ed = cy.add({
         data: { id: e.id, source: e.source, target: e.target, type: e.type },
       });
     }
-    const ed = cy.getElementById(e.id);
     ed.style("visibility", plan.hiddenEdgeIds.has(e.id) ? "hidden" : "visible");
     if (e.type === "SPOUSE_OF") applySpouseBow(ed, plan.spouseBows.get(e.id));
   }
