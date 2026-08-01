@@ -536,22 +536,25 @@ type CoupleGroup = {
 // the couple can sit far apart in the column; their midpoint would then float in
 // empty space, reading as a line from nowhere. Only an adjacent pair has a real
 // "between" to sprout from — anything farther falls back to father-origin.
-function coLocatedCouples(
+// Capture `mid`/`gap` up front so the gating below needs no further placement lookups.
+type Candidate = {
+  father: PersonId;
+  mother: PersonId;
+  child: PersonId;
+  mid: Placement;
+  gap: number;
+};
+
+// One candidate per drawn father→child line with unambiguous, co-located parentage:
+// exactly one drawn father, exactly one in-view mother, both in the same column.
+function coupleCandidates(
   fam: FamilyGraph,
   placements: Placements,
-): CoupleGroup[] {
+): Candidate[] {
   const sex = fam.sex;
   const parentsOf = fam.trueParentsOf;
   const drawnFathersOf = fam.fatherOf;
 
-  // Capture `mid`/`gap` now so the gating below needs no further placement lookups.
-  type Candidate = {
-    father: PersonId;
-    mother: PersonId;
-    child: PersonId;
-    mid: Placement;
-    gap: number;
-  };
   const candidates: Candidate[] = [];
   for (const [child, fathers] of drawnFathersOf) {
     if (fathers.length !== 1) continue;
@@ -572,6 +575,14 @@ function coLocatedCouples(
       gap: Math.abs(mp.order - fp.order),
     });
   }
+  return candidates;
+}
+
+function coLocatedCouples(
+  fam: FamilyGraph,
+  placements: Placements,
+): CoupleGroup[] {
+  const candidates = coupleCandidates(fam, placements);
 
   // A father with two or more distinct co-located mothers is polygamous; counted
   // across ALL candidates (before the adjacency gate) so a far second wife still
