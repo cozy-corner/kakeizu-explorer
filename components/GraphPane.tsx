@@ -330,6 +330,33 @@ function pruneToPlan(cy: Core, plan: EgoPlan): void {
   });
 }
 
+function spawnPersonNode(
+  cy: Core,
+  data: { id: string; label: string; disp: string; sex: Sex | undefined },
+  pos: Pos,
+  opts: RenderOpts,
+): void {
+  const n = cy.add({ data });
+  n.position(opts.emergeFrom ?? pos);
+  if (opts.animate && opts.emergeFrom)
+    n.animate({ position: pos }, { duration: ANIM_MS });
+  else n.position(pos);
+}
+
+function updatePersonNode(
+  node: CollectionReturnValue,
+  disp: string,
+  pos: Pos,
+  opts: RenderOpts,
+): void {
+  // Refresh disp so the badge follows the adoption toggle: a node's degree differs
+  // between the blood and adoption views.
+  node.data("disp", disp);
+  if (opts.animate)
+    node.stop(true, false).animate({ position: pos }, { duration: ANIM_MS });
+  else node.position(pos);
+}
+
 function syncPersonNodes(cy: Core, plan: EgoPlan, opts: RenderOpts): void {
   for (const id of plan.personIds) {
     const pos = plan.positions.get(id);
@@ -337,22 +364,14 @@ function syncPersonNodes(cy: Core, plan: EgoPlan, opts: RenderOpts): void {
     const label = plan.labels.get(id) ?? id;
     const disp = nodeDisp(label, plan.degrees.get(id));
     const existing = cy.getElementById(id);
-    if (existing.empty()) {
-      const n = cy.add({ data: { id, label, disp, sex: plan.sexes.get(id) } });
-      n.position(opts.emergeFrom ?? pos);
-      if (opts.animate && opts.emergeFrom)
-        n.animate({ position: pos }, { duration: ANIM_MS });
-      else n.position(pos);
-    } else {
-      // Refresh disp so the badge follows the adoption toggle: a node's degree differs
-      // between the blood and adoption views.
-      existing.data("disp", disp);
-      if (opts.animate)
-        existing
-          .stop(true, false)
-          .animate({ position: pos }, { duration: ANIM_MS });
-      else existing.position(pos);
-    }
+    if (existing.empty())
+      spawnPersonNode(
+        cy,
+        { id, label, disp, sex: plan.sexes.get(id) },
+        pos,
+        opts,
+      );
+    else updatePersonNode(existing, disp, pos, opts);
   }
 }
 
