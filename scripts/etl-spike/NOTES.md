@@ -29,20 +29,20 @@ Neo4j 5 Community は稼働中DBのダンプ不可なので、コンテナを止
 
 ```bash
 # バックアップ（backup-neo4j.sh の中身）
-docker compose stop neo4j
+docker stop kakeizu-neo4j
 docker run --rm \
   -v kakeizu_neo4j-data:/data \
   -v "$PWD/scripts/etl-spike/data/backups:/backups" \
   neo4j:5 neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true
-docker compose up -d neo4j
+docker start kakeizu-neo4j
 
 # 復元（新 ETL の結果が不正だったとき）
-docker compose stop neo4j
+docker stop kakeizu-neo4j
 docker run --rm \
   -v kakeizu_neo4j-data:/data \
   -v "$PWD/scripts/etl-spike/data/backups:/backups" \
   neo4j:5 neo4j-admin database load neo4j --from-path=/backups --overwrite-destination=true
-docker compose up -d neo4j
+docker start kakeizu-neo4j
 ```
 
 > #44 で抽出(E)を一元化した。属性（性別 P21・国籍 P27/P27→P17・辺の rank/P1039/P1480・

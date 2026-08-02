@@ -14,11 +14,14 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKUP_DIR="$REPO_ROOT/scripts/etl-spike/data/backups"
 VOLUME="kakeizu_neo4j-data"
+# docker-compose.yml pins container_name, so plain docker addresses the same
+# container compose would — and works where the compose CLI plugin is missing.
+CONTAINER="kakeizu-neo4j"
 
 mkdir -p "$BACKUP_DIR"
 
 echo "Stopping neo4j…"
-docker compose -f "$REPO_ROOT/docker-compose.yml" stop neo4j
+docker stop "$CONTAINER"
 
 echo "Dumping database 'neo4j' → $BACKUP_DIR/neo4j.dump"
 docker run --rm \
@@ -27,6 +30,6 @@ docker run --rm \
   neo4j:5 neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true
 
 echo "Restarting neo4j…"
-docker compose -f "$REPO_ROOT/docker-compose.yml" up -d neo4j
+docker start "$CONTAINER"
 
 echo "Done. Backup at $BACKUP_DIR/neo4j.dump"
