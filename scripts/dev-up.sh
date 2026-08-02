@@ -12,23 +12,22 @@ cd "$(dirname "$0")/.."
 echo "==> bun install"
 bun install
 
+# Fixed compose project name => no-op if Neo4j is already running, and no port/name
+# clash across worktrees (see docker-compose.yml header).
+#
 # Compose ships either as a `docker` CLI plugin (`docker compose`) or as a standalone
 # `docker-compose` binary, and which one exists depends on how Docker was installed —
 # OrbStack provides only the latter. Without the plugin, `docker compose` isn't
 # recognized as a subcommand and docker parses the following args as its own flags.
+echo "==> compose up -d (Neo4j)"
 if docker compose version >/dev/null 2>&1; then
-  compose() { docker compose "$@"; }
+  docker compose up -d
 elif command -v docker-compose >/dev/null 2>&1; then
-  compose() { docker-compose "$@"; }
+  docker-compose up -d
 else
-  echo "docker compose / docker-compose のどちらも見つかりません" >&2
+  echo "Neither 'docker compose' nor 'docker-compose' is available" >&2
   exit 1
 fi
-
-# Fixed compose project name => no-op if Neo4j is already running, and no port/name
-# clash across worktrees (see docker-compose.yml header).
-echo "==> compose up -d (Neo4j)"
-compose up -d
 
 # Wait for Neo4j before the app starts, else the first /api/* request races the DB
 # and 503s. 7474 serves the discovery JSON once it's accepting connections.
