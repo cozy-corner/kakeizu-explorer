@@ -16,8 +16,9 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
 
 ## P0 — 公開のブロッカー
 
-- [ ] #98 Aura インスタンス作成 + **コンソールで実上限を確認**（ノード/リレーション上限、削除ポリシー、同時接続数）。公開情報では確定できないため、ここが起点（下記「調査で確定しなかったこと」）
-- [ ] #99 データ移行: dump を作り `neo4j-admin database upload` で Aura へ。移行後に Aura 上でノード数・既知ペアの経路クエリ・性能を検証（ローカル実測値は下記。Aura Free の 1GB インスタンスでは条件が違う）
+- [x] #98 Aura インスタンス作成 + **コンソールで実上限を確認**（結果は下記「コンソールで確認済み」。同時接続数のみ記載が無く未確定）
+- [x] #99 データ移行: dump を作り `neo4j-admin database upload` で Aura へ。件数一致・既知ペアの経路・応答時間を Aura 上で検証済み（下記「Aura 上での実測」）
+  - `backup-neo4j.sh` は `docker compose -f` が OrbStack 環境で動かない（`unknown shorthand flag: 'f'`）。今回は `docker stop` / `docker start` に読み替えて実行した
 - [ ] #100 Vercel デプロイ。環境変数は Vercel 側に設定し（`.env.development` はローカル既定値のまま維持）、接続先を `neo4j+s://` に切り替える。`vercel.json` に `"regions": ["sin1"]` を置いて Aura と同居させる（既定は `iad1`。Hobby は 1 リージョンのみ指定可）。Aura は TLS 必須かつルーティングクラスタなので、ローカルの `bolt://localhost:7687` では繋がらない。コード変更は不要で環境変数の値だけだが、**Aura インスタンスが無いと検証できない**ため移行とセットで行う。ドメインとプラン（Hobby は非商用限定）もここで決める
   - 注: `globalThis` への driver キャッシュ（`lib/neo4j.ts`）は Fluid compute 下でも正しい実装なので変更不要
 - [ ] #101 モバイル対応。`app/page.tsx` はブレークポイントが実質ゼロで、左右 `w-1/2` 固定の 2 ペイン構成
@@ -75,7 +76,7 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
   | 平 | 15ms | 81,103 |
   | 田 | 24ms | 84,421 |
 
-  ラベルの全件スキャンだが数十 ms。全文インデックスは Aura 移行後に再計測してから判断する
+  ラベルの全件スキャンだが数十 ms。**Aura 移行後に再計測して、全文インデックスは不要と確定した**（下記）
 - **ライセンス表記は法的義務ではない**。[Wikidata:Licensing](https://www.wikidata.org/wiki/Wikidata:Licensing) は構造化データを CC0 とし帰属表示を不要と明記。Wikipedia 本文は CC BY-SA だが、iframe は Wikipedia 自身が配信しており再配布に当たらない。→ 必須タスクではなく About の一行で足りる
 - **`mvp-tasks.md` の「WDQS クライアントの本番化」は完了済み**。`scripts/etl-spike/wdqs.ts` に指数バックオフ・Retry-After 尊重・結果キャッシュが実装されている
 - **Vercel の実行モデル**。Fluid compute が新規プロジェクトの既定になり、同時リクエストが 1 インスタンスを共有するため、サーバーレスの接続数暴発リスクは大きく下がっている。`@vercel/functions` の `attachDatabasePool` は pg / mysql2 / mongodb / ioredis などが対象で **neo4j-driver は対応リストに無い**ため、互換性未確認のまま採用しない
@@ -92,6 +93,27 @@ Aura コンソールのインスタンス作成画面に表示された Free プ
   - ただし **Free の配置は公表も保証もされていない**。公式ドキュメントのリージョン一覧（[neo4j/docs-aura](https://github.com/neo4j/docs-aura) の `data/regions.json`）はティア別提供状況を持つが Free の項目自体が無く、コンソールのインスタンス一覧も Region 欄が空。`sin1` 指定は保証ではなく実測に基づく最適化であり、外れても壊れず遅くなるだけ。デプロイ後に遅い場合はホスト名を引き直して配置が変わっていないか確認する
 
 作成時の注意: 既定の導線では **Professional の 14 日トライアル**（2GB メモリ / 4GB ストレージ、ノード上限の概念なし、こちらはプロバイダ/リージョンを選べる）が作られることがある。プラン選択で Free を明示すること。
+
+## Aura 上での実測（#99 移行後）
+
+`neo4j-admin database upload` で dump をアップロードし、件数・経路・応答時間を検証した。
+
+- **件数はローカルと完全一致**（`Person` 38,704 / `PARENT_OF` 32,933 / `SIBLING_OF` 10,971 / `SPOUSE_OF` 8,606 / `ADOPTIVE_PARENT_OF` 2,295）。`person_qid` の RANGE インデックスも dump 経由で引き継がれる
+- **応答時間はローカル開発機（日本）から測って 88〜125ms**。ただしその大半は東京↔シンガポールの往復で、DB をほとんど使わない `/api/health` が 88ms。**これを差し引いた実質のクエリ時間はローカル Docker と同等**（`/api/search` 約 25ms、`/api/path` 数 ms）。Free の 1GB インスタンスでも性能は落ちていない
+
+  | エンドポイント | 実測 | health(88ms) 差し引き |
+  | --- | --- | --- |
+  | `/api/health` | 88ms | — |
+  | `/api/search?q=徳川` | 117〜126ms | 約 30ms |
+  | `/api/search?q=田`（3,481 件） | 111〜117ms | 約 25ms |
+  | `/api/path` 家康→慶喜（9 hop） | 90〜94ms | 数 ms |
+  | `/api/path` 道長→家康（20 hop） | 100〜107ms | 約 15ms |
+  | `/api/person/{qid}` | 88〜91ms | 数 ms |
+  | `/api/person/{qid}/neighbors` | 103〜113ms | 約 20ms |
+
+  Vercel の関数を `sin1` に置けばこの 88ms は消えるため、本番の実効レイテンシはローカル Docker 相当になる見込み
+
+- **既知ペアの経路が期待どおり返る**。徳川家康 → 徳川慶喜 は血縁のみで 9 hop（秀忠 → 和子 → 女二宮 → 後水尾天皇 → 霊元天皇 → 有栖川宮職仁親王 → 織仁親王 → 吉子女王 → 慶喜）。慶喜の生母が有栖川宮家出身という史実と一致する
 
 ## 調査で確定しなかったこと
 
