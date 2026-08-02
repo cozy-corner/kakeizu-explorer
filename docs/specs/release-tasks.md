@@ -19,8 +19,9 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
 - [x] #98 Aura インスタンス作成 + **コンソールで実上限を確認**（結果は下記「コンソールで確認済み」。同時接続数のみ記載が無く未確定）
 - [x] #99 データ移行: dump を作り `neo4j-admin database upload` で Aura へ。件数一致・既知ペアの経路・応答時間を Aura 上で検証済み（下記「Aura 上での実測」）
   - `backup-neo4j.sh` は `docker compose -f` が OrbStack 環境で動かない（`unknown shorthand flag: 'f'`）。今回は `docker stop` / `docker start` に読み替えて実行した
-- [ ] #100 Vercel デプロイ。環境変数は Vercel 側に設定し（`.env.development` はローカル既定値のまま維持）、接続先を `neo4j+s://` に切り替える。`vercel.json` に `"regions": ["sin1"]` を置いて Aura と同居させる（既定は `iad1`。Hobby は 1 リージョンのみ指定可）。Aura は TLS 必須かつルーティングクラスタなので、ローカルの `bolt://localhost:7687` では繋がらない。コード変更は不要で環境変数の値だけだが、**Aura インスタンスが無いと検証できない**ため移行とセットで行う。ドメインとプラン（Hobby は非商用限定）もここで決める
+- [x] #100 Vercel デプロイ。環境変数を Vercel 側に設定し（`.env.development` はローカル既定値のまま維持）、`vercel.json` に `"regions": ["sin1"]` を置いて Aura と同居させた。本番は https://kakeizu-explorer.vercel.app（チーム `kakeizu` / Hobby）。実測は下記「本番での実測」
   - 注: `globalThis` への driver キャッシュ（`lib/neo4j.ts`）は Fluid compute 下でも正しい実装なので変更不要
+  - ドメインの判断は #116 へ分離した。`*.vercel.app` で公開は成立し、後から足しても既存 URL は壊れないためブロッカーではない
 - [ ] #101 モバイル対応。`app/page.tsx` はブレークポイントが実質ゼロで、左右 `w-1/2` 固定の 2 ペイン構成
 
 ## P1 — 公開直後に効く
@@ -35,6 +36,7 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
 
 - [ ] #106 メタ情報。`title` が `"kakeizu-explorer"` のまま、OGP 画像なし、favicon は Next デフォルト（`app/layout.tsx`）。`public/` も Next のサンプル SVG が残っている
 - [ ] #107 About / 使い方。「Wikidata が記録する範囲」という製品の約束、記事が無い人物が出ること（橋渡し親族の記事被覆率 54.5%）、出典（Wikidata / Wikipedia）、存命人物の扱い（seed-and-traverse は存命者も辿る）
+- [ ] #116 公開ドメインを決める（#100 から分離）。独自ドメインを取るか `*.vercel.app` のままにするか。プラン（Hobby は非商用限定）の判断と重なる
 - [ ] #108 `robots.txt` / `sitemap`。クローラー対策としての価値は薄い（下記「やらないと判断したこと」の通り、辿れるリンクが無い）。論点は `/` を検索結果に出すかという SEO のみ
 
 ## P3 — 公開後でよい
@@ -114,6 +116,27 @@ Aura コンソールのインスタンス作成画面に表示された Free プ
   Vercel の関数を `sin1` に置けばこの 88ms は消えるため、本番の実効レイテンシはローカル Docker 相当になる見込み
 
 - **既知ペアの経路が期待どおり返る**。徳川家康 → 徳川慶喜 は血縁のみで 9 hop（秀忠 → 和子 → 女二宮 → 後水尾天皇 → 霊元天皇 → 有栖川宮職仁親王 → 織仁親王 → 吉子女王 → 慶喜）。慶喜の生母が有栖川宮家出身という史実と一致する
+
+## 本番での実測（#100 デプロイ後）
+
+`https://kakeizu-explorer.vercel.app` に対して東京の開発機から計測（各 3 回）。
+
+- **`sin1` 指定は効いている**。`x-vercel-id: hnd1::sin1::…` で、東京の PoP から入り実行はシンガポールであることを確認した。Aura Free が asia-southeast1 に居るという #98 の推定は、少なくとも現時点では外れていない
+- **関数↔DB の往復は消えた**。`/api/health` の 145ms は日本↔シンガポールの往復で、これを差し引いた各エンドポイントの値は #99 のローカル実測とほぼ一致する
+
+  | エンドポイント | 実測 | health(145ms) 差し引き |
+  | --- | --- | --- |
+  | `/api/health` | 146 / 144 / 153ms | — |
+  | `/api/search?q=徳川` | 171 / 167 / 171ms | 約 25ms |
+  | `/api/search?q=田` | 180 / 190 / 229ms | 約 40ms |
+  | `/api/person/Q171977` | 170 / 173 / 140ms | 数 ms |
+  | `/api/person/Q171977/neighbors` | 175 / 155 / 342ms | 約 20ms |
+  | `/api/path` 家康→慶喜 | 204 / 165 / 138ms | 数 ms |
+  | `/api/path` 道長→家康 | 165 / 151 / 147ms | 数 ms |
+
+- **コールドスタートは初回 874ms**。#103 のフォールバック表示と合わせて、体感の初回応答はここが支配的になる
+- **経路は Aura 上の検証と一致**。家康→慶喜 が 9 hop で同じ経路を返す
+- **Wikipedia の iframe は本番ドメインでも実際に描画された**（ヘッダからの推定どおり）。実ブラウザで検索→人物選択まで通し、グラフと記事の両方が出ることを確認。コンソールエラーは Wikipedia 側の警告 1 件のみ
 
 ## 調査で確定しなかったこと
 
