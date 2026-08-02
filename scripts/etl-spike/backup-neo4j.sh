@@ -20,8 +20,15 @@ CONTAINER="kakeizu-neo4j"
 
 mkdir -p "$BACKUP_DIR"
 
-echo "Stopping neo4j…"
-docker stop "$CONTAINER"
+# The dump reads the volume, not the container, so a torn-down container is still
+# backed up — there is just nothing to stop or restart. Only skipping the stop
+# would abort the run under `set -e`, losing the backup this script exists to take.
+WAS_RUNNING=$(docker ps --quiet --filter "name=^${CONTAINER}$")
+
+if [ -n "$WAS_RUNNING" ]; then
+  echo "Stopping neo4j…"
+  docker stop "$CONTAINER"
+fi
 
 echo "Dumping database 'neo4j' → $BACKUP_DIR/neo4j.dump"
 docker run --rm \
@@ -29,7 +36,9 @@ docker run --rm \
   -v "$BACKUP_DIR:/backups" \
   neo4j:5 neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true
 
-echo "Restarting neo4j…"
-docker start "$CONTAINER"
+if [ -n "$WAS_RUNNING" ]; then
+  echo "Restarting neo4j…"
+  docker start "$CONTAINER"
+fi
 
 echo "Done. Backup at $BACKUP_DIR/neo4j.dump"
