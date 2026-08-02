@@ -21,8 +21,6 @@ bun run scripts/etl-spike/verify.ts                    # WCC 連結性 + 既知�
 bun run scripts/etl-spike/check-wiki.ts                # ja.wikipedia 記事の被覆率
 ```
 
-> Compose がスタンドアロンの `docker-compose` としてしか入っていない環境（OrbStack など）では、本ファイル中の `docker compose` を `docker-compose` に読み替える。
-
 ## load 前のバックアップ（必須）
 
 `data/` は `.gitignore` 済みで中間 JSON はコミットされない＝**いまの Neo4j グラフを再現できる元データはローカルにしか無い**。`load.ts` は冒頭で `:Person` を `DETACH DELETE` するため、取り込み結果が不正でも戻す手段が無い。Wikidata は日々変わるので同じ入力の再生成も保証できない。よって **load の直前に必ずダンプを取る**。

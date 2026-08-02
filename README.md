@@ -18,9 +18,7 @@ docker compose up -d
 bun run dev
 ```
 
-`bash scripts/dev-up.sh` はこの 3 手順をまとめて実行する（Neo4j が待ち受けるまで待ってから dev を起動する）。
-
-> Compose が `docker` の CLI プラグインではなくスタンドアロンの `docker-compose` として入っている環境（OrbStack など）では `docker compose` が使えない。その場合は `docker-compose` に読み替える。`dev-up.sh` は両方に対応している。
+`bash scripts/dev-up.sh` はこの 3 手順をまとめて実行する。`docker compose` と `docker-compose` のどちらが入っている環境でも動くので、手で叩くよりこちらが確実。
 
 疎通確認: `curl http://localhost:3000/api/health` → `{"status":"ok","neo4j":1}`
 

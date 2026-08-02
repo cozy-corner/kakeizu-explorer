@@ -18,7 +18,7 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
 
 - [x] #98 Aura インスタンス作成 + **コンソールで実上限を確認**（結果は下記「コンソールで確認済み」。同時接続数のみ記載が無く未確定）
 - [x] #99 データ移行: dump を作り `neo4j-admin database upload` で Aura へ。件数一致・既知ペアの経路・応答時間を Aura 上で検証済み（下記「Aura 上での実測」）
-  - `backup-neo4j.sh` は `docker compose -f` が OrbStack 環境で動かない（`unknown shorthand flag: 'f'`）。今回は `docker stop` / `docker start` に読み替えて実行した（#113 でスクリプト側を修正済みなので、以降の読み替えは不要）
+  - `backup-neo4j.sh` は `docker compose -f` が OrbStack 環境で動かない（`unknown shorthand flag: 'f'`）。今回は `docker stop` / `docker start` に読み替えて実行した
 - [ ] #100 Vercel デプロイ。環境変数は Vercel 側に設定し（`.env.development` はローカル既定値のまま維持）、接続先を `neo4j+s://` に切り替える。`vercel.json` に `"regions": ["sin1"]` を置いて Aura と同居させる（既定は `iad1`。Hobby は 1 リージョンのみ指定可）。Aura は TLS 必須かつルーティングクラスタなので、ローカルの `bolt://localhost:7687` では繋がらない。コード変更は不要で環境変数の値だけだが、**Aura インスタンスが無いと検証できない**ため移行とセットで行う。ドメインとプラン（Hobby は非商用限定）もここで決める
   - 注: `globalThis` への driver キャッシュ（`lib/neo4j.ts`）は Fluid compute 下でも正しい実装なので変更不要
 - [ ] #101 モバイル対応。`app/page.tsx` はブレークポイントが実質ゼロで、左右 `w-1/2` 固定の 2 ペイン構成
