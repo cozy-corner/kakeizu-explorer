@@ -16,9 +16,8 @@ bun install
 # clash across worktrees (see docker-compose.yml header).
 #
 # Compose ships either as a `docker` CLI plugin (`docker compose`) or as a standalone
-# `docker-compose` binary, and which one exists depends on how Docker was installed —
-# OrbStack provides only the latter. Without the plugin, `docker compose` isn't
-# recognized as a subcommand and docker parses the following args as its own flags.
+# `docker-compose` binary, depending on how Docker was installed — OrbStack provides
+# only the latter, and without the plugin docker parses compose's args as its own.
 echo "==> compose up -d (Neo4j)"
 if docker compose version >/dev/null 2>&1; then
   docker compose up -d
