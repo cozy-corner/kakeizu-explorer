@@ -18,19 +18,15 @@ export async function runQuery<T>(
   }
 }
 
-// Every response below is a pure function of the URL — no auth, no cookies, no
-// per-user output — so one shared CDN entry serves all visitors. Introducing any
-// per-user variation would make `public` an information leak. The data is frozen
-// until the ETL is re-run and redeployed, hence the long CDN lifetimes.
+// `public` is only safe while every route stays a pure function of the URL — no
+// auth, no cookies, no per-user output; adding any per-user variation turns one
+// shared CDN entry into an information leak. The long lifetimes rest on the data
+// being frozen until the ETL is re-run and redeployed.
 //
-// Browser and CDN get separate headers rather than one `max-age=0, s-maxage=…`:
-// browsers honour stale-while-revalidate as well, so a shared header would let a
-// visitor's own cache serve week-old data after a redeploy. `CDN-Cache-Control`
-// is read by the edge and ignored by browsers, which keeps the two independent.
-//
-// Errors and health get CACHE_NONE: a cached 503 would outlive the Aura outage
-// that caused it. Next emits no Cache-Control at all on those responses
-// (measured), so the directive has to be explicit rather than left to a default.
+// The browser directive is kept separate from the CDN one because browsers honour
+// stale-while-revalidate too: a shared header would let a visitor's own cache
+// serve week-old data after a redeploy. `CDN-Cache-Control` is read by the edge
+// and ignored by browsers.
 const HOUR = 3600;
 const DAY = 24 * HOUR;
 
@@ -47,6 +43,9 @@ export const CACHE_STABLE = cdnCache(DAY, 7 * DAY);
 // to justify holding entries for a day.
 export const CACHE_VOLATILE = cdnCache(HOUR, DAY);
 
+// A cached 503 would outlive the Aura outage that caused it. Next emits no
+// Cache-Control at all on error responses (measured), so leaving the header off
+// would delegate the decision to whatever the CDN defaults to.
 export const CACHE_NONE = { "Cache-Control": "no-store" } as const;
 
 // Log details server-side but return a generic 503 so internal info

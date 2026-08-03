@@ -7,8 +7,6 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const [ok] = await runQuery("RETURN 1 AS ok", {}, (r) => r.get("ok"));
-    // Liveness must reflect the DB right now, so it is the one route that is never
-    // cached even on success.
     return NextResponse.json(
       { status: "ok", neo4j: ok },
       { headers: CACHE_NONE },
