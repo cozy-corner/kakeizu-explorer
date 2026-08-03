@@ -32,13 +32,13 @@ function PaneTab({
   active,
   controls,
   onSelect,
-}: {
+}: Readonly<{
   label: string;
   hint?: string;
   active: boolean;
   controls: string;
   onSelect: () => void;
-}) {
+}>) {
   return (
     <button
       type="button"
