@@ -31,17 +31,21 @@ export async function runQuery<T>(
 // Errors and health get CACHE_NONE: a cached 503 would outlive the Aura outage
 // that caused it. Next emits no Cache-Control at all on those responses
 // (measured), so the directive has to be explicit rather than left to a default.
-export const CACHE_STABLE = {
-  "Cache-Control": "public, max-age=0, must-revalidate",
-  "CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
-} as const;
+const HOUR = 3600;
+const DAY = 24 * HOUR;
+
+function cdnCache(sMaxAge: number, staleWhileRevalidate: number) {
+  return {
+    "Cache-Control": "public, max-age=0, must-revalidate",
+    "CDN-Cache-Control": `public, s-maxage=${sMaxAge}, stale-while-revalidate=${staleWhileRevalidate}`,
+  };
+}
+
+export const CACHE_STABLE = cdnCache(DAY, 7 * DAY);
 
 // Search takes an arbitrary string, so its URL space never concentrates enough
 // to justify holding entries for a day.
-export const CACHE_VOLATILE = {
-  "Cache-Control": "public, max-age=0, must-revalidate",
-  "CDN-Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-} as const;
+export const CACHE_VOLATILE = cdnCache(HOUR, DAY);
 
 export const CACHE_NONE = { "Cache-Control": "no-store" } as const;
 
