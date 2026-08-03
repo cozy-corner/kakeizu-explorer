@@ -33,7 +33,7 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
   - ブラウザ向けの `Cache-Control` と CDN 向けを分けた。ブラウザも `stale-while-revalidate` を解釈するため、共通ヘッダだと再デプロイ後も訪問者自身のキャッシュが最大 7 日前のデータを返しうる。Vercel では `CDN-Cache-Control` が `Cache-Control` を**常に**上書きする（[docs](https://vercel.com/docs/caching/cache-control-headers)）
   - `force-dynamic` のままでも自前の `Cache-Control` は Next に上書きされない（production build で実測）。Next はエラー応答に `Cache-Control` を一切付けないため、`no-store` は明示が必要だった
   - 変更前の本番実測: 同じ URL を連続で叩いても `x-vercel-cache: MISS`、つまり毎回 Function が起動していた。ただし返っていたヘッダは issue が想定した `private, no-cache, no-store, ...` ではなく `public, max-age=0, must-revalidate` だった。**Next はルートハンドラに `Cache-Control` を付けず、Vercel が既定値を埋めていた**（結果としてキャッシュされない点は同じ）
-  - **変更後の `x-vercel-cache: HIT` は未実測**。ローカルの `next start` に CDN は無く、Preview はデプロイ保護で 302 になるため、本番デプロイ後に `curl -sSI` で確認する
+  - 変更後の本番実測（#118 マージ後）: `neighbors` / `search` / `path` とも 1 回目 `MISS` → 2 回目以降 `HIT`。エッジで返っており Function は起動していない。`/api/health` と 404 は `no-store` のまま `MISS` で、意図どおりキャッシュされていない。Preview はデプロイ保護で 302 になるため本番でしか測れない
   - 未着手: `stale-if-error`。Aura が寝ている間 CDN が古い応答を返せるので #103 と一緒に検討する
 - [ ] #103 障害時フォールバック（Neo4j 503 のユーザー向け表示）。**Aura Free は 3 日の無操作で自動ポーズ**するため「DB が寝ている」状態は日常的に起きる
 - [ ] #104 エラーモニタリング（現状 `console.error` のみ）
