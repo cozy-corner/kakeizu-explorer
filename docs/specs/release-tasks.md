@@ -29,8 +29,12 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
 
 ## P1 — 公開直後に効く
 
-- [ ] #102 レスポンスの CDN キャッシュ。全ルートが `dynamic = "force-dynamic"` のため、Next.js は `private, no-cache, no-store, max-age=0, must-revalidate` を返し、同じ URL でも毎回 Function 起動 → Aura 接続 → Cypher 実行になる。レスポンスは URL だけで決まる純関数（認証もユーザーごとの出し分けも無く、ETL を再実行するまで不変）なので、`Cache-Control: public, s-maxage=...` を付ければエッジで返せる。バースト流入を吸収する主たる手段はこれ
-  - `person/[id]/neighbors`（38,704 通り）と `path` は長め、`search`（任意文字列で散る）は短めか無しと、TTL を分ける
+- [x] #102 レスポンスの CDN キャッシュ。成功レスポンスに `CDN-Cache-Control` を付けた（`lib/api.ts` の `cdnCache()`）。`neighbors` / `path` / `person/[id]` は CDN 1 日 + SWR 7 日、`search` は 1 時間 + SWR 1 日。`/api/health` と 404 / 503 は `no-store`
+  - ブラウザ向けの `Cache-Control` と CDN 向けを分けた。ブラウザも `stale-while-revalidate` を解釈するため、共通ヘッダだと再デプロイ後も訪問者自身のキャッシュが最大 7 日前のデータを返しうる。Vercel では `CDN-Cache-Control` が `Cache-Control` を**常に**上書きする（[docs](https://vercel.com/docs/caching/cache-control-headers)）
+  - `force-dynamic` のままでも自前の `Cache-Control` は Next に上書きされない（production build で実測）。Next はエラー応答に `Cache-Control` を一切付けないため、`no-store` は明示が必要だった
+  - 変更前の本番実測: 同じ URL を連続で叩いても `x-vercel-cache: MISS`、つまり毎回 Function が起動していた。ただし返っていたヘッダは issue が想定した `private, no-cache, no-store, ...` ではなく `public, max-age=0, must-revalidate` だった。**Next はルートハンドラに `Cache-Control` を付けず、Vercel が既定値を埋めていた**（結果としてキャッシュされない点は同じ）
+  - **変更後の `x-vercel-cache: HIT` は未実測**。ローカルの `next start` に CDN は無く、Preview はデプロイ保護で 302 になるため、本番デプロイ後に `curl -sSI` で確認する
+  - 未着手: `stale-if-error`。Aura が寝ている間 CDN が古い応答を返せるので #103 と一緒に検討する
 - [ ] #103 障害時フォールバック（Neo4j 503 のユーザー向け表示）。**Aura Free は 3 日の無操作で自動ポーズ**するため「DB が寝ている」状態は日常的に起きる
 - [ ] #104 エラーモニタリング（現状 `console.error` のみ）
 - [ ] #105 運用ガード。Aura の放置対策（自動ポーズ・削除。定期アクセスか再構築手順）と、Vercel の使用量アラート設定（月 100 万 invocation / 4 CPU 時間 / 100GB 転送）。どちらもコードを書かずに済む
