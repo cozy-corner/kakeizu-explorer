@@ -242,11 +242,7 @@ export default function Home({
       )}
 
       {focus && (
-        <div
-          role="group"
-          aria-label="表示の切り替え"
-          className="border-rule flex border-b md:hidden"
-        >
+        <div className="border-rule flex border-b md:hidden">
           <PaneTab
             label="家系図"
             active={mobilePane === "graph"}
