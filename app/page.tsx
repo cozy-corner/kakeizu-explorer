@@ -26,6 +26,34 @@ function GraphToggle({
   );
 }
 
+function PaneTab({
+  label,
+  active,
+  controls,
+  onSelect,
+}: {
+  label: string;
+  active: boolean;
+  controls: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      role="tab"
+      aria-selected={active}
+      aria-controls={controls}
+      onClick={onSelect}
+      // -mb-px on both states so the active underline overlaps the tablist rule
+      // instead of nudging the label.
+      className={`-mb-px flex-1 border-b-2 px-4 py-2 text-sm ${
+        active ? "border-ink font-semibold" : "text-muted border-transparent"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 export default function Home({
   searchParams,
 }: {
@@ -213,27 +241,18 @@ export default function Home({
           aria-label="表示の切り替え"
           className="border-rule flex border-b md:hidden"
         >
-          {(
-            [
-              ["graph", "家系図"],
-              ["article", "記事"],
-            ] as const
-          ).map(([pane, label]) => (
-            <button
-              key={pane}
-              role="tab"
-              aria-selected={mobilePane === pane}
-              aria-controls={`pane-${pane}`}
-              onClick={() => setMobilePane(pane)}
-              className={`flex-1 px-4 py-2 text-sm ${
-                mobilePane === pane
-                  ? "border-ink -mb-px border-b-2 font-semibold"
-                  : "text-muted"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+          <PaneTab
+            label="家系図"
+            active={mobilePane === "graph"}
+            controls="pane-graph"
+            onSelect={() => setMobilePane("graph")}
+          />
+          <PaneTab
+            label="記事"
+            active={mobilePane === "article"}
+            controls="pane-article"
+            onSelect={() => setMobilePane("article")}
+          />
         </div>
       )}
 
