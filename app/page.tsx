@@ -42,14 +42,11 @@ function PaneTab({
   return (
     <button
       type="button"
-      // Toggle buttons, not role="tab": the panes stay side by side (and the
-      // switcher disappears) from md up, so tab/tabpanel roles would describe a
-      // tablist that isn't there at every width the panels exist.
+      // Toggle buttons, not role="tab": the switcher is md:hidden while the panes
+      // persist at every width, so tab/tabpanel would name a tablist that isn't there.
       aria-pressed={active}
       aria-controls={controls}
       onClick={onSelect}
-      // border-b-2 in both states so activating a tab doesn't shift the label;
-      // -mb-px pulls the underline over the switcher's own rule.
       className={`-mb-px flex min-w-0 flex-1 items-baseline justify-center gap-1.5 border-b-2 px-4 py-2 text-sm ${
         active ? "border-ink font-semibold" : "text-muted border-transparent"
       }`}
@@ -192,9 +189,8 @@ export default function Home({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="人物名で検索（例: 織田信長）"
             aria-label="人物名で検索"
-            // min-w-0 releases the input's intrinsic `size` floor (~216px), which
-            // it otherwise refuses to shrink below — leaving the button to absorb
-            // the whole squeeze and wrap 検索 onto two lines on a narrow header.
+            // min-w-0 releases the input's size-based min-width floor (~216px);
+            // without it the button absorbs the whole squeeze and 検索 wraps.
             className="border-rule-strong min-w-0 flex-1 rounded-md border bg-white/60 px-3 py-1.5"
           />
           <button
@@ -259,8 +255,8 @@ export default function Home({
           />
           <PaneTab
             label="記事"
-            // Firing a node swaps the article behind a hidden pane; naming the
-            // read target here is the only on-screen sign it changed.
+            // Firing a node swaps the article behind the hidden pane — this label
+            // is the only on-screen sign the read target changed.
             hint={(pathTarget ?? current ?? focus).label}
             active={mobilePane === "article"}
             controls="pane-article"
