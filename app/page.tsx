@@ -192,12 +192,15 @@ export default function Home({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="人物名で検索（例: 織田信長）"
             aria-label="人物名で検索"
-            className="border-rule-strong flex-1 rounded-md border bg-white/60 px-3 py-1.5"
+            // min-w-0 releases the input's intrinsic `size` floor (~216px), which
+            // it otherwise refuses to shrink below — leaving the button to absorb
+            // the whole squeeze and wrap 検索 onto two lines on a narrow header.
+            className="border-rule-strong min-w-0 flex-1 rounded-md border bg-white/60 px-3 py-1.5"
           />
           <button
             type="submit"
             disabled={loading}
-            className="bg-ink text-washi rounded-md px-4 py-1.5 disabled:opacity-50"
+            className="bg-ink text-washi shrink-0 rounded-md px-4 py-1.5 disabled:opacity-50"
           >
             検索
           </button>
