@@ -81,8 +81,9 @@ export default function Home({
   const [showAdoptions, setShowAdoptions] = useState(false);
   // Scopes the path search only; the ego graph always draws marriages.
   const [includeSpouses, setIncludeSpouses] = useState(false);
-  // Which pane the narrow (< md) layout shows; ignored from md up, where both
-  // panes sit side by side.
+  // Which pane the narrow (< md) layout shows. Both panes stay mounted and are
+  // hidden with CSS — unmounting the graph would drop the exploration cytoscape
+  // has accumulated inside GraphPane, along with the camera.
   const [mobilePane, setMobilePane] = useState<"graph" | "article">("graph");
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
