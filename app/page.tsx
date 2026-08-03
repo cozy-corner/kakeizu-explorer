@@ -53,6 +53,9 @@ export default function Home({
   const [showAdoptions, setShowAdoptions] = useState(false);
   // Scopes the path search only; the ego graph always draws marriages.
   const [includeSpouses, setIncludeSpouses] = useState(false);
+  // Which pane the narrow (< md) layout shows; ignored from md up, where both
+  // panes sit side by side.
+  const [mobilePane, setMobilePane] = useState<"graph" | "article">("graph");
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
   // Starts true when a `?id=` deep link is present so the pane shows a loader
@@ -96,6 +99,7 @@ export default function Home({
     setCurrent(person);
     setPathTarget(null);
     setResults(null);
+    setMobilePane("graph");
   }, []);
 
   // The ego view reports its read target (last fired) here; it never re-anchors.
@@ -106,6 +110,7 @@ export default function Home({
   const choosePathTarget = useCallback((person: FocusPerson) => {
     setPathTarget(person);
     setResults(null);
+    setMobilePane("graph");
   }, []);
 
   // Deep link: `?id=Qxxx` opens that person's ego graph directly. Resolve the id
@@ -202,10 +207,46 @@ export default function Home({
         </ul>
       )}
 
+      {focus && (
+        <div
+          role="tablist"
+          aria-label="表示の切り替え"
+          className="border-rule flex border-b md:hidden"
+        >
+          {(
+            [
+              ["graph", "家系図"],
+              ["article", "記事"],
+            ] as const
+          ).map(([pane, label]) => (
+            <button
+              key={pane}
+              role="tab"
+              aria-selected={mobilePane === pane}
+              aria-controls={`pane-${pane}`}
+              onClick={() => setMobilePane(pane)}
+              className={`flex-1 px-4 py-2 text-sm ${
+                mobilePane === pane
+                  ? "border-ink -mb-px border-b-2 font-semibold"
+                  : "text-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <main className="flex min-h-0 flex-1">
         {focus ? (
           <>
-            <section className="border-rule flex w-1/2 flex-col border-r">
+            <section
+              id="pane-graph"
+              role="tabpanel"
+              className={`border-rule w-full flex-col border-r md:flex md:w-1/2 ${
+                mobilePane === "graph" ? "flex" : "hidden"
+              }`}
+            >
               {pathTarget && (
                 <div className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
                   <span className="truncate">
@@ -252,7 +293,13 @@ export default function Home({
                 />
               </div>
             </section>
-            <section className="w-1/2 overflow-auto">
+            <section
+              id="pane-article"
+              role="tabpanel"
+              className={`w-full overflow-auto md:block md:w-1/2 ${
+                mobilePane === "article" ? "block" : "hidden"
+              }`}
+            >
               {/* Stateless iframe: changing the person prop navigates it in
                   place. */}
               <ArticlePane person={pathTarget ?? current ?? focus} />
