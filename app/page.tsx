@@ -26,6 +26,37 @@ function GraphToggle({
   );
 }
 
+function PaneTab({
+  label,
+  hint,
+  active,
+  controls,
+  onSelect,
+}: Readonly<{
+  label: string;
+  hint?: string;
+  active: boolean;
+  controls: string;
+  onSelect: () => void;
+}>) {
+  return (
+    <button
+      type="button"
+      // Toggle buttons, not role="tab": the switcher is md:hidden while the panes
+      // persist at every width, so tab/tabpanel would name a tablist that isn't there.
+      aria-pressed={active}
+      aria-controls={controls}
+      onClick={onSelect}
+      className={`-mb-px flex min-w-0 flex-1 items-baseline justify-center gap-1.5 border-b-2 px-4 py-2 text-sm ${
+        active ? "border-ink font-semibold" : "text-muted border-transparent"
+      }`}
+    >
+      {label}
+      {hint && <span className="text-faint truncate text-xs">{hint}</span>}
+    </button>
+  );
+}
+
 export default function Home({
   searchParams,
 }: {
@@ -53,6 +84,10 @@ export default function Home({
   const [showAdoptions, setShowAdoptions] = useState(false);
   // Scopes the path search only; the ego graph always draws marriages.
   const [includeSpouses, setIncludeSpouses] = useState(false);
+  // Which pane the narrow (< md) layout shows. Both panes stay mounted and are
+  // hidden with CSS — unmounting the graph would drop the exploration cytoscape
+  // has accumulated inside GraphPane, along with the camera.
+  const [mobilePane, setMobilePane] = useState<"graph" | "article">("graph");
   // Latest-wins: a fast re-search must not let a stale response overwrite newer results.
   const searchAbort = useRef<AbortController | null>(null);
   // Starts true when a `?id=` deep link is present so the pane shows a loader
@@ -96,6 +131,7 @@ export default function Home({
     setCurrent(person);
     setPathTarget(null);
     setResults(null);
+    setMobilePane("graph");
   }, []);
 
   // The ego view reports its read target (last fired) here; it never re-anchors.
@@ -106,6 +142,7 @@ export default function Home({
   const choosePathTarget = useCallback((person: FocusPerson) => {
     setPathTarget(person);
     setResults(null);
+    setMobilePane("graph");
   }, []);
 
   // Deep link: `?id=Qxxx` opens that person's ego graph directly. Resolve the id
@@ -152,12 +189,14 @@ export default function Home({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="人物名で検索（例: 織田信長）"
             aria-label="人物名で検索"
-            className="border-rule-strong flex-1 rounded-md border bg-white/60 px-3 py-1.5"
+            // min-w-0 releases the input's size-based min-width floor (~216px);
+            // without it the button absorbs the whole squeeze and 検索 wraps.
+            className="border-rule-strong min-w-0 flex-1 rounded-md border bg-white/60 px-3 py-1.5"
           />
           <button
             type="submit"
             disabled={loading}
-            className="bg-ink text-washi rounded-md px-4 py-1.5 disabled:opacity-50"
+            className="bg-ink text-washi shrink-0 rounded-md px-4 py-1.5 disabled:opacity-50"
           >
             検索
           </button>
@@ -202,10 +241,35 @@ export default function Home({
         </ul>
       )}
 
+      {focus && (
+        <div className="border-rule flex border-b md:hidden">
+          <PaneTab
+            label="家系図"
+            active={mobilePane === "graph"}
+            controls="pane-graph"
+            onSelect={() => setMobilePane("graph")}
+          />
+          <PaneTab
+            label="記事"
+            // Firing a node swaps the article behind the hidden pane — this label
+            // is the only on-screen sign the read target changed.
+            hint={(pathTarget ?? current ?? focus).label}
+            active={mobilePane === "article"}
+            controls="pane-article"
+            onSelect={() => setMobilePane("article")}
+          />
+        </div>
+      )}
+
       <main className="flex min-h-0 flex-1">
         {focus ? (
           <>
-            <section className="border-rule flex w-1/2 flex-col border-r">
+            <section
+              id="pane-graph"
+              className={`border-rule w-full flex-col md:flex md:w-1/2 md:border-r ${
+                mobilePane === "graph" ? "flex" : "hidden"
+              }`}
+            >
               {pathTarget && (
                 <div className="border-rule flex items-center gap-2 border-b px-3 py-2 text-sm">
                   <span className="truncate">
@@ -252,7 +316,12 @@ export default function Home({
                 />
               </div>
             </section>
-            <section className="w-1/2 overflow-auto">
+            <section
+              id="pane-article"
+              className={`w-full overflow-auto md:block md:w-1/2 ${
+                mobilePane === "article" ? "block" : "hidden"
+              }`}
+            >
               {/* Stateless iframe: changing the person prop navigates it in
                   place. */}
               <ArticlePane person={pathTarget ?? current ?? focus} />
