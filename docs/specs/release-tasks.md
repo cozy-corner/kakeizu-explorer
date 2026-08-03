@@ -22,7 +22,10 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
 - [x] #100 Vercel デプロイ。環境変数を Vercel 側に設定し（`.env.development` はローカル既定値のまま維持）、`vercel.json` に `"regions": ["sin1"]` を置いて Aura と同居させた。本番は https://kakeizu-explorer.vercel.app（チーム `kakeizu` / Hobby）。実測は下記「本番での実測」
   - 注: `globalThis` への driver キャッシュ（`lib/neo4j.ts`）は Fluid compute 下でも正しい実装なので変更不要
   - ドメインの判断は #116 へ分離した。`*.vercel.app` で公開は成立し、後から足しても既存 URL は壊れないためブロッカーではない
-- [ ] #101 モバイル対応。`app/page.tsx` はブレークポイントが実質ゼロで、左右 `w-1/2` 固定の 2 ペイン構成
+- [x] #101 モバイル対応。`md` 未満はグラフ／記事をトグルボタンで排他表示にし、`md` 以上は従来の 2 ペインを維持（#117）
+  - 両ペインはマウントしたまま CSS で出し分ける。グラフをアンマウントすると cytoscape が持つ探索の蓄積とカメラが消えるため
+  - 非表示中のリサイズで cytoscape のサイズが壊れる懸念は実測で否定（3.34 が内部で ResizeObserver を使う）ので、`cy.resize()` の追加は入れていない
+  - iOS Safari のアドレスバー分の高さズレ（`h-full` → `dvh`）は未対応
 
 ## P1 — 公開直後に効く
 
