@@ -28,11 +28,13 @@ function GraphToggle({
 
 function PaneTab({
   label,
+  hint,
   active,
   controls,
   onSelect,
 }: {
   label: string;
+  hint?: string;
   active: boolean;
   controls: string;
   onSelect: () => void;
@@ -48,11 +50,12 @@ function PaneTab({
       onClick={onSelect}
       // border-b-2 in both states so activating a tab doesn't shift the label;
       // -mb-px pulls the underline over the switcher's own rule.
-      className={`-mb-px flex-1 border-b-2 px-4 py-2 text-sm ${
+      className={`-mb-px flex min-w-0 flex-1 items-baseline justify-center gap-1.5 border-b-2 px-4 py-2 text-sm ${
         active ? "border-ink font-semibold" : "text-muted border-transparent"
       }`}
     >
       {label}
+      {hint && <span className="text-faint truncate text-xs">{hint}</span>}
     </button>
   );
 }
@@ -253,6 +256,9 @@ export default function Home({
           />
           <PaneTab
             label="記事"
+            // Firing a node swaps the article behind a hidden pane; naming the
+            // read target here is the only on-screen sign it changed.
+            hint={(pathTarget ?? current ?? focus).label}
             active={mobilePane === "article"}
             controls="pane-article"
             onSelect={() => setMobilePane("article")}
