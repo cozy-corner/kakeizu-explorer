@@ -1,6 +1,6 @@
 import neo4j from "neo4j-driver";
 import { NextResponse } from "next/server";
-import { runQuery, serviceUnavailable } from "@/lib/api";
+import { CACHE_VOLATILE, runQuery, serviceUnavailable } from "@/lib/api";
 import { personsToSearchResult, type PersonRow } from "@/lib/graph";
 
 // Reads the query string and hits the DB at request time, so opt out of static
@@ -12,7 +12,9 @@ const LIMIT = 50;
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
   if (!q) {
-    return NextResponse.json(personsToSearchResult([], 0));
+    return NextResponse.json(personsToSearchResult([], 0), {
+      headers: CACHE_VOLATILE,
+    });
   }
 
   try {
@@ -39,7 +41,9 @@ export async function GET(request: Request) {
     );
     // total rides on every row (same scan); no rows ⇒ no match ⇒ 0.
     const total = rows[0]?.total ?? 0;
-    return NextResponse.json(personsToSearchResult(rows, total));
+    return NextResponse.json(personsToSearchResult(rows, total), {
+      headers: CACHE_VOLATILE,
+    });
   } catch (err) {
     return serviceUnavailable("Search failed", err);
   }

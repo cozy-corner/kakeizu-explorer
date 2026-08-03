@@ -18,6 +18,33 @@ export async function runQuery<T>(
   }
 }
 
+// Every response below is a pure function of the URL — no auth, no cookies, no
+// per-user output — so one shared CDN entry serves all visitors. Introducing any
+// per-user variation would make `public` an information leak. The data is frozen
+// until the ETL is re-run and redeployed, hence the long CDN lifetimes.
+//
+// Browser and CDN get separate headers rather than one `max-age=0, s-maxage=…`:
+// browsers honour stale-while-revalidate as well, so a shared header would let a
+// visitor's own cache serve week-old data after a redeploy. `CDN-Cache-Control`
+// is read by the edge and ignored by browsers, which keeps the two independent.
+//
+// Errors and health get CACHE_NONE: a cached 503 would outlive the Aura outage
+// that caused it. Next emits no Cache-Control at all on those responses
+// (measured), so the directive has to be explicit rather than left to a default.
+export const CACHE_STABLE = {
+  "Cache-Control": "public, max-age=0, must-revalidate",
+  "CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+} as const;
+
+// Search takes an arbitrary string, so its URL space never concentrates enough
+// to justify holding entries for a day.
+export const CACHE_VOLATILE = {
+  "Cache-Control": "public, max-age=0, must-revalidate",
+  "CDN-Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+} as const;
+
+export const CACHE_NONE = { "Cache-Control": "no-store" } as const;
+
 // Log details server-side but return a generic 503 so internal info
 // (connection URI, auth errors, stack) is not leaked to clients.
 export function serviceUnavailable(
@@ -27,6 +54,6 @@ export function serviceUnavailable(
   console.error(`${context}:`, err);
   return NextResponse.json(
     { status: "error", message: "Service unavailable" },
-    { status: 503 },
+    { status: 503, headers: CACHE_NONE },
   );
 }

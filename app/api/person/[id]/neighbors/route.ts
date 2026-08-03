@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { runQuery, serviceUnavailable } from "@/lib/api";
+import {
+  CACHE_NONE,
+  CACHE_STABLE,
+  runQuery,
+  serviceUnavailable,
+} from "@/lib/api";
 import { neighborsToGraph, type NeighborRow } from "@/lib/graph";
 
 // Reads request data, so it can't be statically prerendered.
@@ -113,10 +118,10 @@ export async function GET(
     if (graph.nodes.length === 0) {
       return NextResponse.json(
         { status: "error", message: "Person not found" },
-        { status: 404 },
+        { status: 404, headers: CACHE_NONE },
       );
     }
-    return NextResponse.json(graph);
+    return NextResponse.json(graph, { headers: CACHE_STABLE });
   } catch (err) {
     return serviceUnavailable("Neighbors lookup failed", err);
   }

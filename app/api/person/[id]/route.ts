@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { runQuery, serviceUnavailable } from "@/lib/api";
+import {
+  CACHE_NONE,
+  CACHE_STABLE,
+  runQuery,
+  serviceUnavailable,
+} from "@/lib/api";
 import type { PersonRow } from "@/lib/graph";
 
 // Reads the path param and hits the DB at request time, so opt out of static
@@ -31,16 +36,19 @@ export async function GET(
     if (!person) {
       return NextResponse.json(
         { status: "error", message: "Person not found" },
-        { status: 404 },
+        { status: 404, headers: CACHE_NONE },
       );
     }
     // Normalize null → absent, matching personsToGraph so every person-producing
     // route yields the same optional-wikipediaTitle shape the client expects.
-    return NextResponse.json({
-      qid: person.qid,
-      label: person.label,
-      wikipediaTitle: person.wikipediaTitle ?? undefined,
-    });
+    return NextResponse.json(
+      {
+        qid: person.qid,
+        label: person.label,
+        wikipediaTitle: person.wikipediaTitle ?? undefined,
+      },
+      { headers: CACHE_STABLE },
+    );
   } catch (err) {
     return serviceUnavailable("Person lookup failed", err);
   }

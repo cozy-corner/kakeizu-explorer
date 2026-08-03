@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runQuery, serviceUnavailable } from "@/lib/api";
+import { CACHE_STABLE, runQuery, serviceUnavailable } from "@/lib/api";
 import { pathToGraph, type PathRow } from "@/lib/graph";
 
 // Reads the query string and hits the DB at request time, so opt out of static
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   // Treat these as "no path" (same UI message) rather than a distinct error —
   // the UI never sends them (its 経路 button is hidden for the focus person).
   if (!from || !to || from === to) {
-    return NextResponse.json(pathToGraph([]));
+    return NextResponse.json(pathToGraph([]), { headers: CACHE_STABLE });
   }
 
   try {
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
         type: r.get("type"),
       }),
     );
-    return NextResponse.json(pathToGraph(rows));
+    return NextResponse.json(pathToGraph(rows), { headers: CACHE_STABLE });
   } catch (err) {
     return serviceUnavailable("Path lookup failed", err);
   }
