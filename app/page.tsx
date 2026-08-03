@@ -39,12 +39,15 @@ function PaneTab({
 }) {
   return (
     <button
-      role="tab"
-      aria-selected={active}
+      type="button"
+      // Toggle buttons, not role="tab": the panes stay side by side (and the
+      // switcher disappears) from md up, so tab/tabpanel roles would describe a
+      // tablist that isn't there at every width the panels exist.
+      aria-pressed={active}
       aria-controls={controls}
       onClick={onSelect}
-      // -mb-px on both states so the active underline overlaps the tablist rule
-      // instead of nudging the label.
+      // border-b-2 in both states so activating a tab doesn't shift the label;
+      // -mb-px pulls the underline over the switcher's own rule.
       className={`-mb-px flex-1 border-b-2 px-4 py-2 text-sm ${
         active ? "border-ink font-semibold" : "text-muted border-transparent"
       }`}
@@ -238,7 +241,7 @@ export default function Home({
 
       {focus && (
         <div
-          role="tablist"
+          role="group"
           aria-label="表示の切り替え"
           className="border-rule flex border-b md:hidden"
         >
@@ -262,8 +265,7 @@ export default function Home({
           <>
             <section
               id="pane-graph"
-              role="tabpanel"
-              className={`border-rule w-full flex-col border-r md:flex md:w-1/2 ${
+              className={`border-rule w-full flex-col md:flex md:w-1/2 md:border-r ${
                 mobilePane === "graph" ? "flex" : "hidden"
               }`}
             >
@@ -315,7 +317,6 @@ export default function Home({
             </section>
             <section
               id="pane-article"
-              role="tabpanel"
               className={`w-full overflow-auto md:block md:w-1/2 ${
                 mobilePane === "article" ? "block" : "hidden"
               }`}
