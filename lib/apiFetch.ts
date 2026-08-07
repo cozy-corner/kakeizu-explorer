@@ -19,7 +19,15 @@ export async function fetchJson<T>(
   context: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(url, init);
+  let res: Response;
+  try {
+    res = await fetch(url, init);
+  } catch (err) {
+    // A transport failure rejects with `TypeError: Failed to fetch`, whose
+    // message would otherwise reach the Japanese UI verbatim.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new Error(context);
+  }
   if (!res.ok) throw new ApiError(res.status, `${context} (${res.status})`);
   return (await res.json()) as T;
 }
