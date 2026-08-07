@@ -6,7 +6,7 @@ export function ServiceNotice({ onRetry }: { onRetry: () => void }) {
     <div className="border-rule bg-panel max-w-md rounded-md border p-4 text-sm">
       <p className="font-semibold">データベースに接続できません</p>
       <p className="text-muted mt-1">
-        一時的に停止している可能性があります。時間をおいて再度お試しください。
+        一時的に停止している可能性があります。復旧まで時間がかかることがあります。
       </p>
       <button
         type="button"
