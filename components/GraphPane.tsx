@@ -22,9 +22,9 @@ import {
   type Sex,
   type SyntheticEdge,
 } from "@/lib/graph";
+import { fetchJson, isUnavailable, toError } from "@/lib/apiFetch";
 import { ServiceNotice } from "@/components/ServiceNotice";
 import { washiGround } from "@/components/washiGround";
-import { fetchJson, isUnavailable, toError } from "@/lib/apiFetch";
 import {
   descentJunctions,
   placeNodes,
@@ -94,11 +94,9 @@ export function GraphPane(props: {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Path view: one-shot render of the shortest path between two people.
-// ---------------------------------------------------------------------------
 // Only an empty pane gets the full panel — covering a graph the user has already
-// explored would throw away where they were.
+// explored would throw away where they were. Gating the retry button on this is
+// also what makes the panes' full-teardown retry safe.
 function GraphError({
   error,
   hasGraph,
@@ -110,17 +108,27 @@ function GraphError({
 }) {
   if (isUnavailable(error) && !hasGraph) {
     return (
-      <div className="absolute inset-0 z-10 grid place-items-center p-4">
+      <div
+        role="alert"
+        className="absolute inset-0 z-10 grid place-items-center p-4"
+      >
         <ServiceNotice onRetry={onRetry} />
       </div>
     );
   }
   return (
-    <p className="text-vermilion absolute top-3 left-3 z-10 text-sm">
+    <p
+      role="alert"
+      className="text-vermilion absolute top-3 left-3 z-10 text-sm"
+    >
       {error.message}
     </p>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Path view: one-shot render of the shortest path between two people.
+// ---------------------------------------------------------------------------
 
 function PathPane({
   focus,

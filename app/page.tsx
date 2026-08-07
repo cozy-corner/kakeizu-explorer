@@ -223,11 +223,11 @@ export default function Home({
       {loading && <p className="text-muted px-4 py-2 text-sm">検索中…</p>}
       {failure &&
         (isUnavailable(failure.error) ? (
-          <div className="px-4 py-2">
+          <div role="alert" className="px-4 py-2">
             <ServiceNotice onRetry={failure.retry} />
           </div>
         ) : (
-          <p className="text-vermilion px-4 py-2 text-sm">
+          <p role="alert" className="text-vermilion px-4 py-2 text-sm">
             {failure.error.message}
           </p>
         ))}
