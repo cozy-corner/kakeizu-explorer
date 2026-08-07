@@ -3,6 +3,8 @@
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { ArticlePane } from "@/components/ArticlePane";
 import { GraphPane, type FocusPerson } from "@/components/GraphPane";
+import { ServiceNotice } from "@/components/ServiceNotice";
+import { ApiError, fetchJson, isUnavailable, toError } from "@/lib/apiFetch";
 import type { SearchResult } from "@/lib/graph";
 
 function GraphToggle({
@@ -71,7 +73,12 @@ export default function Home({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The retry travels with the error so the 503 notice can re-run whichever
+  // request failed without knowing which one it was.
+  const [failure, setFailure] = useState<{
+    error: Error;
+    retry: () => void;
+  } | null>(null);
   // The ego view's anchor: the layout root, fixed until a new search selection.
   const [focus, setFocus] = useState<FocusPerson | null>(null);
   // The read target: the last-fired person in the ego view (drives the article).
@@ -93,34 +100,43 @@ export default function Home({
   // Starts true when a `?id=` deep link is present so the pane shows a loader
   // (not the empty-state prompt) from the first render.
   const [seeding, setSeeding] = useState(!!deepLinkId);
+  // Bumped by the retry button to re-run the deep-link lookup.
+  const [deepLinkAttempt, setDeepLinkAttempt] = useState(0);
   // Set once any explicit selection re-roots the view, so a slower deep-link
   // lookup that resolves afterwards doesn't clobber the user's choice.
   const deepLinkSuperseded = useRef(false);
 
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    const q = query.trim();
-    if (!q) return;
-
+  async function runSearch(q: string) {
     searchAbort.current?.abort();
     const controller = new AbortController();
     searchAbort.current = controller;
 
     setLoading(true);
-    setError(null);
+    setFailure(null);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`検索に失敗しました (${res.status})`);
-      setResults((await res.json()) as SearchResult);
+      setResults(
+        await fetchJson<SearchResult>(
+          `/api/search?q=${encodeURIComponent(q)}`,
+          "検索に失敗しました",
+          { signal: controller.signal },
+        ),
+      );
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : "検索に失敗しました");
+      setFailure({
+        error: toError(err, "検索に失敗しました"),
+        retry: () => void runSearch(q),
+      });
       setResults(null);
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
+  }
+
+  async function search(e: React.FormEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    if (q) await runSearch(q);
   }
 
   // Stable identity so GraphPane's cytoscape effect doesn't rebuild on every
@@ -153,20 +169,24 @@ export default function Home({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(
+        const person = await fetchJson<FocusPerson>(
           `/api/person/${encodeURIComponent(deepLinkId)}`,
+          "人物の取得に失敗しました",
         );
-        if (res.status === 404)
-          throw new Error(`人物が見つかりません (${deepLinkId})`);
-        if (!res.ok)
-          throw new Error(`人物の取得に失敗しました (${res.status})`);
-        const person = (await res.json()) as FocusPerson;
         if (!cancelled && !deepLinkSuperseded.current) selectPerson(person);
       } catch (err) {
         if (!cancelled)
-          setError(
-            err instanceof Error ? err.message : "人物の取得に失敗しました",
-          );
+          setFailure({
+            error:
+              err instanceof ApiError && err.status === 404
+                ? new Error(`人物が見つかりません (${deepLinkId})`)
+                : toError(err, "人物の取得に失敗しました"),
+            retry: () => {
+              setFailure(null);
+              setSeeding(true);
+              setDeepLinkAttempt((n) => n + 1);
+            },
+          });
       } finally {
         if (!cancelled) setSeeding(false);
       }
@@ -174,7 +194,7 @@ export default function Home({
     return () => {
       cancelled = true;
     };
-  }, [deepLinkId, selectPerson]);
+  }, [deepLinkId, deepLinkAttempt, selectPerson]);
 
   return (
     <div className="flex h-full flex-1 flex-col">
@@ -204,7 +224,16 @@ export default function Home({
       </header>
 
       {loading && <p className="text-muted px-4 py-2 text-sm">検索中…</p>}
-      {error && <p className="text-vermilion px-4 py-2 text-sm">{error}</p>}
+      {failure &&
+        (isUnavailable(failure.error) ? (
+          <div className="px-4 py-2">
+            <ServiceNotice onRetry={failure.retry} />
+          </div>
+        ) : (
+          <p className="text-vermilion px-4 py-2 text-sm">
+            {failure.error.message}
+          </p>
+        ))}
       {results && (
         <ul className="border-rule max-h-64 overflow-auto border-b">
           {results.nodes.length === 0 && (
