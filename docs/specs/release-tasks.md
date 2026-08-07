@@ -34,7 +34,8 @@ MVP: [mvp-tasks.md](./mvp-tasks.md)（本ドキュメントは同ファイル「
   - `force-dynamic` のままでも自前の `Cache-Control` は Next に上書きされない（production build で実測）。Next はエラー応答に `Cache-Control` を一切付けないため、`no-store` は明示が必要だった
   - 変更前の本番実測: 同じ URL を連続で叩いても `x-vercel-cache: MISS`、つまり毎回 Function が起動していた。ただし返っていたヘッダは issue が想定した `private, no-cache, no-store, ...` ではなく `public, max-age=0, must-revalidate` だった。**Next はルートハンドラに `Cache-Control` を付けず、Vercel が既定値を埋めていた**（結果としてキャッシュされない点は同じ）
   - 変更後の本番実測（#118 マージ後）: `neighbors` / `search` / `path` とも 1 回目 `MISS` → 2 回目以降 `HIT`。エッジで返っており Function は起動していない。`/api/health` と 404 は `no-store` のまま `MISS` で、意図どおりキャッシュされていない。Preview はデプロイ保護で 302 になるため本番でしか測れない
-  - 不採用: `stale-if-error`。**Vercel はサーバサイドキャッシュで `stale-if-error` をサポートしていない**（[docs](https://vercel.com/docs/caching/cdn-cache) の Limits に `proxy-revalidate` と併せて明記）。Aura が寝ている間に古い応答を配る策としては使えない
+  - 未着手: `stale-if-error`。**Vercel はサポートしている**（[changelog 2026-02-13](https://vercel.com/changelog/stale-if-error-cache-control-header-is-now-supported)、仕様は [Cache-Control headers](https://vercel.com/docs/caching/cache-control-headers)）。オリジンがエラーを返す間、CDN が期限切れのキャッシュを配り続ける。Aura のポーズ中もキャッシュ済み URL は成功応答を返せるので #103 のパネルを補完する。未サポートなのは `proxy-revalidate` のみ
+    - `/docs/caching/cdn-cache` の Limits 節は両者を並べて「非サポート」と書いたままで**古い**。この 2 ページは矛盾しているので、専用リファレンス側を正とする
 - [x] #103 障害時フォールバック（Neo4j 503 のユーザー向け表示）。503 のときだけ「データベースに接続できません」パネル＋再試行を出す（`components/ServiceNotice.tsx`）。検索・ディープリンク・エゴグラフ初回・経路の 4 箇所。エゴグラフは初回失敗のみパネルで、探索中の失敗は既存の一行表示のまま（描画済みのグラフを覆わない）
   - **ポーズした Aura Free はオーナーがコンソールから手動 resume するまで戻らない**（[Neo4j support](https://support.neo4j.com/s/article/17480821630355--Aura-Instance-Access-Issues-Understanding-Pausing-Resuming-and-Auto-Delete-Policy)。復帰も数分〜数時間）。文面で「再読み込みすれば直る」と約束しないのはこのため。再試行ボタンはコールドスタートや一時的なネットワーク失敗のためのもの
   - Wikipedia の iframe 失敗はクロスオリジンのため JS から検知できず、この issue では対象外にした
