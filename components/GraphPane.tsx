@@ -97,9 +97,8 @@ export function GraphPane(props: {
 // ---------------------------------------------------------------------------
 // Path view: one-shot render of the shortest path between two people.
 // ---------------------------------------------------------------------------
-// The full panel is reserved for a dead DB with nothing drawn yet; anything else
-// gets a corner line so a failure mid-exploration can't cover the graph already
-// on screen.
+// Only an empty pane gets the full panel — covering a graph the user has already
+// explored would throw away where they were.
 function GraphError({
   error,
   hasGraph,

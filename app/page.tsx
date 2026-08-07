@@ -73,8 +73,6 @@ export default function Home({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
-  // The retry travels with the error so the 503 notice can re-run whichever
-  // request failed without knowing which one it was.
   const [failure, setFailure] = useState<{
     error: Error;
     retry: () => void;
@@ -100,7 +98,6 @@ export default function Home({
   // Starts true when a `?id=` deep link is present so the pane shows a loader
   // (not the empty-state prompt) from the first render.
   const [seeding, setSeeding] = useState(!!deepLinkId);
-  // Bumped by the retry button to re-run the deep-link lookup.
   const [deepLinkAttempt, setDeepLinkAttempt] = useState(0);
   // Set once any explicit selection re-roots the view, so a slower deep-link
   // lookup that resolves afterwards doesn't clobber the user's choice.

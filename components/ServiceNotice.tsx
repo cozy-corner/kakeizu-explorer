@@ -1,6 +1,6 @@
-// Shown on a 503. AuraDB Free auto-pauses after 72h of inactivity and only the
-// owner can resume it from the console, so the copy must not promise that a
-// reload fixes it — retry is for the transient failures (cold start, network).
+// AuraDB Free auto-pauses after 72h of inactivity and only the owner can resume
+// it from the console, so the copy must not promise that a reload fixes it —
+// retry is for the transient failures (cold start, network).
 export function ServiceNotice({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="border-rule bg-panel max-w-md rounded-md border p-4 text-sm">

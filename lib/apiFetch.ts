@@ -8,9 +8,8 @@ export class ApiError extends Error {
   }
 }
 
-// Every route funnels an unreachable Neo4j into a 503 (`serviceUnavailable` in
-// lib/api.ts), so the status alone tells the client the DB is down — the body
-// stays generic on purpose.
+// The API deliberately keeps the 503 body generic, so the status is the only
+// thing the client can key on to tell "DB is down" from any other failure.
 export function isUnavailable(err: unknown): boolean {
   return err instanceof ApiError && err.status === 503;
 }
