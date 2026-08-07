@@ -22,6 +22,8 @@ import {
   type Sex,
   type SyntheticEdge,
 } from "@/lib/graph";
+import { fetchJson, isUnavailable, toError } from "@/lib/apiFetch";
+import { ServiceNotice } from "@/components/ServiceNotice";
 import { washiGround } from "@/components/washiGround";
 import {
   descentJunctions,
@@ -92,9 +94,42 @@ export function GraphPane(props: {
   );
 }
 
+// Only an empty pane gets the full panel — covering a graph the user has already
+// explored would throw away where they were. Gating the retry button on this is
+// also what makes the panes' full-teardown retry safe.
+function GraphError({
+  error,
+  hasGraph,
+  onRetry,
+}: Readonly<{
+  error: Error;
+  hasGraph: boolean;
+  onRetry: () => void;
+}>) {
+  if (isUnavailable(error) && !hasGraph) {
+    return (
+      <div
+        role="alert"
+        className="absolute inset-0 z-10 grid place-items-center p-4"
+      >
+        <ServiceNotice onRetry={onRetry} />
+      </div>
+    );
+  }
+  return (
+    <p
+      role="alert"
+      className="text-vermilion absolute top-3 left-3 z-10 text-sm"
+    >
+      {error.message}
+    </p>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Path view: one-shot render of the shortest path between two people.
 // ---------------------------------------------------------------------------
+
 function PathPane({
   focus,
   pathTo,
@@ -108,29 +143,25 @@ function PathPane({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [graph, setGraph] = useState<Graph | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     const url = `/api/path?from=${encodeURIComponent(focus.qid)}&to=${encodeURIComponent(pathTo.qid)}${includeSpouses ? "&spouses=1" : ""}`;
-    fetch(url, { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok)
-          throw new Error(`経路の取得に失敗しました (${res.status})`);
-        return (await res.json()) as Graph;
-      })
+    fetchJson<Graph>(url, "経路の取得に失敗しました", {
+      signal: controller.signal,
+    })
       .then((g) => {
         setGraph(g);
         setError(null);
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(
-          err instanceof Error ? err.message : "経路の取得に失敗しました",
-        );
+        setError(toError(err, "経路の取得に失敗しました"));
       });
     return () => controller.abort();
-  }, [focus.qid, pathTo.qid, includeSpouses]);
+  }, [focus.qid, pathTo.qid, includeSpouses, attempt]);
 
   useEffect(() => {
     if (!containerRef.current || !graph) return;
@@ -183,9 +214,14 @@ function PathPane({
         </p>
       )}
       {error && (
-        <p className="text-vermilion absolute top-3 left-3 z-10 text-sm">
-          {error}
-        </p>
+        <GraphError
+          error={error}
+          hasGraph={!!graph}
+          onRetry={() => {
+            setError(null);
+            setAttempt((n) => n + 1);
+          }}
+        />
       )}
       {noPath && (
         <p className="text-muted absolute top-3 left-3 z-10 text-sm">
@@ -456,8 +492,9 @@ function EgoPane({
   const currentRef = useRef<PersonId>(focus.qid as PersonId);
   const cursorRef = useRef<PersonId>(focus.qid as PersonId);
   const showAdoptionsRef = useRef(showAdoptions);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [ready, setReady] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   const paint = useCallback((cy: Core) => {
     cy.nodes().removeClass("current cursor");
@@ -487,13 +524,11 @@ function EgoPane({
         // add just the fired person's direct neighbours.
         const firstRender = graphRef.current.nodes.length === 0;
         const hops = firstRender ? 2 : 1;
-        const res = await fetch(
+        const g = await fetchJson<Graph>(
           `/api/person/${encodeURIComponent(id)}/neighbors?hops=${hops}`,
+          "グラフの取得に失敗しました",
           { signal: controller.signal },
         );
-        if (!res.ok)
-          throw new Error(`グラフの取得に失敗しました (${res.status})`);
-        const g = (await res.json()) as Graph;
         // Superseded by a newer fire (or unmounted): drop this one so a slow response
         // can't clobber the current node, camera, or render.
         if (destroyed || seq !== fireSeqRef.current) return;
@@ -525,9 +560,7 @@ function EgoPane({
         setReady(true);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(
-          err instanceof Error ? err.message : "グラフの取得に失敗しました",
-        );
+        setError(toError(err, "グラフの取得に失敗しました"));
       }
     }
 
@@ -628,7 +661,7 @@ function EgoPane({
       cy.destroy();
       cyRef.current = null;
     };
-  }, [focus.qid, onCurrent, paint]);
+  }, [focus.qid, onCurrent, paint, attempt]);
 
   // Re-render the accumulated graph when the adoption toggle flips, without
   // refetching or resetting accretion.
@@ -663,9 +696,14 @@ function EgoPane({
         </p>
       )}
       {error && (
-        <p className="text-vermilion absolute top-3 left-3 z-10 text-sm">
-          {error}
-        </p>
+        <GraphError
+          error={error}
+          hasGraph={ready}
+          onRetry={() => {
+            setError(null);
+            setAttempt((n) => n + 1);
+          }}
+        />
       )}
       <div ref={containerRef} className="h-full w-full outline-none" />
     </div>
