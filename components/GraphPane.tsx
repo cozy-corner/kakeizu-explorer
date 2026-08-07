@@ -97,6 +97,32 @@ export function GraphPane(props: {
 // ---------------------------------------------------------------------------
 // Path view: one-shot render of the shortest path between two people.
 // ---------------------------------------------------------------------------
+// The full panel is reserved for a dead DB with nothing drawn yet; anything else
+// gets a corner line so a failure mid-exploration can't cover the graph already
+// on screen.
+function GraphError({
+  error,
+  hasGraph,
+  onRetry,
+}: {
+  error: Error;
+  hasGraph: boolean;
+  onRetry: () => void;
+}) {
+  if (isUnavailable(error) && !hasGraph) {
+    return (
+      <div className="absolute inset-0 z-10 grid place-items-center p-4">
+        <ServiceNotice onRetry={onRetry} />
+      </div>
+    );
+  }
+  return (
+    <p className="text-vermilion absolute top-3 left-3 z-10 text-sm">
+      {error.message}
+    </p>
+  );
+}
+
 function PathPane({
   focus,
   pathTo,
@@ -180,21 +206,16 @@ function PathPane({
           経路を探索中…
         </p>
       )}
-      {error &&
-        (isUnavailable(error) ? (
-          <div className="absolute inset-0 z-10 grid place-items-center p-4">
-            <ServiceNotice
-              onRetry={() => {
-                setError(null);
-                setAttempt((n) => n + 1);
-              }}
-            />
-          </div>
-        ) : (
-          <p className="text-vermilion absolute top-3 left-3 z-10 text-sm">
-            {error.message}
-          </p>
-        ))}
+      {error && (
+        <GraphError
+          error={error}
+          hasGraph={!!graph}
+          onRetry={() => {
+            setError(null);
+            setAttempt((n) => n + 1);
+          }}
+        />
+      )}
       {noPath && (
         <p className="text-muted absolute top-3 left-3 z-10 text-sm">
           経路が見つかりません
@@ -667,23 +688,16 @@ function EgoPane({
           グラフを読み込み中…
         </p>
       )}
-      {/* Only the first load gets the full panel: once a graph is on screen a
-          failed expansion must not cover what the user has already explored. */}
-      {error &&
-        (isUnavailable(error) && !ready ? (
-          <div className="absolute inset-0 z-10 grid place-items-center p-4">
-            <ServiceNotice
-              onRetry={() => {
-                setError(null);
-                setAttempt((n) => n + 1);
-              }}
-            />
-          </div>
-        ) : (
-          <p className="text-vermilion absolute top-3 left-3 z-10 text-sm">
-            {error.message}
-          </p>
-        ))}
+      {error && (
+        <GraphError
+          error={error}
+          hasGraph={ready}
+          onRetry={() => {
+            setError(null);
+            setAttempt((n) => n + 1);
+          }}
+        />
+      )}
       <div ref={containerRef} className="h-full w-full outline-none" />
     </div>
   );
