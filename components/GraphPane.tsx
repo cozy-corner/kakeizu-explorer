@@ -101,11 +101,11 @@ function GraphError({
   error,
   hasGraph,
   onRetry,
-}: {
+}: Readonly<{
   error: Error;
   hasGraph: boolean;
   onRetry: () => void;
-}) {
+}>) {
   if (isUnavailable(error) && !hasGraph) {
     return (
       <div

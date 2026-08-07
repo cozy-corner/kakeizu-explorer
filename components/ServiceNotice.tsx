@@ -1,7 +1,7 @@
 // AuraDB Free auto-pauses after 72h of inactivity and only the owner can resume
 // it from the console, so the copy must not promise that a reload fixes it —
 // retry is for the transient failures (cold start, network).
-export function ServiceNotice({ onRetry }: { onRetry: () => void }) {
+export function ServiceNotice({ onRetry }: Readonly<{ onRetry: () => void }>) {
   return (
     <div className="border-rule bg-panel max-w-md rounded-md border p-4 text-sm">
       <p className="font-semibold">データベースに接続できません</p>
