@@ -1,0 +1,35 @@
+{"label": "徳川家康", "expected": "jp"}
+{"label": "豊臣秀吉", "expected": "jp"}
+{"label": "織田信長", "expected": "jp"}
+{"label": "紫式部", "expected": "jp"}
+{"label": "清少納言", "expected": "jp"}
+{"label": "与謝野晶子", "expected": "jp"}
+{"label": "夏目漱石", "expected": "jp"}
+{"label": "芥川龍之介", "expected": "jp"}
+{"label": "宮沢賢治", "expected": "jp"}
+{"label": "太宰治", "expected": "jp"}
+{"label": "アドルフ・ヒトラー", "expected": "non-jp"}
+{"label": "ウィンストン・チャーチル", "expected": "non-jp"}
+{"label": "ナポレオン・ボナパルト", "expected": "non-jp"}
+{"label": "マハトマ・ガンディー", "expected": "non-jp"}
+{"label": "レオナルド・ダ・ヴィンチ", "expected": "non-jp"}
+{"label": "マリー・キュリー", "expected": "non-jp"}
+{"label": "アルベルト・アインシュタイン", "expected": "non-jp"}
+{"label": "シェイクスピア", "expected": "non-jp"}
+{"label": "孔子", "expected": "non-jp"}
+{"label": "毛沢東", "expected": "non-jp"}
+{"label": "藤原茂子", "expected": "unknown", "qid": "Q11623515"}
+{"label": "藤原為信の娘 (藤原為時の妻)", "expected": "unknown", "qid": "Q106410752"}
+{"label": "嶺淑子", "expected": "unknown", "qid": "Q135271164"}
+{"label": "伊達宗房", "expected": "unknown", "qid": "Q11380721"}
+{"label": "鏡王", "expected": "unknown", "qid": "Q22131106"}
+{"label": "Kihachi Aoyama", "expected": "unknown", "qid": "Q109687091"}
+{"label": "浅沼半次郎", "expected": "unknown", "qid": "Q138717569"}
+{"label": "吉備姫王", "expected": "unknown", "qid": "Q11412643"}
+{"label": "姪娘", "expected": "unknown", "qid": "Q11447356"}
+{"label": "由良御前", "expected": "unknown", "qid": "Q11577620"}
+{"label": "茅渟王", "expected": "unknown", "qid": "Q11617199"}
+{"label": "藤原慶子", "expected": "unknown", "qid": "Q17212287"}
+{"label": "尾張目子媛", "expected": "unknown", "qid": "Q106095999"}
+{"label": "平直方の娘 (源頼義室)", "expected": "unknown", "qid": "Q106418907"}
+{"label": "祇園女御妹", "expected": "unknown", "qid": "Q106448499"}
