@@ -1,0 +1,1833 @@
+{
+  "summary": {
+    "mode": "probe-list",
+    "model": "jev-1.13-free",
+    "threshold": 0.5,
+    "inputFile": "/tmp/jev-test2.jsonl",
+    "total": 75,
+    "completed": 75,
+    "stopReason": "count",
+    "first429": null,
+    "lastError": null,
+    "totalMs": 74699,
+    "controlN": 10,
+    "controlCorrect": 10,
+    "controlAccuracy": 1,
+    "byExpected": {
+      "unknown": {
+        "n": 65,
+        "japaneseYes": 18,
+        "japaneseNo": 47,
+        "errors": 0
+      },
+      "non-jp": {
+        "n": 10,
+        "japaneseYes": 0,
+        "japaneseNo": 10,
+        "errors": 0
+      }
+    }
+  },
+  "samples": [
+    {
+      "line": 1,
+      "label": "エルンスト・ザイラー",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 699,
+      "japanese": false,
+      "probability": 0.05,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.05
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 2,
+      "label": "ウイリー・ドーシー",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 618,
+      "japanese": false,
+      "probability": 0.12,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.12
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 3,
+      "label": "ヘンリイ・パイク・ブイ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 488,
+      "japanese": false,
+      "probability": 0.16,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.16
+          }
+        },
+        "usage": {
+          "input_tokens": 286,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 4,
+      "label": "アンスガー・ヤンケ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 517,
+      "japanese": false,
+      "probability": 0.14,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.14
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 5,
+      "label": "おたあ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 462,
+      "japanese": true,
+      "probability": 0.63,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.63
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 6,
+      "label": "クリス・オニール",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 487,
+      "japanese": false,
+      "probability": 0.1,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.1
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 7,
+      "label": "クララ・ホイットニー",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 433,
+      "japanese": false,
+      "probability": 0.11,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.11
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 8,
+      "label": "ロペティ・オト",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 485,
+      "japanese": false,
+      "probability": 0.22,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.22
+          }
+        },
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 9,
+      "label": "ヴァンヴェール・ネグロ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 444,
+      "japanese": false,
+      "probability": 0.2,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.2
+          }
+        },
+        "usage": {
+          "input_tokens": 286,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 10,
+      "label": "おほつぶね",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 430,
+      "japanese": true,
+      "probability": 0.53,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.53
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 11,
+      "label": "リタ・コーガン",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 461,
+      "japanese": false,
+      "probability": 0.15,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.15
+          }
+        },
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 12,
+      "label": "ドナ・ルシア",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 464,
+      "japanese": false,
+      "probability": 0.14,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.14
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 13,
+      "label": "ドーター・コパ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 499,
+      "japanese": false,
+      "probability": 0.32,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.32
+          }
+        },
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 14,
+      "label": "ケン・カオ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 486,
+      "japanese": false,
+      "probability": 0.24,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.24
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 15,
+      "label": "ハインリヒ・クーデンホーフ＝カレルギー",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 427,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 294,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 16,
+      "label": "メリー・ロレッタ・ダージス",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 487,
+      "japanese": false,
+      "probability": 0.19,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.19
+          }
+        },
+        "usage": {
+          "input_tokens": 288,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 17,
+      "label": "クリスティーネ・フルヤ＝ゲッスラー",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 520,
+      "japanese": false,
+      "probability": 0.12,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.12
+          }
+        },
+        "usage": {
+          "input_tokens": 292,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 18,
+      "label": "りて",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 500,
+      "japanese": true,
+      "probability": 0.66,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.66
+          }
+        },
+        "usage": {
+          "input_tokens": 277,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 19,
+      "label": "カンナ・S・マクファディン",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 499,
+      "japanese": false,
+      "probability": 0.48,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.48
+          }
+        },
+        "usage": {
+          "input_tokens": 288,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 20,
+      "label": "オスマン・サンコン",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 587,
+      "japanese": false,
+      "probability": 0.12,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.12
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 21,
+      "label": "ルオン・ディン・クア",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 456,
+      "japanese": false,
+      "probability": 0.09,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.09
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 22,
+      "label": "マット・アルト",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 458,
+      "japanese": false,
+      "probability": 0.24,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.24
+          }
+        },
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 23,
+      "label": "ジェシカ・レイボーン",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 474,
+      "japanese": false,
+      "probability": 0.12,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.12
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 24,
+      "label": "アール・ドーチェスター・ハンソン",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 434,
+      "japanese": false,
+      "probability": 0.11,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.11
+          }
+        },
+        "usage": {
+          "input_tokens": 291,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 25,
+      "label": "ペニエリ・ラトゥ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 689,
+      "japanese": false,
+      "probability": 0.23,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.23
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 26,
+      "label": "ジョン・ダン",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 472,
+      "japanese": false,
+      "probability": 0.11,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.11
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 27,
+      "label": "ジョネ・ケレビ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 468,
+      "japanese": false,
+      "probability": 0.29,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.29
+          }
+        },
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 28,
+      "label": "クリストフ・フォン・ジーボルド",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 533,
+      "japanese": false,
+      "probability": 0.05,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.05
+          }
+        },
+        "usage": {
+          "input_tokens": 290,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 29,
+      "label": "パトリシア・セガール",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 474,
+      "japanese": false,
+      "probability": 0.13,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.13
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 30,
+      "label": "エルデネトゥヤ・バツフ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 428,
+      "japanese": false,
+      "probability": 0.1,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.1
+          }
+        },
+        "usage": {
+          "input_tokens": 287,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 31,
+      "label": "マティ・フォリー",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 436,
+      "japanese": false,
+      "probability": 0.18,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.18
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 32,
+      "label": "フリッツ・フレデリック・シガーズ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 480,
+      "japanese": false,
+      "probability": 0.12,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.12
+          }
+        },
+        "usage": {
+          "input_tokens": 291,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 33,
+      "label": "フレデリック・キラン・スカルノ・シガーズ",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 466,
+      "japanese": false,
+      "probability": 0.24,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.24
+          }
+        },
+        "usage": {
+          "input_tokens": 295,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 34,
+      "label": "マリー・カレルギー",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 443,
+      "japanese": false,
+      "probability": 0.2,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.2
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 35,
+      "label": "ケヴィン・スミス",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 487,
+      "japanese": false,
+      "probability": 0.06,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.06
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 36,
+      "label": "Kihachi Aoyama",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 446,
+      "japanese": true,
+      "probability": 0.96,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.96
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 37,
+      "label": "Tsuneko Iwata",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 479,
+      "japanese": true,
+      "probability": 0.97,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.97
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 38,
+      "label": "Shungo Nara",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 548,
+      "japanese": true,
+      "probability": 0.94,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.94
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 39,
+      "label": "Satoko Nara",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 626,
+      "japanese": true,
+      "probability": 0.95,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.95
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 40,
+      "label": "Zhang Shuwen",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 482,
+      "japanese": false,
+      "probability": 0.04,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.04
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 41,
+      "label": "Imperial Princess NN Fushimi",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 497,
+      "japanese": true,
+      "probability": 0.93,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.93
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 42,
+      "label": "Seiko Hoshi",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 515,
+      "japanese": true,
+      "probability": 0.94,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.94
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 43,
+      "label": "Lady NN Tokugawa-no-Owari",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 437,
+      "japanese": true,
+      "probability": 0.93,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.93
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 44,
+      "label": "Gyari Nyima Gyaltsen",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 441,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 45,
+      "label": "Gyari Dorjee Youdon",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 478,
+      "japanese": false,
+      "probability": 0.09,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.09
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 46,
+      "label": "Horace Somerset Edmond Butler",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 598,
+      "japanese": false,
+      "probability": 0.02,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.02
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 47,
+      "label": "Barbara Hood",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 616,
+      "japanese": false,
+      "probability": 0.04,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.04
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 48,
+      "label": "Julia Eugenia Vories",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 506,
+      "japanese": false,
+      "probability": 0.28,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.28
+          }
+        },
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 49,
+      "label": "John Vories",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 532,
+      "japanese": false,
+      "probability": 0.33,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.33
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 50,
+      "label": "Q140068712",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 460,
+      "japanese": false,
+      "probability": 0.24,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.24
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 51,
+      "label": "Sophia Arabella Irwin Sr.",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 435,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 52,
+      "label": "Chang Yu-tu",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 617,
+      "japanese": false,
+      "probability": 0.07,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.07
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 53,
+      "label": "Huang",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 536,
+      "japanese": false,
+      "probability": 0.07,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.07
+          }
+        },
+        "usage": {
+          "input_tokens": 277,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 54,
+      "label": "Teruko Baer",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 504,
+      "japanese": true,
+      "probability": 0.84,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.84
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 55,
+      "label": "Kazumichi \"Ichido\" Harada",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 472,
+      "japanese": true,
+      "probability": 0.96,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.96
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 56,
+      "label": "Yuriko Yasuda",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 440,
+      "japanese": true,
+      "probability": 0.97,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.97
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 57,
+      "label": "Yasuda Teruko",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 523,
+      "japanese": true,
+      "probability": 0.97,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.97
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 58,
+      "label": "Sachiko Myoi",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 532,
+      "japanese": true,
+      "probability": 0.95,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.95
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 59,
+      "label": "Q28355280",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 458,
+      "japanese": false,
+      "probability": 0.26,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.26
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 60,
+      "label": "Li Ching-yin",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 574,
+      "japanese": false,
+      "probability": 0.05,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.05
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 61,
+      "label": "Kinu Yukawa",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 451,
+      "japanese": true,
+      "probability": 0.93,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.93
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 62,
+      "label": "Masahi Suzuki",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 472,
+      "japanese": true,
+      "probability": 0.96,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.96
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 63,
+      "label": "Martin Rudolph",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 470,
+      "japanese": false,
+      "probability": 0.04,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.04
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 64,
+      "label": "Den Mitsuko",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 558,
+      "japanese": true,
+      "probability": 0.9,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.9
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 65,
+      "label": "Wistaria Hartmann Linton",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 457,
+      "japanese": false,
+      "probability": 0.17,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.17
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 66,
+      "label": "アドルフ・ヒトラー",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 466,
+      "japanese": false,
+      "probability": 0.02,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.02
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 67,
+      "label": "ウィンストン・チャーチル",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 519,
+      "japanese": false,
+      "probability": 0.02,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.02
+          }
+        },
+        "usage": {
+          "input_tokens": 287,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 68,
+      "label": "ナポレオン・ボナパルト",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 443,
+      "japanese": false,
+      "probability": 0.02,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.02
+          }
+        },
+        "usage": {
+          "input_tokens": 286,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 69,
+      "label": "マリー・キュリー",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 510,
+      "japanese": false,
+      "probability": 0.05,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.05
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 70,
+      "label": "アルベルト・アインシュタイン",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 479,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 289,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 71,
+      "label": "シェイクスピア",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 451,
+      "japanese": false,
+      "probability": 0.04,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.04
+          }
+        },
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 72,
+      "label": "孔子",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 512,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 277,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 73,
+      "label": "毛沢東",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 529,
+      "japanese": false,
+      "probability": 0.04,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.04
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 74,
+      "label": "ヨハネ・パウロ2世",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 454,
+      "japanese": false,
+      "probability": 0.06,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.06
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 75,
+      "label": "フランツ・カフカ",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 429,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    }
+  ]
+}

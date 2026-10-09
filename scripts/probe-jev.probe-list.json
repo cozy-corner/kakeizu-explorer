@@ -1,0 +1,879 @@
+{
+  "summary": {
+    "mode": "probe-list",
+    "model": "jev-1.13-free",
+    "threshold": 0.5,
+    "inputFile": "/tmp/jev-test.jsonl",
+    "total": 35,
+    "completed": 35,
+    "stopReason": "count",
+    "first429": null,
+    "lastError": null,
+    "totalMs": 34526,
+    "controlN": 20,
+    "controlCorrect": 20,
+    "controlAccuracy": 1,
+    "byExpected": {
+      "jp": {
+        "n": 10,
+        "japaneseYes": 10,
+        "japaneseNo": 0,
+        "errors": 0
+      },
+      "non-jp": {
+        "n": 10,
+        "japaneseYes": 0,
+        "japaneseNo": 10,
+        "errors": 0
+      },
+      "unknown": {
+        "n": 15,
+        "japaneseYes": 13,
+        "japaneseNo": 2,
+        "errors": 0
+      }
+    }
+  },
+  "samples": [
+    {
+      "line": 1,
+      "label": "徳川家康",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 900,
+      "japanese": true,
+      "probability": 0.98,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.98
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 2,
+      "label": "豊臣秀吉",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 480,
+      "japanese": true,
+      "probability": 0.98,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.98
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 3,
+      "label": "織田信長",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 451,
+      "japanese": true,
+      "probability": 0.98,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.98
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 4,
+      "label": "紫式部",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 481,
+      "japanese": true,
+      "probability": 0.94,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.94
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 5,
+      "label": "清少納言",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 474,
+      "japanese": true,
+      "probability": 0.95,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.95
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 6,
+      "label": "与謝野晶子",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 488,
+      "japanese": true,
+      "probability": 0.97,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.97
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 7,
+      "label": "夏目漱石",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 452,
+      "japanese": true,
+      "probability": 0.98,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.98
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 8,
+      "label": "芥川龍之介",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 465,
+      "japanese": true,
+      "probability": 0.98,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.98
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 9,
+      "label": "宮沢賢治",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 545,
+      "japanese": true,
+      "probability": 0.98,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.98
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 10,
+      "label": "太宰治",
+      "expected": "jp",
+      "status": 200,
+      "elapsedMs": 472,
+      "japanese": true,
+      "probability": 0.98,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.98
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 11,
+      "label": "アドルフ・ヒトラー",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 490,
+      "japanese": false,
+      "probability": 0.02,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.02
+          }
+        },
+        "usage": {
+          "input_tokens": 284,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 12,
+      "label": "ウィンストン・チャーチル",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 514,
+      "japanese": false,
+      "probability": 0.02,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.02
+          }
+        },
+        "usage": {
+          "input_tokens": 287,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 13,
+      "label": "ナポレオン・ボナパルト",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 483,
+      "japanese": false,
+      "probability": 0.02,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.02
+          }
+        },
+        "usage": {
+          "input_tokens": 286,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 14,
+      "label": "マハトマ・ガンディー",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 484,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 285,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 15,
+      "label": "レオナルド・ダ・ヴィンチ",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 497,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 287,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 16,
+      "label": "マリー・キュリー",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 497,
+      "japanese": false,
+      "probability": 0.05,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.05
+          }
+        },
+        "usage": {
+          "input_tokens": 283,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 17,
+      "label": "アルベルト・アインシュタイン",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 478,
+      "japanese": false,
+      "probability": 0.03,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.03
+          }
+        },
+        "usage": {
+          "input_tokens": 289,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 18,
+      "label": "シェイクスピア",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 435,
+      "japanese": false,
+      "probability": 0.05,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.05
+          }
+        },
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 19,
+      "label": "孔子",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 434,
+      "japanese": false,
+      "probability": 0.04,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.04
+          }
+        },
+        "usage": {
+          "input_tokens": 277,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 20,
+      "label": "毛沢東",
+      "expected": "non-jp",
+      "status": 200,
+      "elapsedMs": 511,
+      "japanese": false,
+      "probability": 0.04,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.04
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 21,
+      "label": "藤原茂子",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 457,
+      "japanese": true,
+      "probability": 0.96,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.96
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 22,
+      "label": "藤原為信の娘 (藤原為時の妻)",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 514,
+      "japanese": true,
+      "probability": 0.91,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.91
+          }
+        },
+        "usage": {
+          "input_tokens": 289,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 23,
+      "label": "嶺淑子",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 471,
+      "japanese": true,
+      "probability": 0.92,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.92
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 24,
+      "label": "伊達宗房",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 473,
+      "japanese": true,
+      "probability": 0.95,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.95
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 25,
+      "label": "鏡王",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 475,
+      "japanese": false,
+      "probability": 0.46,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.46
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 26,
+      "label": "Kihachi Aoyama",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 456,
+      "japanese": true,
+      "probability": 0.96,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.96
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 27,
+      "label": "浅沼半次郎",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 422,
+      "japanese": true,
+      "probability": 0.96,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.96
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 28,
+      "label": "吉備姫王",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 539,
+      "japanese": true,
+      "probability": 0.91,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.91
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 29,
+      "label": "姪娘",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 471,
+      "japanese": false,
+      "probability": 0.27,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.27
+          }
+        },
+        "usage": {
+          "input_tokens": 278,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 30,
+      "label": "由良御前",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 512,
+      "japanese": true,
+      "probability": 0.85,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.85
+          }
+        },
+        "usage": {
+          "input_tokens": 279,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 31,
+      "label": "茅渟王",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 437,
+      "japanese": true,
+      "probability": 0.85,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.85
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 32,
+      "label": "藤原慶子",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 467,
+      "japanese": true,
+      "probability": 0.96,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.96
+          }
+        },
+        "usage": {
+          "input_tokens": 280,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 33,
+      "label": "尾張目子媛",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 442,
+      "japanese": true,
+      "probability": 0.85,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.85
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 34,
+      "label": "平直方の娘 (源頼義室)",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 458,
+      "japanese": true,
+      "probability": 0.91,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.91
+          }
+        },
+        "usage": {
+          "input_tokens": 286,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    },
+    {
+      "line": 35,
+      "label": "祇園女御妹",
+      "expected": "unknown",
+      "status": 200,
+      "elapsedMs": 412,
+      "japanese": true,
+      "probability": 0.82,
+      "raw": {
+        "model": "jev-1.13-free",
+        "answers": {
+          "is_jp": {
+            "type": "noul",
+            "noul": 0.82
+          }
+        },
+        "usage": {
+          "input_tokens": 281,
+          "output_tokens": 22
+        }
+      },
+      "retryAfterHeader": null,
+      "error": null
+    }
+  ]
+}
