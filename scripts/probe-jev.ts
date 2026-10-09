@@ -224,7 +224,8 @@ if (MODE === "rate-limit") {
   console.log("--- summary ---");
   console.log(JSON.stringify(summary, null, 2));
 
-  const outAbs = join(import.meta.dirname, "..", OUT_REL);
+  const repoRoot = join(import.meta.dirname, "..");
+  const outAbs = OUT_REL.startsWith("/") ? OUT_REL : join(repoRoot, OUT_REL);
   await writeFile(outAbs, JSON.stringify({ summary, samples }, null, 2));
   console.log(`wrote ${OUT_REL}`);
   process.exit(0);
