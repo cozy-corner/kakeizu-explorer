@@ -41,10 +41,14 @@ import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 import { join } from "node:path";
 import { jevClearlyForeign, loadJevCache } from "./jev-cache";
 
-// Effective depth bound: measured, the untagged-European drift (see header) sets in
-// past ~ROUNDS 6, and the dynamic stop below can't catch it (leaked nodes are untagged,
-// so foreign% stays low). So this ceiling — not a dry frontier — is what stops it.
-const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "6");
+// Effective depth bound. The header documents why a finite ceiling is needed: past
+// ROUNDS 6, untagged-European drift leaks in (stateless Europeans pass the bridge
+// exception and re-expand the frontier). With the Jev cache (JEV_CACHE_PATH below)
+// pruning clearly-foreign stateless nodes, the bound can be raised past 6 to pick
+// up more Japanese — tentatively set to 8 here. End-to-end validation of the new
+// bound needs a Neo4j-backed run; without the cache, raising MAX_ROUNDS past 6
+// regresses to pre-Jev drift behavior.
+const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "8");
 // A malformed override (""→0, garbage→NaN, "Infinity") would silently run zero
 // rounds or drop the bound — and the pipeline would then load a wrong-sized graph.
 if (!Number.isInteger(MAX_ROUNDS) || MAX_ROUNDS < 1) {
