@@ -38,6 +38,8 @@ import {
   writeRaw,
 } from "./raw";
 import { chunk, qid, sparql, sparqlValues } from "./wdqs";
+import { join } from "node:path";
+import { jevClearlyForeign, loadJevCache } from "./jev-cache";
 
 // Effective depth bound: measured, the untagged-European drift (see header) sets in
 // past ~ROUNDS 6, and the dynamic stop below can't catch it (leaked nodes are untagged,
@@ -55,6 +57,21 @@ if (!Number.isInteger(MAX_ROUNDS) || MAX_ROUNDS < 1) {
 const FRONTIER_CAP = Number(process.env.FRONTIER_CAP ?? "0");
 const EDGE_BATCH = 120;
 const SIZE_CAP = 200_000;
+
+// Jev (name-based Japanese-probability) cache for stateless nodes. Optional —
+// absent cache means the legacy "stateless = bridge" behavior. Threshold is the
+// strict upper bound for "clearly non-Japanese": below it, the node is treated as
+// foreign; above (or missing), it stays a bridge. 0.30 leaves the 0.3-0.5
+// ambiguous band as bridges to avoid losing real Japanese borderline cases.
+const JEV_CACHE_PATH =
+  process.env.JEV_CACHE_PATH ??
+  join(import.meta.dirname, "..", "jev-stateless.json");
+const JEV_THRESHOLD = Number(process.env.JEV_THRESHOLD ?? "0.30");
+if (!Number.isFinite(JEV_THRESHOLD) || JEV_THRESHOLD < 0 || JEV_THRESHOLD > 1) {
+  throw new Error(
+    `JEV_THRESHOLD must be in [0, 1], got ${process.env.JEV_THRESHOLD}`,
+  );
+}
 
 // Per-stage wall-clock, diagnostic only: meaningful just with WDQS_NOCACHE=1, since
 // a warm cache makes every stage instant.
@@ -79,6 +96,12 @@ async function main() {
 
   const nodeById = new Map(rawNodes.map((n) => [n.qid, n]));
   const known = new Set(nodeById.keys());
+  const jev = await loadJevCache(JEV_CACHE_PATH);
+  console.log(
+    jev
+      ? `  jev cache: scope=${jev.scope} model=${jev.model} entries=${jev.byQid.size} threshold=${JEV_THRESHOLD}`
+      : `  jev cache: not loaded (${JEV_CACHE_PATH}) — stateless nodes stay as bridges`,
+  );
   const parentKeys = new Set(rawParent.map((e) => `${e.from}->${e.to}`));
   const spouseKeys = new Set(rawSpouse.map((e) => `${e.a}|${e.b}`));
   const siblingKeys = new Set(rawSibling.map((e) => `${e.a}|${e.b}`));
@@ -110,10 +133,14 @@ async function main() {
   let frontier = [...known].filter((q) => !isJp(q));
 
   // Same broad foreign rule as transform.ts (keep in sync); untagged nodes (no
-  // citizenship) are deliberately kept as bridge relatives, per NOTES.md #2.
+  // citizenship) are bridge relatives by default, per NOTES.md #2 — but if the
+  // Jev cache marks them clearly non-Japanese, prune them as foreign.
   const isForeign = (q: string) => {
     const n = nodeById.get(q);
-    if (!n || n.nationalities.length === 0) return false;
+    if (!n) return true;
+    if (n.nationalities.length === 0) {
+      return jevClearlyForeign(q, JEV_THRESHOLD) === true;
+    }
     return !(
       n.nationalities.includes("Q17") || n.nationalityCountries.includes("Q17")
     );
