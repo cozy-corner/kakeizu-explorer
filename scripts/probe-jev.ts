@@ -2,8 +2,11 @@
 // Probe: drop Jev requests and log the response shape.
 //
 // Modes:
-//   (default)        single request, dump raw response
-//   --mode rate-limit  send up to N requests at I-ms interval, stop on first 429
+//   (default)              single request, dump raw response
+//   --mode rate-limit      send up to N requests at I-ms interval, stop on first 429
+//   --mode probe-list      read a JSONL of names, one Jev request per row
+//   --mode probe-stateless read scripts/etl-spike/data/raw-nodes.json, filter to
+//                          nodes with no citizenship tag, ask Jev for each
 //
 // Auth: OPENCODE_JEV_API_KEY. If absent from process.env, fall back to reading
 // it from .env.local — `bun run` alone doesn't auto-load that file, and dotenv
@@ -438,7 +441,194 @@ if (MODE === "probe-list") {
   process.exit(0);
 }
 
+if (MODE === "probe-stateless") {
+  // Read raw-nodes.json, filter to nodes with no citizenship tag, ask Jev.
+  // Default scope: kana-only stateless (the highest-signal drift slice).
+  const SCOPE = flags.get("scope") ?? "kana";
+  const OUT_REL = flags.get("out") ?? "scripts/jev-stateless.json";
+  const INTERVAL_MS = Number(flags.get("interval-ms") ?? "1000");
+  if (!Number.isFinite(INTERVAL_MS) || INTERVAL_MS < 0) {
+    console.error(
+      `--interval-ms must be a non-negative number, got ${flags.get("interval-ms")}`,
+    );
+    process.exit(2);
+  }
+
+  const KANJI = /\p{Script=Han}/u;
+  const KANA = /\p{Script=Katakana}|\p{Script=Hiragana}/u;
+  const LATIN = /[A-Za-z]/u;
+  function scriptKind(
+    label: string,
+  ): "kanji" | "kana" | "latin" | "kanji+kana" | "mixed" | "other" {
+    const hasKanji = KANJI.test(label);
+    const hasKana = KANA.test(label);
+    const hasLatin = LATIN.test(label);
+    if (hasKanji && !hasKana && !hasLatin) return "kanji";
+    if (hasKana && !hasKanji) return "kana";
+    if (hasLatin && !hasKanji && !hasKana) return "latin";
+    if (hasKanji && hasKana) return "kanji+kana";
+    if (hasLatin && (hasKanji || hasKana)) return "mixed";
+    return "other";
+  }
+
+  type RawNode = {
+    qid: string;
+    label: string;
+    nationalities?: string[];
+    nationalityCountries?: string[];
+  };
+  const rawPath = resolveRepoPath("scripts/etl-spike/data/raw-nodes.json");
+  const raw = JSON.parse(await readFile(rawPath, "utf8")) as RawNode[];
+
+  const stateless = raw.filter(
+    (n) =>
+      (!n.nationalities || n.nationalities.length === 0) &&
+      (!n.nationalityCountries || n.nationalityCountries.length === 0),
+  );
+
+  const scopeFilter = (n: RawNode): boolean => {
+    const k = scriptKind(n.label);
+    if (SCOPE === "kana") return k === "kana";
+    if (SCOPE === "latin") return k === "latin";
+    if (SCOPE === "all") return true;
+    console.error(`--scope must be kana|latin|all, got ${SCOPE}`);
+    process.exit(2);
+  };
+  const picked = stateless.filter(scopeFilter);
+
+  type Sample = {
+    qid: string;
+    label: string;
+    kind: string;
+    status: number;
+    elapsedMs: number;
+    japanese: boolean | null;
+    probability: number | null;
+    raw: unknown;
+    retryAfterHeader: string | null;
+    error: string | null;
+  };
+  const samples: Sample[] = [];
+  let first429: {
+    qid: string;
+    label: string;
+    retryAfterHeader: string | null;
+    retryAfterMs: number | null;
+  } | null = null;
+  let stopReason: "count" | "first-429" | "error" = "count";
+  let lastError: string | null = null;
+
+  const start = performance.now();
+  for (let i = 0; i < picked.length; i++) {
+    const row = picked[i];
+    const t0 = performance.now();
+    let sample: Sample;
+    try {
+      const r = await fetch(URL, {
+        method: "POST",
+        headers: HEADERS,
+        body: JSON.stringify(buildBody(MODEL, row.label)),
+      });
+      const retryHeader = r.headers.get("retry-after");
+      const text = await r.text();
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        // leave parsed as null
+      }
+      const isJp = (
+        parsed as { answers?: { is_jp?: { noul?: number } } } | null
+      )?.answers?.is_jp;
+      const probability = typeof isJp?.noul === "number" ? isJp.noul : null;
+      const japanese = probability === null ? null : probability >= 0.5;
+      sample = {
+        qid: row.qid,
+        label: row.label,
+        kind: scriptKind(row.label),
+        status: r.status,
+        elapsedMs: Math.round(performance.now() - t0),
+        japanese,
+        probability,
+        raw: parsed,
+        retryAfterHeader: retryHeader,
+        error: null,
+      };
+    } catch (err) {
+      lastError = (err as Error).message;
+      sample = {
+        qid: row.qid,
+        label: row.label,
+        kind: scriptKind(row.label),
+        status: 0,
+        elapsedMs: Math.round(performance.now() - t0),
+        japanese: null,
+        probability: null,
+        raw: null,
+        retryAfterHeader: null,
+        error: lastError,
+      };
+      samples.push(sample);
+      stopReason = "error";
+      break;
+    }
+    samples.push(sample);
+    console.log(
+      `row ${i + 1}/${picked.length} qid=${row.qid} label=${row.label} kind=${sample.kind} status=${sample.status} prob=${sample.probability ?? "-"} japanese=${sample.japanese ?? "-"} elapsed=${sample.elapsedMs}ms`,
+    );
+    if (sample.status === 429) {
+      first429 = {
+        qid: row.qid,
+        label: row.label,
+        retryAfterHeader: sample.retryAfterHeader,
+        retryAfterMs: parseRetryAfterMs(sample.retryAfterHeader),
+      };
+      stopReason = "first-429";
+      break;
+    }
+    if (i + 1 < picked.length) {
+      const remaining = INTERVAL_MS - sample.elapsedMs;
+      if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+    }
+  }
+  const totalMs = Math.round(performance.now() - start);
+
+  // No ground truth for stateless; bucket by kind + decision for inspection.
+  const kindCounts: Record<
+    string,
+    { n: number; jp: number; nonjp: number; err: number }
+  > = {};
+  for (const s of samples) {
+    const b = (kindCounts[s.kind] ??= { n: 0, jp: 0, nonjp: 0, err: 0 });
+    b.n++;
+    if (s.error || s.japanese === null) b.err++;
+    else if (s.japanese) b.jp++;
+    else b.nonjp++;
+  }
+
+  const summary = {
+    mode: "probe-stateless",
+    model: MODEL,
+    scope: SCOPE,
+    statelessTotal: stateless.length,
+    picked: picked.length,
+    completed: samples.length,
+    stopReason,
+    first429,
+    lastError,
+    totalMs,
+    kindCounts,
+  };
+  console.log("--- summary ---");
+  console.log(JSON.stringify(summary, null, 2));
+
+  const outAbs = resolveRepoPath(OUT_REL);
+  await writeFile(outAbs, JSON.stringify({ summary, samples }, null, 2));
+  console.log(`wrote ${OUT_REL}`);
+  process.exit(0);
+}
+
 console.error(
-  `unknown --mode: ${MODE} (expected: single | rate-limit | probe-list)`,
+  `unknown --mode: ${MODE} (expected: single | rate-limit | probe-list | probe-stateless)`,
 );
 process.exit(2);
