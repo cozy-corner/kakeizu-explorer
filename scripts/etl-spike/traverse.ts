@@ -18,9 +18,10 @@
 //    stay in the raw output (transform keeps untagged nodes); only expansion stops.
 //
 // With that prune the frontier decays instead of re-expanding, and rounds 7-12 add
-// medieval Japanese (ja-article share 47.5% → 21.1%; +139 ja-article people over the
-// 6-round run). What stays uncaught is non-Japanese with Han labels (Silla, Turkic),
-// so MAX_ROUNDS still ends the walk — it is a ceiling, not a convergence signal.
+// medieval Japanese: 139 ja-article nodes against 17 lost, +122 net over the 6-round
+// run (ja-article share falls 47.5% → 21.1% across those rounds). What stays uncaught
+// is non-Japanese with Han labels (Silla, Turkic), so MAX_ROUNDS still ends the walk —
+// it is a ceiling, not a convergence signal.
 //
 // Run: bun run scripts/etl-spike/traverse.ts   (then transform.ts …)
 
@@ -44,8 +45,9 @@ import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 
 // Depth ceiling. The per-round prune (see header) is what keeps the deep rounds clean;
 // this only ends the walk. Measured (#124, from the fetch-direct base): the frontier
-// decays monotonically to 15 nodes by round 12, and rounds past ~10 add ~4 ja-article
-// people each — so raising this buys little until the Han-label leak is closed.
+// decays monotonically (128 after R7 → 15 after R12) and the last rounds add little
+// (R11 +9 ja-article nodes, R12 +4) — so raising this buys little until the Han-label
+// leak is closed.
 const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "12");
 // A malformed override (""→0, garbage→NaN, "Infinity") would silently run zero
 // rounds or drop the bound — and the pipeline would then load a wrong-sized graph.
@@ -182,9 +184,11 @@ async function main() {
 
     // Per-round diagnostics: ja-article and foreign shares. Every ja article carries a
     // schema:name, from which fetchNodeAttrs set wikipediaTitle, so
-    // `wikipediaTitle !== undefined` ⟺ "has a ja article". Not a stop signal: with the
-    // stateless-latin prune the foreign share never catches the ja share (#124 measured
-    // all 12 rounds), so MAX_ROUNDS is what ends the walk.
+    // `wikipediaTitle !== undefined` ⟺ "has a ja article". "foreign" counts both rules
+    // (tagged + stateless latin-name), so it no longer matches the spec's 外国系率,
+    // which was tagged-only. Neither is a stop signal: with the prune the foreign share
+    // never catches the ja share (#124 measured all 12 rounds), so MAX_ROUNDS is what
+    // ends the walk.
     const jaCount = roundNewNodes.filter(
       (q) => nodeById.get(q)?.wikipediaTitle !== undefined,
     ).length;
