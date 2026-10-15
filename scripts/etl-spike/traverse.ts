@@ -5,19 +5,23 @@
 // have ja articles but only 1 has a citizenship tag). Frontier decided locally from
 // raw nationality; topology still from truthy `wdt:`.
 //
-// Foreign-pruning runs per round, not as one final pass: a round's new *tagged*
-// foreign nodes (broad rule: has a citizenship, none Japanese) are recorded but NOT
-// carried into the next frontier. Untagged bridge relatives are kept (NOTES.md #2) —
-// required for medieval Japanese, who carry no citizenship. A node reachable only
-// through a *tagged* foreign bridge would be severed by transform.ts's foreign-prune
-// anyway, so not expanding it loses no connected lineage.
+// Foreign-pruning runs per round, not as one final pass: a round's new foreign nodes
+// are recorded but NOT carried into the next frontier. Two rules decide "foreign":
+//  - tagged: has a citizenship, none Japanese (broad rule, same as transform.ts). A
+//    node reachable only through a tagged bridge is severed by transform.ts's
+//    foreign-prune anyway, so not expanding it loses no connected lineage.
+//  - stateless latin-name (#124): no citizenship, no ja article, and no Han/Kana in
+//    the label. Untagged bridge relatives are otherwise kept (NOTES.md #2) — required
+//    for medieval Japanese, who carry no citizenship — but that exception is also the
+//    leak: pre-modern European nobility carry no citizenship either, and measured
+//    unpruned they were 692 of round 7's 957 new nodes. Unlike the tagged rule these
+//    stay in the raw output (transform keeps untagged nodes); only expansion stops.
 //
-// This does NOT fully converge. Pre-modern EUROPEAN nobility also carry no citizenship,
-// so they pass the same untagged-bridge exception and — measured past ~ROUNDS 6 — the
-// frontier re-expands into world genealogy (new-node count bottoms then climbs, and
-// additions turn into Scottish/German nobles). Neither prune catches them (both key on
-// P27), so MAX_ROUNDS bounds depth before that drift: it is the effective stop, not a
-// mere ceiling.
+// With that prune the frontier decays instead of re-expanding, and rounds 7-12 add
+// medieval Japanese: 139 ja-article nodes against 17 lost, +122 net over the 6-round
+// run (ja-article share falls 47.5% → 21.1% across those rounds). What stays uncaught
+// is non-Japanese with Han labels (Silla, Turkic), so MAX_ROUNDS still ends the walk —
+// it is a ceiling, not a convergence signal.
 //
 // Run: bun run scripts/etl-spike/traverse.ts   (then transform.ts …)
 
@@ -39,10 +43,12 @@ import {
 } from "./raw";
 import { chunk, qid, sparql, sparqlValues } from "./wdqs";
 
-// Effective depth bound: measured, the untagged-European drift (see header) sets in
-// past ~ROUNDS 6, and the dynamic stop below can't catch it (leaked nodes are untagged,
-// so foreign% stays low). So this ceiling — not a dry frontier — is what stops it.
-const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "6");
+// Depth ceiling. The per-round prune (see header) is what keeps the deep rounds clean;
+// this only ends the walk. Measured (#124, from the fetch-direct base): the frontier
+// decays monotonically (128 after R7 → 15 after R12) and the last rounds add little
+// (R11 +9 ja-article nodes, R12 +4) — so raising this buys little until the Han-label
+// leak is closed.
+const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "12");
 // A malformed override (""→0, garbage→NaN, "Infinity") would silently run zero
 // rounds or drop the bound — and the pipeline would then load a wrong-sized graph.
 if (!Number.isInteger(MAX_ROUNDS) || MAX_ROUNDS < 1) {
@@ -109,11 +115,19 @@ async function main() {
     (nodeById.get(q)?.nationalities ?? []).includes("Q17");
   let frontier = [...known].filter((q) => !isJp(q));
 
-  // Same broad foreign rule as transform.ts (keep in sync); untagged nodes (no
-  // citizenship) are deliberately kept as bridge relatives, per NOTES.md #2.
+  // Same broad foreign rule as transform.ts (keep in sync), plus the stateless
+  // latin-name rule (see header). Han/Kana in the label is the keep-signal for
+  // untagged nodes: it is what lets medieval Japanese through, and the ja-article
+  // clause is what rescues romanized Japanese who do have one (Toriiwakusufune =
+  // 鳥之石楠船神).
+  const HAS_JP_SCRIPT =
+    /\p{Script=Han}|\p{Script=Katakana}|\p{Script=Hiragana}/u;
   const isForeign = (q: string) => {
     const n = nodeById.get(q);
-    if (!n || n.nationalities.length === 0) return false;
+    if (!n) return false;
+    if (n.nationalities.length === 0) {
+      return n.wikipediaTitle === undefined && !HAS_JP_SCRIPT.test(n.label);
+    }
     return !(
       n.nationalities.includes("Q17") || n.nationalityCountries.includes("Q17")
     );
@@ -168,9 +182,13 @@ async function main() {
       allNewNodes.push(q);
     }
 
-    // ja-article ratio and foreign ratio, the leak proxies. Every ja article carries
-    // a schema:name, from which fetchNodeAttrs set wikipediaTitle, so
-    // `wikipediaTitle !== undefined` ⟺ "has a ja article".
+    // Per-round diagnostics: ja-article and foreign shares. Every ja article carries a
+    // schema:name, from which fetchNodeAttrs set wikipediaTitle, so
+    // `wikipediaTitle !== undefined` ⟺ "has a ja article". "foreign" counts both rules
+    // (tagged + stateless latin-name), so it no longer matches the spec's 外国系率,
+    // which was tagged-only. Neither is a stop signal: with the prune the foreign share
+    // never catches the ja share (#124 measured all 12 rounds), so MAX_ROUNDS is what
+    // ends the walk.
     const jaCount = roundNewNodes.filter(
       (q) => nodeById.get(q)?.wikipediaTitle !== undefined,
     ).length;
@@ -187,16 +205,11 @@ async function main() {
       `Round ${round}: +${total} nodes (ja ${pct(jaPct)}%, foreign ${pct(foreignPct)}%), total ${known.size}`,
     );
     console.log(`  sample new: ${sample}`);
-    // Foreign nodes stay in the raw output (transform drops them) but are held out of
-    // the next frontier so they can't branch into world genealogy.
+    // Foreign nodes stay in the raw output but are held out of the next frontier so
+    // they can't branch into world genealogy: transform.ts drops the tagged ones, while
+    // the stateless latin-name ones survive as article-less leaves (see header).
     frontier = roundNewNodes.filter((q) => !isForeign(q));
     if (known.size > SIZE_CAP) break;
-    // Dynamic stop: once a hop's TAGGED foreign inflow catches its ja articles, deeper
-    // hops only dilute. Require some foreign inflow — an all-untagged-bridge round
-    // (foreign 0%, ja 0%) is what we want to keep expanding, not a stop signal. This
-    // only catches tagged drift; the untagged-European drift (see header) keeps
-    // foreign% low, so MAX_ROUNDS — not this — is the real bound. A weak backstop.
-    if (foreignPct > 0 && foreignPct >= jaPct) break;
   }
 
   // One reified sweep over both all new nodes (to derive their adoptive statements)
